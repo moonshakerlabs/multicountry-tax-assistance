@@ -14,6 +14,36 @@ export type Database = {
   }
   public: {
     Tables: {
+      categories: {
+        Row: {
+          country: string
+          created_at: string
+          id: string
+          label_de: string | null
+          label_en: string
+          main_category: string
+          sub_category: string
+        }
+        Insert: {
+          country: string
+          created_at?: string
+          id?: string
+          label_de?: string | null
+          label_en: string
+          main_category: string
+          sub_category: string
+        }
+        Update: {
+          country?: string
+          created_at?: string
+          id?: string
+          label_de?: string | null
+          label_en?: string
+          main_category?: string
+          sub_category?: string
+        }
+        Relationships: []
+      }
       countries: {
         Row: {
           code: string
@@ -29,44 +59,86 @@ export type Database = {
         }
         Relationships: []
       }
+      custom_categories: {
+        Row: {
+          country: string
+          created_at: string
+          id: string
+          main_category: string
+          sub_category: string
+          user_id: string
+        }
+        Insert: {
+          country: string
+          created_at?: string
+          id?: string
+          main_category: string
+          sub_category: string
+          user_id: string
+        }
+        Update: {
+          country?: string
+          created_at?: string
+          id?: string
+          main_category?: string
+          sub_category?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       documents: {
         Row: {
           ai_parse_consent: boolean | null
           category: Database["public"]["Enums"]["document_category"] | null
+          country: string | null
           country_code: string | null
           created_at: string
+          custom_sub_category: string | null
           file_name: string | null
           file_path: string | null
           file_type: string | null
           id: string
+          main_category: string | null
           period_end: string | null
           period_start: string | null
+          sub_category: string | null
+          tax_year: string | null
           user_id: string
         }
         Insert: {
           ai_parse_consent?: boolean | null
           category?: Database["public"]["Enums"]["document_category"] | null
+          country?: string | null
           country_code?: string | null
           created_at?: string
+          custom_sub_category?: string | null
           file_name?: string | null
           file_path?: string | null
           file_type?: string | null
           id?: string
+          main_category?: string | null
           period_end?: string | null
           period_start?: string | null
+          sub_category?: string | null
+          tax_year?: string | null
           user_id: string
         }
         Update: {
           ai_parse_consent?: boolean | null
           category?: Database["public"]["Enums"]["document_category"] | null
+          country?: string | null
           country_code?: string | null
           created_at?: string
+          custom_sub_category?: string | null
           file_name?: string | null
           file_path?: string | null
           file_type?: string | null
           id?: string
+          main_category?: string | null
           period_end?: string | null
           period_start?: string | null
+          sub_category?: string | null
+          tax_year?: string | null
           user_id?: string
         }
         Relationships: [
@@ -116,6 +188,54 @@ export type Database = {
           preferred_language?: string
           role?: Database["public"]["Enums"]["app_role"]
           updated_at?: string
+        }
+        Relationships: []
+      }
+      user_profile: {
+        Row: {
+          created_at: string
+          other_tax_countries: string[] | null
+          preferred_language: string
+          primary_tax_residency: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          other_tax_countries?: string[] | null
+          preferred_language?: string
+          primary_tax_residency?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          other_tax_countries?: string[] | null
+          preferred_language?: string
+          primary_tax_residency?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      user_roles: {
+        Row: {
+          created_at: string
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
         }
         Relationships: []
       }
