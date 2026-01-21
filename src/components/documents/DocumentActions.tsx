@@ -12,6 +12,7 @@ import {
   AlertTriangle,
   FileX
 } from 'lucide-react';
+import { getMainCategoriesForCountry, getSubCategoriesForCountry, getCategoryLabel } from '@/lib/categories';
 import './DocumentActions.css';
 
 interface Document {
@@ -25,15 +26,6 @@ interface Document {
   file_name: string | null;
   file_path: string | null;
   created_at: string;
-}
-
-interface Category {
-  id: string;
-  country: string;
-  main_category: string;
-  sub_category: string;
-  label_en: string;
-  label_de: string | null;
 }
 
 interface DocumentActionsProps {
@@ -66,31 +58,13 @@ export default function DocumentActions({
   const [taxYear, setTaxYear] = useState(document.tax_year || '');
   const [mainCategory, setMainCategory] = useState(document.main_category || '');
   const [subCategory, setSubCategory] = useState(document.sub_category || '');
-  const [categories, setCategories] = useState<Category[]>([]);
   const [isSaving, setIsSaving] = useState(false);
 
-  // Fetch categories for the document's country
-  useEffect(() => {
-    async function fetchCategories() {
-      if (!document.country) return;
-      
-      const { data } = await supabase
-        .from('categories')
-        .select('*')
-        .eq('country', document.country);
-      
-      setCategories(data || []);
-    }
-    fetchCategories();
-  }, [document.country]);
-
-  const mainCategories = [...new Set(categories.map(c => c.main_category))];
-  const subCategories = categories
-    .filter(c => c.main_category === mainCategory)
-    .map(c => ({
-      value: c.sub_category,
-      label: isDE && c.label_de ? c.label_de : c.label_en,
-    }));
+  // Get categories from local data files
+  const mainCategories = document.country ? getMainCategoriesForCountry(document.country) : [];
+  const subCategories = mainCategory && document.country 
+    ? getSubCategoriesForCountry(document.country, mainCategory) 
+    : [];
 
   const getFileType = (): 'image' | 'pdf' | 'other' => {
     const fileName = document.file_name?.toLowerCase() || '';
@@ -419,7 +393,9 @@ export default function DocumentActions({
                 >
                   <option value="">{isDE ? 'Auswählen' : 'Select'}</option>
                   {mainCategories.map(cat => (
-                    <option key={cat} value={cat}>{cat.replace(/_/g, ' ')}</option>
+                    <option key={cat.code} value={cat.code}>
+                      {getCategoryLabel(cat, isDE)}
+                    </option>
                   ))}
                 </select>
               </div>
@@ -436,7 +412,9 @@ export default function DocumentActions({
                   >
                     <option value="">{isDE ? 'Auswählen' : 'Select'}</option>
                     {subCategories.map(cat => (
-                      <option key={cat.value} value={cat.value}>{cat.label}</option>
+                      <option key={cat.code} value={cat.code}>
+                        {getCategoryLabel(cat, isDE)}
+                      </option>
                     ))}
                   </select>
                 </div>
