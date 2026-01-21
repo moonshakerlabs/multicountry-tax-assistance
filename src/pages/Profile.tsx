@@ -1,64 +1,154 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, ChevronDown, Check, X } from 'lucide-react';
+import { 
+  ALL_COUNTRIES, 
+  getLanguagesForCountry, 
+  getCountryDisplayName,
+  getOtherCountriesOptions,
+  type Country,
+  type Language
+} from '@/lib/countryLanguageData';
+import './Profile.css';
+
+interface UserProfile {
+  user_id: string;
+  primary_tax_residency: string;
+  other_tax_countries: string[];
+  preferred_language: string;
+}
 
 export default function Profile() {
-  const { profile, refreshProfile } = useAuth();
+  const { user, profile, refreshProfile } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
+  const dropdownRef = useRef<HTMLDivElement>(null);
   
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
-  const [preferredLanguage, setPreferredLanguage] = useState('en');
+  const [primaryTaxResidency, setPrimaryTaxResidency] = useState('GERMANY');
+  const [otherTaxCountries, setOtherTaxCountries] = useState<string[]>([]);
+  const [preferredLanguage, setPreferredLanguage] = useState('EN');
   const [isLoading, setIsLoading] = useState(false);
+  const [showCountryDropdown, setShowCountryDropdown] = useState(false);
+  const [userProfileData, setUserProfileData] = useState<UserProfile | null>(null);
 
+  // Available languages based on primary tax residency
+  const availableLanguages = getLanguagesForCountry(primaryTaxResidency);
+  const otherCountriesOptions = getOtherCountriesOptions(primaryTaxResidency);
+
+  // Load existing profile data
   useEffect(() => {
-    if (profile) {
-      setFirstName(profile.first_name || '');
-      setLastName(profile.last_name || '');
-      setPreferredLanguage(profile.preferred_language || 'en');
+    async function loadProfile() {
+      if (profile) {
+        setFirstName(profile.first_name || '');
+        setLastName(profile.last_name || '');
+      }
+
+      if (user) {
+        const { data: userProfile } = await supabase
+          .from('user_profile')
+          .select('*')
+          .eq('user_id', user.id)
+          .maybeSingle();
+
+        if (userProfile) {
+          setUserProfileData(userProfile);
+          setPrimaryTaxResidency(userProfile.primary_tax_residency || 'GERMANY');
+          setOtherTaxCountries(userProfile.other_tax_countries || []);
+          setPreferredLanguage(userProfile.preferred_language || 'EN');
+        }
+      }
     }
-  }, [profile]);
+    loadProfile();
+  }, [profile, user]);
+
+  // Reset language when primary tax residency changes
+  useEffect(() => {
+    const languages = getLanguagesForCountry(primaryTaxResidency);
+    const currentLangAvailable = languages.some(l => l.code === preferredLanguage && l.enabled);
+    if (!currentLangAvailable) {
+      setPreferredLanguage('EN');
+    }
+    // Remove primary country from other countries if selected
+    setOtherTaxCountries(prev => prev.filter(c => c !== primaryTaxResidency));
+  }, [primaryTaxResidency]);
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setShowCountryDropdown(false);
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const toggleOtherCountry = (countryCode: string, enabled: boolean) => {
+    if (!enabled) return;
+    setOtherTaxCountries(prev => 
+      prev.includes(countryCode) 
+        ? prev.filter(c => c !== countryCode)
+        : [...prev, countryCode]
+    );
+  };
+
+  const removeOtherCountry = (countryCode: string) => {
+    setOtherTaxCountries(prev => prev.filter(c => c !== countryCode));
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!user) return;
+    
     setIsLoading(true);
 
     try {
-      const { error } = await supabase
+      // Update profiles table (first/last name)
+      const { error: profileError } = await supabase
         .from('profiles')
         .update({
           first_name: firstName,
           last_name: lastName,
-          preferred_language: preferredLanguage
+          preferred_language: preferredLanguage.toLowerCase(),
         })
-        .eq('id', profile?.id);
+        .eq('id', user.id);
 
-      if (error) {
-        toast({
-          title: 'Update failed',
-          description: error.message,
-          variant: 'destructive'
+      if (profileError) throw profileError;
+
+      // Upsert user_profile table
+      const { error: userProfileError } = await supabase
+        .from('user_profile')
+        .upsert({
+          user_id: user.id,
+          primary_tax_residency: primaryTaxResidency,
+          other_tax_countries: otherTaxCountries,
+          preferred_language: preferredLanguage,
+        }, {
+          onConflict: 'user_id'
         });
-      } else {
-        await refreshProfile();
-        toast({
-          title: 'Profile updated',
-          description: 'Your profile has been updated successfully.'
-        });
-        navigate('/dashboard');
-      }
-    } catch (error) {
+
+      if (userProfileError) throw userProfileError;
+
+      await refreshProfile();
+      
       toast({
-        title: 'Error',
-        description: 'An unexpected error occurred.',
+        title: 'Profile updated',
+        description: 'Your profile has been updated successfully.'
+      });
+      
+      navigate('/dashboard');
+    } catch (error: any) {
+      console.error('Error updating profile:', error);
+      toast({
+        title: 'Update failed',
+        description: error.message || 'An unexpected error occurred.',
         variant: 'destructive'
       });
     } finally {
@@ -66,82 +156,205 @@ export default function Profile() {
     }
   };
 
+  const getLanguageLabel = (lang: Language): string => {
+    return lang.nameNative !== lang.nameEn 
+      ? `${lang.nameNative} (${lang.nameEn})`
+      : lang.nameEn;
+  };
+
   return (
-    <div className="min-h-screen bg-background">
+    <div className="profile-container">
       {/* Header */}
-      <header className="border-b border-border bg-card">
-        <div className="container-wide flex h-16 items-center">
-          <Link to="/dashboard" className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors">
-            <ArrowLeft className="h-4 w-4" />
+      <header className="profile-header">
+        <div className="profile-header-content">
+          <Link to="/dashboard" className="profile-back-link">
+            <ArrowLeft className="profile-back-icon" />
             Back to Dashboard
           </Link>
         </div>
       </header>
 
       {/* Main Content */}
-      <main className="container-tight py-12">
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold">Edit Profile</h1>
-          <p className="mt-2 text-muted-foreground">
-            Update your personal information and preferences.
+      <main className="profile-main">
+        <div className="profile-title-section">
+          <h1 className="profile-title">Edit Profile</h1>
+          <p className="profile-subtitle">
+            Update your personal information and tax preferences.
           </p>
         </div>
 
-        <div className="card-elevated max-w-lg p-6">
-          <form onSubmit={handleSubmit} className="space-y-6">
-            <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
-              <Input
-                id="email"
+        <div className="profile-card">
+          <form onSubmit={handleSubmit} className="profile-form">
+            {/* Email (read-only) */}
+            <div className="profile-field">
+              <label className="profile-label">Email</label>
+              <input
                 type="email"
                 value={profile?.email || ''}
                 disabled
-                className="bg-muted"
+                className="profile-input"
               />
-              <p className="text-xs text-muted-foreground">Email cannot be changed.</p>
+              <span className="profile-hint">Email cannot be changed.</span>
             </div>
 
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div className="space-y-2">
-                <Label htmlFor="firstName">First Name</Label>
-                <Input
-                  id="firstName"
+            {/* Name fields */}
+            <div className="profile-field-row">
+              <div className="profile-field">
+                <label className="profile-label">First Name</label>
+                <input
+                  type="text"
                   value={firstName}
                   onChange={(e) => setFirstName(e.target.value)}
                   placeholder="Enter your first name"
                   disabled={isLoading}
+                  className="profile-input"
                 />
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="lastName">Last Name</Label>
-                <Input
-                  id="lastName"
+              <div className="profile-field">
+                <label className="profile-label">Last Name</label>
+                <input
+                  type="text"
                   value={lastName}
                   onChange={(e) => setLastName(e.target.value)}
                   placeholder="Enter your last name"
                   disabled={isLoading}
+                  className="profile-input"
                 />
               </div>
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="language">Preferred Language</Label>
-              <Select value={preferredLanguage} onValueChange={setPreferredLanguage} disabled={isLoading}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select language" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="en">English</SelectItem>
-                  <SelectItem value="de">Deutsch</SelectItem>
-                </SelectContent>
-              </Select>
+            <div className="profile-section-divider" />
+            <h3 className="profile-section-title">Tax Residency</h3>
+
+            {/* Primary Tax Residency */}
+            <div className="profile-field">
+              <label className="profile-label">Primary Tax Residency *</label>
+              <select
+                value={primaryTaxResidency}
+                onChange={(e) => setPrimaryTaxResidency(e.target.value)}
+                disabled={isLoading}
+                className="profile-select"
+              >
+                {ALL_COUNTRIES.map(country => (
+                  <option 
+                    key={country.code} 
+                    value={country.code}
+                    disabled={!country.enabled}
+                  >
+                    {country.nameNative !== country.nameEn 
+                      ? `${country.nameEn} (${country.nameNative})`
+                      : country.nameEn}
+                    {!country.enabled ? ' - Coming soon' : ''}
+                  </option>
+                ))}
+              </select>
             </div>
 
-            <div className="flex gap-4">
+            {/* Other Tax-Relevant Countries (Multi-select) */}
+            <div className="profile-field">
+              <label className="profile-label">Other Tax-Relevant Countries</label>
+              <span className="profile-hint">Select countries where you have additional tax obligations</span>
+              
+              <div className="profile-multiselect-container" ref={dropdownRef}>
+                <button
+                  type="button"
+                  className="profile-multiselect-trigger"
+                  onClick={() => setShowCountryDropdown(!showCountryDropdown)}
+                  disabled={isLoading}
+                >
+                  <span className={otherTaxCountries.length === 0 ? 'profile-multiselect-placeholder' : ''}>
+                    {otherTaxCountries.length === 0 
+                      ? 'Select countries...' 
+                      : `${otherTaxCountries.length} country(ies) selected`}
+                  </span>
+                  <ChevronDown className="profile-back-icon" />
+                </button>
+
+                {showCountryDropdown && (
+                  <div className="profile-multiselect-dropdown">
+                    {otherCountriesOptions.map(country => (
+                      <div
+                        key={country.code}
+                        className={`profile-multiselect-option ${!country.enabled ? 'profile-multiselect-option-disabled' : ''}`}
+                        onClick={() => toggleOtherCountry(country.code, country.enabled)}
+                      >
+                        <div className={`profile-multiselect-checkbox ${otherTaxCountries.includes(country.code) ? 'profile-multiselect-checkbox-checked' : ''}`}>
+                          {otherTaxCountries.includes(country.code) && <Check className="w-3 h-3" />}
+                        </div>
+                        <span className="profile-multiselect-label">
+                          {country.nameNative !== country.nameEn 
+                            ? `${country.nameEn} (${country.nameNative})`
+                            : country.nameEn}
+                        </span>
+                        {!country.enabled && (
+                          <span className="profile-multiselect-coming-soon">Coming soon</span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Selected countries chips */}
+              {otherTaxCountries.length > 0 && (
+                <div className="profile-selected-countries">
+                  {otherTaxCountries.map(code => {
+                    const country = ALL_COUNTRIES.find(c => c.code === code);
+                    return (
+                      <span key={code} className="profile-country-chip">
+                        {country?.nameEn || code}
+                        <span 
+                          className="profile-country-chip-remove"
+                          onClick={() => removeOtherCountry(code)}
+                        >
+                          <X className="w-2.5 h-2.5" />
+                        </span>
+                      </span>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            <div className="profile-section-divider" />
+            <h3 className="profile-section-title">Preferences</h3>
+
+            {/* Preferred Language */}
+            <div className="profile-field">
+              <label className="profile-label">Preferred Language</label>
+              <select
+                value={preferredLanguage}
+                onChange={(e) => setPreferredLanguage(e.target.value)}
+                disabled={isLoading}
+                className="profile-select"
+              >
+                {availableLanguages.map(lang => (
+                  <option 
+                    key={lang.code} 
+                    value={lang.code}
+                    disabled={!lang.enabled}
+                  >
+                    {getLanguageLabel(lang)}
+                    {!lang.enabled ? ' - Coming soon' : ''}
+                  </option>
+                ))}
+              </select>
+              <span className="profile-hint">
+                Available languages depend on your primary tax residency
+              </span>
+            </div>
+
+            {/* Actions */}
+            <div className="profile-actions">
               <Button type="submit" disabled={isLoading}>
                 {isLoading ? 'Saving...' : 'Save Changes'}
               </Button>
-              <Button type="button" variant="outline" onClick={() => navigate('/dashboard')} disabled={isLoading}>
+              <Button 
+                type="button" 
+                variant="outline" 
+                onClick={() => navigate('/dashboard')} 
+                disabled={isLoading}
+              >
                 Cancel
               </Button>
             </div>

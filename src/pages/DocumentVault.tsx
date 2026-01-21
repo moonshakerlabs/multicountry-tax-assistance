@@ -14,9 +14,12 @@ import {
   ChevronRight,
   User,
   Search,
-  X
+  X,
+  MoreHorizontal
 } from 'lucide-react';
 import UploadModal from '@/components/documents/UploadModal';
+import DocumentActions from '@/components/documents/DocumentActions';
+import { getCountryDisplayName, ALL_COUNTRIES } from '@/lib/countryLanguageData';
 import './DocumentVault.css';
 
 interface Document {
@@ -52,6 +55,7 @@ export default function DocumentVault() {
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [showUploadModal, setShowUploadModal] = useState(false);
+  const [selectedDocument, setSelectedDocument] = useState<Document | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   
   // Filter states
@@ -64,6 +68,16 @@ export default function DocumentVault() {
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set());
 
   const isDE = userProfile?.preferred_language === 'DE';
+
+  // Get user's countries from profile (primary + other)
+  const userCountries = useMemo(() => {
+    if (!userProfile) return [];
+    const countries = [userProfile.primary_tax_residency];
+    if (userProfile.other_tax_countries?.length) {
+      countries.push(...userProfile.other_tax_countries);
+    }
+    return countries.filter((c, i, arr) => arr.indexOf(c) === i);
+  }, [userProfile]);
 
   // Fetch user profile and documents
   useEffect(() => {
@@ -101,20 +115,13 @@ export default function DocumentVault() {
     fetchData();
   }, [user]);
 
-  // Get unique countries and years for filters
-  const filterOptions = useMemo(() => {
-    const countries = new Set<string>();
+  // Get unique years from documents for filter
+  const filterYears = useMemo(() => {
     const years = new Set<string>();
-    
     documents.forEach(doc => {
-      if (doc.country) countries.add(doc.country);
       if (doc.tax_year) years.add(doc.tax_year);
     });
-    
-    return {
-      countries: Array.from(countries).sort(),
-      years: Array.from(years).sort().reverse(),
-    };
+    return Array.from(years).sort().reverse();
   }, [documents]);
 
   // Filter and group documents
@@ -195,8 +202,7 @@ export default function DocumentVault() {
     });
   };
 
-  const handleUploadComplete = async () => {
-    // Refresh documents
+  const refreshDocuments = async () => {
     if (!user) return;
     const { data } = await supabase
       .from('documents')
@@ -205,15 +211,29 @@ export default function DocumentVault() {
       .order('created_at', { ascending: false });
     
     setDocuments(data || []);
+  };
+
+  const handleUploadComplete = async () => {
+    await refreshDocuments();
     setShowUploadModal(false);
   };
 
+  const handleDocumentUpdated = async () => {
+    await refreshDocuments();
+    setSelectedDocument(null);
+  };
+
+  const handleDocumentDeleted = async () => {
+    await refreshDocuments();
+    setSelectedDocument(null);
+  };
+
   const getCountryLabel = (code: string) => {
-    const labels: Record<string, { en: string; de: string }> = {
-      'GERMANY': { en: 'Germany', de: 'Deutschland' },
-      'INDIA': { en: 'India', de: 'Indien' },
-    };
-    return labels[code]?.[isDE ? 'de' : 'en'] || code;
+    const country = ALL_COUNTRIES.find(c => c.code === code);
+    if (!country) return code;
+    return isDE && country.nameNative !== country.nameEn 
+      ? country.nameNative 
+      : country.nameEn;
   };
 
   if (isLoading) {
@@ -242,7 +262,7 @@ export default function DocumentVault() {
           </div>
           <div className="vault-header-actions">
             <Button asChild variant="ghost" size="sm">
-              <Link to="/profile-setup">
+              <Link to="/profile">
                 <User className="vault-action-icon" />
                 {isDE ? 'Profil' : 'Profile'}
               </Link>
@@ -298,37 +318,35 @@ export default function DocumentVault() {
           </div>
 
           {/* Filters */}
-          {hasDocuments && (
-            <div className="vault-filters">
-              <div className="vault-filter">
-                <Filter className="vault-filter-icon" />
-                <select
-                  value={filterCountry}
-                  onChange={(e) => setFilterCountry(e.target.value)}
-                  className="vault-filter-select"
-                >
-                  <option value="all">{isDE ? 'Alle Länder' : 'All Countries'}</option>
-                  {filterOptions.countries.map(country => (
-                    <option key={country} value={country}>
-                      {getCountryLabel(country)}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div className="vault-filter">
-                <select
-                  value={filterYear}
-                  onChange={(e) => setFilterYear(e.target.value)}
-                  className="vault-filter-select"
-                >
-                  <option value="all">{isDE ? 'Alle Jahre' : 'All Years'}</option>
-                  {filterOptions.years.map(year => (
-                    <option key={year} value={year}>{year}</option>
-                  ))}
-                </select>
-              </div>
+          <div className="vault-filters">
+            <div className="vault-filter">
+              <Filter className="vault-filter-icon" />
+              <select
+                value={filterCountry}
+                onChange={(e) => setFilterCountry(e.target.value)}
+                className="vault-filter-select"
+              >
+                <option value="all">{isDE ? 'Alle Länder' : 'All Countries'}</option>
+                {userCountries.map(country => (
+                  <option key={country} value={country}>
+                    {getCountryLabel(country)}
+                  </option>
+                ))}
+              </select>
             </div>
-          )}
+            <div className="vault-filter">
+              <select
+                value={filterYear}
+                onChange={(e) => setFilterYear(e.target.value)}
+                className="vault-filter-select"
+              >
+                <option value="all">{isDE ? 'Alle Jahre' : 'All Years'}</option>
+                {filterYears.map(year => (
+                  <option key={year} value={year}>{year}</option>
+                ))}
+              </select>
+            </div>
+          </div>
 
           {/* Documents List */}
           <div className="vault-documents">
@@ -430,6 +448,13 @@ export default function DocumentVault() {
                                               <span className="vault-document-date">
                                                 {new Date(doc.created_at).toLocaleDateString(isDE ? 'de-DE' : 'en-GB')}
                                               </span>
+                                              <button 
+                                                className="vault-document-actions-btn"
+                                                onClick={() => setSelectedDocument(doc)}
+                                                title={isDE ? 'Aktionen' : 'Actions'}
+                                              >
+                                                <MoreHorizontal className="vault-document-actions-icon" />
+                                              </button>
                                             </div>
                                           ))}
                                         </div>
@@ -457,6 +482,17 @@ export default function DocumentVault() {
           userProfile={userProfile}
           onClose={() => setShowUploadModal(false)}
           onUploadComplete={handleUploadComplete}
+        />
+      )}
+
+      {/* Document Actions Modal */}
+      {selectedDocument && (
+        <DocumentActions
+          document={selectedDocument}
+          isDE={isDE}
+          onClose={() => setSelectedDocument(null)}
+          onDocumentUpdated={handleDocumentUpdated}
+          onDocumentDeleted={handleDocumentDeleted}
         />
       )}
     </div>
