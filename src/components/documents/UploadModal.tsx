@@ -362,9 +362,6 @@ export default function UploadModal({ userProfile, onClose, onUploadComplete }: 
                   </option>
                 ))}
               </select>
-                  </option>
-                ))}
-              </select>
               
               {!showCustomInput ? (
                 <button 
