@@ -6,16 +6,9 @@ import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { X, Upload, Plus, FileUp } from 'lucide-react';
+import { getMainCategoriesForCountry, getSubCategoriesForCountry, getCategoryLabel } from '@/lib/categories';
+import { ALL_COUNTRIES } from '@/lib/countryLanguageData';
 import './UploadModal.css';
-
-interface Category {
-  id: string;
-  country: string;
-  main_category: string;
-  sub_category: string;
-  label_en: string;
-  label_de: string | null;
-}
 
 interface CustomCategory {
   id: string;
@@ -45,7 +38,6 @@ export default function UploadModal({ userProfile, onClose, onUploadComplete }: 
   
   const [isUploading, setIsUploading] = useState(false);
   const [file, setFile] = useState<File | null>(null);
-  const [categories, setCategories] = useState<Category[]>([]);
   const [customCategories, setCustomCategories] = useState<CustomCategory[]>([]);
   
   // Form state
@@ -58,22 +50,33 @@ export default function UploadModal({ userProfile, onClose, onUploadComplete }: 
   
   const isDE = userProfile?.preferred_language === 'DE';
 
-  // Get available countries
+  // Get available countries from user profile
   const availableCountries = [
     userProfile?.primary_tax_residency || 'GERMANY',
     ...(userProfile?.other_tax_countries || []),
   ].filter((c, i, arr) => arr.indexOf(c) === i);
 
-  // Fetch categories
+  // Get main categories from local data files
+  const mainCategories = getMainCategoriesForCountry(country);
+  
+  // Get sub categories from local data + custom categories
+  const localSubCategories = mainCategory ? getSubCategoriesForCountry(country, mainCategory) : [];
+  const customSubCategories = customCategories
+    .filter(c => c.main_category === mainCategory)
+    .map(c => ({
+      code: c.sub_category,
+      labelEn: c.sub_category.replace(/_/g, ' '),
+      isCustom: true,
+    }));
+  
+  const subCategories = [
+    ...localSubCategories.map(c => ({ ...c, isCustom: false })),
+    ...customSubCategories,
+  ];
+
+  // Fetch custom categories
   useEffect(() => {
-    async function fetchCategories() {
-      const { data: systemCats } = await supabase
-        .from('categories')
-        .select('*')
-        .eq('country', country);
-      
-      setCategories(systemCats || []);
-      
+    async function fetchCustomCategories() {
       if (user) {
         const { data: customCats } = await supabase
           .from('custom_categories')
@@ -85,32 +88,8 @@ export default function UploadModal({ userProfile, onClose, onUploadComplete }: 
       }
     }
     
-    fetchCategories();
+    fetchCustomCategories();
   }, [country, user]);
-
-  // Get unique main categories
-  const mainCategories = [...new Set([
-    ...categories.map(c => c.main_category),
-    ...customCategories.map(c => c.main_category),
-  ])];
-
-  // Get sub categories for selected main category
-  const subCategories = [
-    ...categories
-      .filter(c => c.main_category === mainCategory)
-      .map(c => ({
-        value: c.sub_category,
-        label: isDE && c.label_de ? c.label_de : c.label_en,
-        isCustom: false,
-      })),
-    ...customCategories
-      .filter(c => c.main_category === mainCategory)
-      .map(c => ({
-        value: c.sub_category,
-        label: c.sub_category.replace(/_/g, ' '),
-        isCustom: true,
-      })),
-  ];
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = e.target.files?.[0];
@@ -361,12 +340,13 @@ export default function UploadModal({ userProfile, onClose, onUploadComplete }: 
             >
               <option value="">{isDE ? 'Kategorie auswählen' : 'Select category'}</option>
               {mainCategories.map(cat => (
-                <option key={cat} value={cat}>{cat.replace(/_/g, ' ')}</option>
+                <option key={cat.code} value={cat.code}>
+                  {getCategoryLabel(cat, isDE)}
+                </option>
               ))}
             </select>
           </div>
 
-          {/* Sub Category */}
           {mainCategory && (
             <div className="upload-field">
               <Label>{isDE ? 'Unterkategorie *' : 'Sub Category *'}</Label>
@@ -377,8 +357,11 @@ export default function UploadModal({ userProfile, onClose, onUploadComplete }: 
               >
                 <option value="">{isDE ? 'Unterkategorie auswählen' : 'Select sub category'}</option>
                 {subCategories.map(cat => (
-                  <option key={cat.value} value={cat.value}>
-                    {cat.label} {cat.isCustom ? (isDE ? '(Benutzerdefiniert)' : '(Custom)') : ''}
+                  <option key={cat.code} value={cat.code}>
+                    {getCategoryLabel(cat, isDE)} {cat.isCustom ? (isDE ? '(Benutzerdefiniert)' : '(Custom)') : ''}
+                  </option>
+                ))}
+              </select>
                   </option>
                 ))}
               </select>

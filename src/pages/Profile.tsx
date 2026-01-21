@@ -8,7 +8,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { ArrowLeft, ChevronDown, Check, X } from 'lucide-react';
 import { 
   ALL_COUNTRIES, 
-  getLanguagesForCountry, 
+  getLanguagesForCountries, 
   getCountryDisplayName,
   getOtherCountriesOptions,
   type Country,
@@ -38,8 +38,8 @@ export default function Profile() {
   const [showCountryDropdown, setShowCountryDropdown] = useState(false);
   const [userProfileData, setUserProfileData] = useState<UserProfile | null>(null);
 
-  // Available languages based on primary tax residency
-  const availableLanguages = getLanguagesForCountry(primaryTaxResidency);
+  // Available languages based on primary tax residency AND other tax countries
+  const availableLanguages = getLanguagesForCountries(primaryTaxResidency, otherTaxCountries);
   const otherCountriesOptions = getOtherCountriesOptions(primaryTaxResidency);
 
   // Load existing profile data
@@ -68,14 +68,17 @@ export default function Profile() {
     loadProfile();
   }, [profile, user]);
 
-  // Reset language when primary tax residency changes
+  // Reset language when primary tax residency or other countries change
   useEffect(() => {
-    const languages = getLanguagesForCountry(primaryTaxResidency);
+    const languages = getLanguagesForCountries(primaryTaxResidency, otherTaxCountries);
     const currentLangAvailable = languages.some(l => l.code === preferredLanguage && l.enabled);
     if (!currentLangAvailable) {
       setPreferredLanguage('EN');
     }
-    // Remove primary country from other countries if selected
+  }, [primaryTaxResidency, otherTaxCountries, preferredLanguage]);
+
+  // Remove primary country from other countries if selected
+  useEffect(() => {
     setOtherTaxCountries(prev => prev.filter(c => c !== primaryTaxResidency));
   }, [primaryTaxResidency]);
 
@@ -340,7 +343,7 @@ export default function Profile() {
                 ))}
               </select>
               <span className="profile-hint">
-                Available languages depend on your primary tax residency
+                Available languages depend on your selected tax countries
               </span>
             </div>
 
