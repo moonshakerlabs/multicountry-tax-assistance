@@ -194,25 +194,40 @@ export type Database = {
       user_profile: {
         Row: {
           created_at: string
+          gdpr_consent_date: string | null
+          gdpr_consent_given: boolean | null
+          google_drive_connected: boolean | null
+          google_drive_folder_id: string | null
           other_tax_countries: string[] | null
           preferred_language: string
           primary_tax_residency: string
+          storage_preference: string | null
           updated_at: string
           user_id: string
         }
         Insert: {
           created_at?: string
+          gdpr_consent_date?: string | null
+          gdpr_consent_given?: boolean | null
+          google_drive_connected?: boolean | null
+          google_drive_folder_id?: string | null
           other_tax_countries?: string[] | null
           preferred_language?: string
           primary_tax_residency?: string
+          storage_preference?: string | null
           updated_at?: string
           user_id: string
         }
         Update: {
           created_at?: string
+          gdpr_consent_date?: string | null
+          gdpr_consent_given?: boolean | null
+          google_drive_connected?: boolean | null
+          google_drive_folder_id?: string | null
           other_tax_countries?: string[] | null
           preferred_language?: string
           primary_tax_residency?: string
+          storage_preference?: string | null
           updated_at?: string
           user_id?: string
         }
