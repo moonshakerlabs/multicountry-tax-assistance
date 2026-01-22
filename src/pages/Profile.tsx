@@ -4,8 +4,9 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
+import { useStoragePreference } from '@/hooks/useStoragePreference';
 import { supabase } from '@/integrations/supabase/client';
-import { ArrowLeft, ChevronDown, Check, X } from 'lucide-react';
+import { ArrowLeft, ChevronDown, Check, X, Cloud, HardDrive, AlertCircle } from 'lucide-react';
 import { 
   ALL_COUNTRIES, 
   getLanguagesForCountries, 
@@ -28,6 +29,14 @@ export default function Profile() {
   const { toast } = useToast();
   const navigate = useNavigate();
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const {
+    storagePreference,
+    gdprConsentGiven,
+    googleDriveConnected,
+    setStoragePreference,
+    setGDPRConsent,
+    refresh: refreshStoragePreference,
+  } = useStoragePreference();
   
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
@@ -321,6 +330,36 @@ export default function Profile() {
 
             <div className="profile-section-divider" />
             <h3 className="profile-section-title">Preferences</h3>
+
+            {/* Storage Preference */}
+            <div className="profile-field">
+              <label className="profile-label">Document Storage</label>
+              <div className="profile-storage-options">
+                <div 
+                  className={`profile-storage-option ${storagePreference === 'saas' ? 'profile-storage-option-selected' : ''}`}
+                  onClick={() => !isLoading && setStoragePreference('saas')}
+                >
+                  <Cloud className="w-5 h-5" />
+                  <div>
+                    <strong>Platform Storage</strong>
+                    <span>{gdprConsentGiven ? '✓ GDPR consent given' : 'GDPR consent required'}</span>
+                  </div>
+                </div>
+                <div 
+                  className={`profile-storage-option ${storagePreference === 'google_drive' ? 'profile-storage-option-selected' : ''}`}
+                  onClick={() => !isLoading && setStoragePreference('google_drive')}
+                >
+                  <HardDrive className="w-5 h-5" />
+                  <div>
+                    <strong>Google Drive</strong>
+                    <span>{googleDriveConnected ? '✓ Connected' : 'Not connected'}</span>
+                  </div>
+                </div>
+              </div>
+              <span className="profile-hint">
+                Choose where your tax documents are stored
+              </span>
+            </div>
 
             {/* Preferred Language */}
             <div className="profile-field">

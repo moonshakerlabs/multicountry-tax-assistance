@@ -1,0 +1,157 @@
+.storage-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background-color: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  z-index: 100;
+}
+
+.storage-modal {
+  background-color: hsl(var(--card));
+  border: 1px solid hsl(var(--border));
+  border-radius: 1rem;
+  width: 100%;
+  max-width: 40rem;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+}
+
+.storage-modal-header {
+  padding: 1.5rem 1.5rem 1rem;
+  text-align: center;
+}
+
+.storage-modal-title {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: hsl(var(--foreground));
+  margin-bottom: 0.5rem;
+}
+
+.storage-modal-subtitle {
+  font-size: 0.875rem;
+  color: hsl(var(--muted-foreground));
+  max-width: 28rem;
+  margin: 0 auto;
+  line-height: 1.5;
+}
+
+.storage-options {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  padding: 1rem 1.5rem;
+}
+
+.storage-option {
+  position: relative;
+  display: flex;
+  gap: 1rem;
+  padding: 1.25rem;
+  border: 2px solid hsl(var(--border));
+  border-radius: 0.75rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  background-color: hsl(var(--background));
+}
+
+.storage-option:hover {
+  border-color: hsl(var(--primary) / 0.5);
+  background-color: hsl(var(--muted) / 0.5);
+}
+
+.storage-option-selected {
+  border-color: hsl(var(--primary));
+  background-color: hsl(var(--primary) / 0.05);
+}
+
+.storage-option-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 3.5rem;
+  height: 3.5rem;
+  border-radius: 0.75rem;
+  background-color: hsl(var(--primary) / 0.1);
+  color: hsl(var(--primary));
+  flex-shrink: 0;
+}
+
+.storage-option-icon-google {
+  background-color: hsl(var(--accent));
+  color: hsl(var(--accent-foreground));
+}
+
+.storage-option-content {
+  flex: 1;
+}
+
+.storage-option-title {
+  font-size: 1rem;
+  font-weight: 600;
+  color: hsl(var(--foreground));
+  margin-bottom: 0.25rem;
+}
+
+.storage-option-description {
+  font-size: 0.875rem;
+  color: hsl(var(--muted-foreground));
+  margin-bottom: 0.75rem;
+}
+
+.storage-option-features {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1rem;
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.storage-option-features li {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  font-size: 0.8125rem;
+  color: hsl(var(--foreground) / 0.8);
+}
+
+.storage-option-features li svg {
+  color: hsl(var(--primary));
+}
+
+.storage-option-note {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  margin-top: 0.75rem;
+  padding: 0.5rem 0.75rem;
+  background-color: hsl(var(--muted));
+  border-radius: 0.375rem;
+  font-size: 0.75rem;
+  color: hsl(var(--muted-foreground));
+}
+
+.storage-option-note svg {
+  flex-shrink: 0;
+  color: hsl(var(--warning, 38 92% 50%));
+}
+
+.storage-option-check {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  color: hsl(var(--primary));
+}
+
+.storage-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  padding: 1rem 1.5rem 1.5rem;
+  border-top: 1px solid hsl(var(--border));
+}
