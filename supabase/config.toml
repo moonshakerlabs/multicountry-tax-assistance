@@ -1,1 +1,10 @@
 project_id = "nkrrggcfvmgnnekhgrcj"
+
+[functions.google-drive-auth]
+verify_jwt = false
+
+[functions.google-drive-upload]
+verify_jwt = false
+
+[functions.google-drive-config]
+verify_jwt = false

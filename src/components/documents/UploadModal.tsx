@@ -50,6 +50,7 @@ export default function UploadModal({ userProfile, onClose, onUploadComplete }: 
     setStoragePreference,
     setGDPRConsent,
     setGoogleDriveConnection,
+    refresh: refreshStorage,
   } = useStoragePreference();
   
   const [modalFlow, setModalFlow] = useState<ModalFlow>('none');
@@ -81,6 +82,25 @@ export default function UploadModal({ userProfile, onClose, onUploadComplete }: 
       setModalFlow('upload');
     }
   }, [storageLoading, needsStorageChoice, storagePreference, gdprConsentGiven, googleDriveConnected]);
+
+  // Handle Google Drive OAuth callback
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const code = urlParams.get('code');
+    const state = urlParams.get('state');
+    const storedState = sessionStorage.getItem('gdrive_oauth_state');
+
+    if (code && state && storedState === state) {
+      // Clean URL
+      const cleanUrl = window.location.pathname;
+      window.history.replaceState({}, '', cleanUrl);
+      
+      // Trigger callback
+      if ((window as any).__handleGDriveCallback) {
+        (window as any).__handleGDriveCallback(code);
+      }
+    }
+  }, []);
 
   // Get available countries from user profile
   const availableCountries = [
@@ -180,6 +200,7 @@ export default function UploadModal({ userProfile, onClose, onUploadComplete }: 
   const handleGoogleDriveComplete = async (folderId: string) => {
     try {
       await setGoogleDriveConnection(folderId);
+      await refreshStorage();
       setModalFlow('upload');
       toast({
         title: isDE ? 'Google Drive verbunden' : 'Google Drive connected',
@@ -197,7 +218,6 @@ export default function UploadModal({ userProfile, onClose, onUploadComplete }: 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = e.target.files?.[0];
     if (selectedFile) {
-      // Validate file type
       const allowedTypes = ['application/pdf', 'image/jpeg', 'image/png', 'image/gif', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'];
       if (!allowedTypes.includes(selectedFile.type)) {
         toast({
@@ -210,7 +230,6 @@ export default function UploadModal({ userProfile, onClose, onUploadComplete }: 
         return;
       }
       
-      // Validate file size (50MB max)
       if (selectedFile.size > 52428800) {
         toast({
           title: isDE ? 'Datei zu groß' : 'File too large',
@@ -241,7 +260,6 @@ export default function UploadModal({ userProfile, onClose, onUploadComplete }: 
       
       if (error) throw error;
       
-      // Refresh custom categories
       const { data: customCats } = await supabase
         .from('custom_categories')
         .select('*')
@@ -289,32 +307,68 @@ export default function UploadModal({ userProfile, onClose, onUploadComplete }: 
     
     try {
       if (storagePreference === 'google_drive') {
-        // TODO: Implement Google Drive upload
-        // For now, show a message that Google Drive upload is coming soon
-        toast({
-          title: isDE ? 'Bald verfügbar' : 'Coming soon',
-          description: isDE 
-            ? 'Google Drive Upload wird in einer zukünftigen Version verfügbar sein.'
-            : 'Google Drive upload will be available in a future release.',
+        // Upload to Google Drive via edge function
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session) throw new Error('Not logged in');
+
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('country', country);
+        formData.append('year', taxYear);
+        formData.append('category', subCategory);
+        formData.append('original_filename', file.name);
+
+        const response = await fetch(
+          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/google-drive-upload`,
+          {
+            method: 'POST',
+            headers: {
+              Authorization: `Bearer ${session.access_token}`,
+            },
+            body: formData,
+          }
+        );
+
+        const result = await response.json();
+        if (!response.ok) {
+          throw new Error(result.message || result.error || 'Upload failed');
+        }
+
+        // Also store document record in our DB for tracking
+        const documentId = crypto.randomUUID();
+        await supabase.from('documents').insert({
+          id: documentId,
+          user_id: user.id,
+          country,
+          tax_year: taxYear,
+          main_category: mainCategory,
+          sub_category: subCategory,
+          file_name: result.file_name || file.name,
+          file_path: `gdrive://${result.file_id}`,
         });
-        setIsUploading(false);
+
+        toast({
+          title: isDE ? 'Erfolgreich hochgeladen' : 'Upload successful',
+          description: isDE 
+            ? `Dokument in Google Drive gespeichert: ${result.drive_folder_path}`
+            : `Document saved to Google Drive: ${result.drive_folder_path}`,
+        });
+        
+        onUploadComplete();
         return;
       }
 
       // SaaS storage upload
-      // Generate unique document ID
       const documentId = crypto.randomUUID();
       const fileExt = file.name.split('.').pop();
       const filePath = `${user.id}/${documentId}.${fileExt}`;
       
-      // Upload file to storage
       const { error: uploadError } = await supabase.storage
         .from('user-documents')
         .upload(filePath, file);
       
       if (uploadError) throw uploadError;
       
-      // Create document record
       const { error: dbError } = await supabase
         .from('documents')
         .insert({
@@ -329,7 +383,6 @@ export default function UploadModal({ userProfile, onClose, onUploadComplete }: 
         });
       
       if (dbError) {
-        // Rollback: delete uploaded file
         await supabase.storage.from('user-documents').remove([filePath]);
         throw dbError;
       }
@@ -342,13 +395,13 @@ export default function UploadModal({ userProfile, onClose, onUploadComplete }: 
       });
       
       onUploadComplete();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Upload error:', error);
       toast({
         title: isDE ? 'Hochladen fehlgeschlagen' : 'Upload failed',
-        description: isDE 
+        description: error.message || (isDE 
           ? 'Das Dokument konnte nicht hochgeladen werden.'
-          : 'Could not upload document. Please try again.',
+          : 'Could not upload document. Please try again.'),
         variant: 'destructive',
       });
     } finally {
@@ -413,7 +466,6 @@ export default function UploadModal({ userProfile, onClose, onUploadComplete }: 
         onComplete={handleGoogleDriveComplete}
         onCancel={onClose}
         userEmail={profile?.email}
-        usedGoogleSignIn={false} // You could detect this from auth provider
       />
     );
   }
