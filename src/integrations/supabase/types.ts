@@ -158,6 +158,39 @@ export type Database = {
           },
         ]
       }
+      google_drive_tokens: {
+        Row: {
+          access_token: string | null
+          created_at: string
+          google_email: string | null
+          refresh_token: string | null
+          root_folder_id: string | null
+          token_expiry: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          access_token?: string | null
+          created_at?: string
+          google_email?: string | null
+          refresh_token?: string | null
+          root_folder_id?: string | null
+          token_expiry?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          access_token?: string | null
+          created_at?: string
+          google_email?: string | null
+          refresh_token?: string | null
+          root_folder_id?: string | null
+          token_expiry?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           created_at: string
