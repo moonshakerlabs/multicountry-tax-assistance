@@ -41,9 +41,8 @@ serve(async (req: Request) => {
       });
     }
 
-    const { documentIds, recipientEmail, recipientType, recipientMetadata, allowDownload, expiresAt } =
-      await req.json();
-
+    const body = await req.json();
+    const { documentIds, recipientEmail, recipientMetadata, allowDownload, expiresAt } = body;
     const recipientType = String(body.recipientType || "").toLowerCase();
 
     if (!documentIds?.length || !recipientEmail || !recipientType || !expiresAt) {
