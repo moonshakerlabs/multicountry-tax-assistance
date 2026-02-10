@@ -26,6 +26,7 @@ interface Document {
   file_name: string | null;
   file_path: string | null;
   created_at: string;
+  share_enabled: boolean;
 }
 
 interface DocumentActionsProps {
@@ -58,6 +59,7 @@ export default function DocumentActions({
   const [taxYear, setTaxYear] = useState(document.tax_year || '');
   const [mainCategory, setMainCategory] = useState(document.main_category || '');
   const [subCategory, setSubCategory] = useState(document.sub_category || '');
+  const [shareEnabled, setShareEnabled] = useState(document.share_enabled);
   const [isSaving, setIsSaving] = useState(false);
 
   // Get categories from local data files
@@ -190,6 +192,7 @@ export default function DocumentActions({
           tax_year: taxYear,
           main_category: mainCategory,
           sub_category: subCategory,
+          share_enabled: shareEnabled,
         })
         .eq('id', document.id)
         .eq('user_id', user.id);
@@ -419,6 +422,28 @@ export default function DocumentActions({
                   </select>
                 </div>
               )}
+
+              {/* Share Enabled Toggle */}
+              <div className="doc-edit-field" style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                <label className="doc-edit-label">
+                  {isDE ? 'Teilen erlauben' : 'Share Enabled'}
+                </label>
+                <button
+                  type="button"
+                  onClick={() => setShareEnabled(!shareEnabled)}
+                  style={{
+                    width: 44, height: 24, borderRadius: 12, border: 'none', cursor: 'pointer',
+                    background: shareEnabled ? 'hsl(var(--primary))' : 'hsl(var(--muted))',
+                    position: 'relative', transition: 'background 0.2s',
+                  }}
+                >
+                  <span style={{
+                    position: 'absolute', top: 2, left: shareEnabled ? 22 : 2,
+                    width: 20, height: 20, borderRadius: '50%', background: 'white',
+                    transition: 'left 0.2s',
+                  }} />
+                </button>
+              </div>
 
               <div className="doc-edit-actions">
                 <Button 

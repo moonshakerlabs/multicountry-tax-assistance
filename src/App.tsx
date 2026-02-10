@@ -12,6 +12,7 @@ import ProfileSetup from "./pages/ProfileSetup";
 import Profile from "./pages/Profile";
 import DocumentVault from "./pages/DocumentVault";
 import Admin from "./pages/Admin";
+import SharedDocumentView from "./pages/SharedDocumentView";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -57,6 +58,9 @@ const App = () => (
                 <Admin />
               </ProtectedRoute>
             } />
+            
+            {/* Public shared document route */}
+            <Route path="/shared/:token" element={<SharedDocumentView />} />
             
             {/* Catch-all */}
             <Route path="*" element={<NotFound />} />

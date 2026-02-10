@@ -15,10 +15,12 @@ import {
   User,
   Search,
   X,
-  MoreHorizontal
+  MoreHorizontal,
+  Share2
 } from 'lucide-react';
 import UploadModal from '@/components/documents/UploadModal';
 import DocumentActions from '@/components/documents/DocumentActions';
+import ShareModal from '@/components/documents/ShareModal';
 import { getCountryDisplayName, ALL_COUNTRIES } from '@/lib/countryLanguageData';
 import './DocumentVault.css';
 
@@ -33,6 +35,7 @@ interface Document {
   file_name: string | null;
   file_path: string | null;
   created_at: string;
+  share_enabled: boolean;
 }
 
 interface UserProfile {
@@ -55,6 +58,8 @@ export default function DocumentVault() {
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [showUploadModal, setShowUploadModal] = useState(false);
+  const [showShareModal, setShowShareModal] = useState(false);
+  const [shareDocumentIds, setShareDocumentIds] = useState<string[]>([]);
 
   
   const [selectedDocument, setSelectedDocument] = useState<Document | null>(null);
@@ -230,6 +235,32 @@ export default function DocumentVault() {
     setSelectedDocument(null);
   };
 
+  const handleShareAll = () => {
+    const shareableIds = documents.filter(d => d.share_enabled).map(d => d.id);
+    if (shareableIds.length === 0) {
+      return;
+    }
+    setShareDocumentIds(shareableIds);
+    setShowShareModal(true);
+  };
+
+  const handleShareDocument = (doc: Document) => {
+    if (!doc.share_enabled) return;
+    setShareDocumentIds([doc.id]);
+    setShowShareModal(true);
+  };
+
+  const toggleShareEnabled = async (doc: Document) => {
+    if (!user) return;
+    const newValue = !doc.share_enabled;
+    await supabase
+      .from('documents')
+      .update({ share_enabled: newValue })
+      .eq('id', doc.id)
+      .eq('user_id', user.id);
+    await refreshDocuments();
+  };
+
   const getCountryLabel = (code: string) => {
     const country = ALL_COUNTRIES.find(c => c.code === code);
     if (!country) return code;
@@ -298,6 +329,12 @@ export default function DocumentVault() {
               <Upload className="vault-upload-icon" />
               {isDE ? 'Dokument hochladen' : 'Upload Document'}
             </Button>
+            {documents.some(d => d.share_enabled) && (
+              <Button onClick={handleShareAll} variant="outline" className="vault-share-btn">
+                <Share2 className="vault-upload-icon" />
+                {isDE ? 'Alle teilen' : 'Share All'}
+              </Button>
+            )}
             
             <div className="vault-search">
               <Search className="vault-search-icon" />
@@ -450,6 +487,15 @@ export default function DocumentVault() {
                                               <span className="vault-document-date">
                                                 {new Date(doc.created_at).toLocaleDateString(isDE ? 'de-DE' : 'en-GB')}
                                               </span>
+                                              {doc.share_enabled && (
+                                                <button
+                                                  className="vault-document-share-btn"
+                                                  onClick={() => handleShareDocument(doc)}
+                                                  title={isDE ? 'Teilen' : 'Share'}
+                                                >
+                                                  <Share2 className="vault-document-actions-icon" />
+                                                </button>
+                                              )}
                                               <button 
                                                 className="vault-document-actions-btn"
                                                 onClick={() => setSelectedDocument(doc)}
@@ -495,6 +541,16 @@ export default function DocumentVault() {
           onClose={() => setSelectedDocument(null)}
           onDocumentUpdated={handleDocumentUpdated}
           onDocumentDeleted={handleDocumentDeleted}
+      />
+      )}
+
+      {/* Share Modal */}
+      {showShareModal && (
+        <ShareModal
+          documentIds={shareDocumentIds}
+          isDE={isDE}
+          onClose={() => setShowShareModal(false)}
+          onShareComplete={() => refreshDocuments()}
         />
       )}
     </div>

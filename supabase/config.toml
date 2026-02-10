@@ -8,3 +8,12 @@ verify_jwt = false
 
 [functions.google-drive-config]
 verify_jwt = false
+
+[functions.send-share-email]
+verify_jwt = false
+
+[functions.verify-share-access]
+verify_jwt = false
+
+[functions.revoke-share]
+verify_jwt = false
