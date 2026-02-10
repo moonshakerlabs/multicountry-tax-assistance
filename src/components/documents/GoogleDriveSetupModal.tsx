@@ -64,7 +64,7 @@ export default function GoogleDriveSetupModal({
     const state = crypto.randomUUID();
     sessionStorage.setItem('gdrive_oauth_state', state);
 
-    const redirectUri = `${window.location.origin}/vault`;
+    const redirectUri = `${window.location.origin}${window.location.pathname}`;
     sessionStorage.setItem('gdrive_redirect_uri', redirectUri);
 
     const params = new URLSearchParams({
