@@ -86,6 +86,51 @@ export type Database = {
         }
         Relationships: []
       }
+      document_shares: {
+        Row: {
+          allow_download: boolean
+          created_at: string
+          document_ids: string[]
+          expires_at: string
+          id: string
+          recipient_email: string
+          recipient_metadata: Json | null
+          recipient_type: string
+          share_type: string
+          status: string
+          token: string
+          user_id: string
+        }
+        Insert: {
+          allow_download?: boolean
+          created_at?: string
+          document_ids: string[]
+          expires_at: string
+          id?: string
+          recipient_email: string
+          recipient_metadata?: Json | null
+          recipient_type: string
+          share_type: string
+          status?: string
+          token: string
+          user_id: string
+        }
+        Update: {
+          allow_download?: boolean
+          created_at?: string
+          document_ids?: string[]
+          expires_at?: string
+          id?: string
+          recipient_email?: string
+          recipient_metadata?: Json | null
+          recipient_type?: string
+          share_type?: string
+          status?: string
+          token?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       documents: {
         Row: {
           ai_parse_consent: boolean | null
@@ -101,6 +146,7 @@ export type Database = {
           main_category: string | null
           period_end: string | null
           period_start: string | null
+          share_enabled: boolean
           sub_category: string | null
           tax_year: string | null
           user_id: string
@@ -119,6 +165,7 @@ export type Database = {
           main_category?: string | null
           period_end?: string | null
           period_start?: string | null
+          share_enabled?: boolean
           sub_category?: string | null
           tax_year?: string | null
           user_id: string
@@ -137,6 +184,7 @@ export type Database = {
           main_category?: string | null
           period_end?: string | null
           period_start?: string | null
+          share_enabled?: boolean
           sub_category?: string | null
           tax_year?: string | null
           user_id?: string
@@ -223,6 +271,56 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      share_audit_log: {
+        Row: {
+          access_expires_at: string
+          created_at: string
+          email_status: string
+          id: string
+          otp_verified_at: string | null
+          recipient_email: string
+          recipient_metadata: Json | null
+          recipient_type: string
+          share_id: string
+          share_type: string
+          user_id: string
+        }
+        Insert: {
+          access_expires_at: string
+          created_at?: string
+          email_status?: string
+          id?: string
+          otp_verified_at?: string | null
+          recipient_email: string
+          recipient_metadata?: Json | null
+          recipient_type: string
+          share_id: string
+          share_type: string
+          user_id: string
+        }
+        Update: {
+          access_expires_at?: string
+          created_at?: string
+          email_status?: string
+          id?: string
+          otp_verified_at?: string | null
+          recipient_email?: string
+          recipient_metadata?: Json | null
+          recipient_type?: string
+          share_id?: string
+          share_type?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "share_audit_log_share_id_fkey"
+            columns: ["share_id"]
+            isOneToOne: false
+            referencedRelation: "document_shares"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       user_profile: {
         Row: {
