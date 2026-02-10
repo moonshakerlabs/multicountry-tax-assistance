@@ -16,6 +16,7 @@ import {
   type Language
 } from '@/lib/countryLanguageData';
 import './Profile.css';
+import GoogleDriveSetupModal from '@/components/documents/GoogleDriveSetupModal';
 
 interface UserProfile {
   user_id: string;
@@ -47,10 +48,22 @@ export default function Profile() {
   const [showCountryDropdown, setShowCountryDropdown] = useState(false);
   const [userProfileData, setUserProfileData] = useState<UserProfile | null>(null);
   const [isDisconnecting, setIsDisconnecting] = useState(false);
+  const [showGoogleDriveSetup, setShowGoogleDriveSetup] = useState(false);
 
   // Available languages based on primary tax residency AND other tax countries
   const availableLanguages = getLanguagesForCountries(primaryTaxResidency, otherTaxCountries);
   const otherCountriesOptions = getOtherCountriesOptions(primaryTaxResidency);
+
+  // Handle Google Drive OAuth callback on Profile page
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const code = urlParams.get('code');
+    const state = urlParams.get('state');
+    const storedState = sessionStorage.getItem('gdrive_oauth_state');
+    if (code && state && storedState === state) {
+      setShowGoogleDriveSetup(true);
+    }
+  }, []);
 
   // Load existing profile data
   useEffect(() => {
@@ -357,6 +370,17 @@ export default function Profile() {
                   </div>
                 </div>
               </div>
+              {storagePreference === 'google_drive' && !googleDriveConnected && (
+                <Button
+                  type="button"
+                  variant="default"
+                  size="sm"
+                  className="mt-2"
+                  onClick={() => setShowGoogleDriveSetup(true)}
+                >
+                  <HardDrive className="w-4 h-4 mr-1" /> Connect Google Drive
+                </Button>
+              )}
               {googleDriveConnected && (
                 <Button
                   type="button"
@@ -453,6 +477,39 @@ export default function Profile() {
             </div>
           </form>
         </div>
+
+        {/* Google Drive Setup Modal */}
+        {showGoogleDriveSetup && (
+          <GoogleDriveSetupModal
+            isDE={false}
+            onComplete={async (folderId) => {
+              try {
+                const { error } = await supabase
+                  .from('user_profile')
+                  .upsert({
+                    user_id: user!.id,
+                    google_drive_folder_id: folderId,
+                    google_drive_connected: true,
+                  }, { onConflict: 'user_id' });
+                if (error) throw error;
+                await refreshStoragePreference();
+                setShowGoogleDriveSetup(false);
+                toast({
+                  title: 'Google Drive connected',
+                  description: 'Your Google Drive is now set up for document storage.',
+                });
+              } catch (error: any) {
+                toast({
+                  title: 'Error',
+                  description: error.message || 'Could not save connection.',
+                  variant: 'destructive',
+                });
+              }
+            }}
+            onCancel={() => setShowGoogleDriveSetup(false)}
+            userEmail={profile?.email}
+          />
+        )}
       </main>
     </div>
   );

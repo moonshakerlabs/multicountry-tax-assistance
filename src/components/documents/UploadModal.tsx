@@ -6,7 +6,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import { useStoragePreference } from '@/hooks/useStoragePreference';
 import { supabase } from '@/integrations/supabase/client';
-import { X, Upload, Plus, FileUp } from 'lucide-react';
+import { X, Upload, Plus, FileUp, HardDrive } from 'lucide-react';
 import { getMainCategoriesForCountry, getSubCategoriesForCountry, getCategoryLabel } from '@/lib/categories';
 import { ALL_COUNTRIES } from '@/lib/countryLanguageData';
 import StoragePreferenceModal from './StoragePreferenceModal';
@@ -458,15 +458,37 @@ export default function UploadModal({ userProfile, onClose, onUploadComplete }: 
     );
   }
 
-  // Google Drive setup flow
+  // Google Drive not connected — redirect to Profile
   if (modalFlow === 'google_drive_setup') {
     return (
-      <GoogleDriveSetupModal
-        isDE={isDE}
-        onComplete={handleGoogleDriveComplete}
-        onCancel={onClose}
-        userEmail={profile?.email}
-      />
+      <div className="upload-modal-overlay" onClick={onClose}>
+        <div className="upload-modal" onClick={e => e.stopPropagation()}>
+          <div className="upload-modal-header">
+            <h2 className="upload-modal-title">
+              {isDE ? 'Google Drive nicht verbunden' : 'Google Drive Not Connected'}
+            </h2>
+            <button className="upload-modal-close" onClick={onClose}>
+              <X className="upload-modal-close-icon" />
+            </button>
+          </div>
+          <div className="upload-modal-form" style={{ textAlign: 'center', padding: '2rem 1.5rem' }}>
+            <HardDrive className="w-12 h-12 mx-auto mb-4 opacity-60" />
+            <p style={{ marginBottom: '1.5rem', color: 'hsl(var(--muted-foreground))' }}>
+              {isDE
+                ? 'Bitte verbinden Sie zuerst Ihr Google Drive in den Profileinstellungen, bevor Sie Dokumente hochladen.'
+                : 'Please connect your Google Drive in Profile settings before uploading documents.'}
+            </p>
+            <div className="upload-modal-actions" style={{ justifyContent: 'center' }}>
+              <Button variant="outline" onClick={onClose}>
+                {isDE ? 'Abbrechen' : 'Cancel'}
+              </Button>
+              <Button asChild>
+                <a href="/profile">{isDE ? 'Zu den Profileinstellungen' : 'Go to Profile Settings'}</a>
+              </Button>
+            </div>
+          </div>
+        </div>
+      </div>
     );
   }
 
