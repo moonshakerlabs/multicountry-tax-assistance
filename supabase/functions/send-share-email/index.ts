@@ -30,7 +30,10 @@ serve(async (req: Request) => {
     const userClient = createClient(supabaseUrl, supabaseAnon, {
       global: { headers: { Authorization: authHeader } },
     });
-    const { data: { user }, error: userError } = await userClient.auth.getUser();
+    const {
+      data: { user },
+      error: userError,
+    } = await userClient.auth.getUser();
     if (userError || !user) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
         status: 401,
@@ -38,14 +41,17 @@ serve(async (req: Request) => {
       });
     }
 
-    const {
-      documentIds,
-      recipientEmail,
-      recipientType,
-      recipientMetadata,
-      allowDownload,
-      expiresAt,
-    } = await req.json();
+    const { documentIds, recipientEmail, recipientType, recipientMetadata, allowDownload, expiresAt } =
+      await req.json();
+
+    const normalizedRecipientType = recipientType.toLowerCase();
+
+    if (!["ca", "family", "other"].includes(normalizedRecipientType)) {
+      return new Response(JSON.stringify({ success: false, error: "Invalid recipient type" }), {
+        status: 200,
+        headers: corsHeaders,
+      });
+    }
 
     if (!documentIds?.length || !recipientEmail || !recipientType || !expiresAt) {
       return new Response(JSON.stringify({ error: "Missing required fields" }), {
@@ -72,15 +78,15 @@ serve(async (req: Request) => {
           error: "Some documents do not have sharing enabled",
           invalidDocumentIds: invalidDocs.map((d: any) => d.id),
         }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
 
     if (!docs || docs.length !== documentIds.length) {
-      return new Response(
-        JSON.stringify({ error: "One or more documents not found or not owned by you" }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      return new Response(JSON.stringify({ error: "One or more documents not found or not owned by you" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
     // Generate secure token
@@ -97,7 +103,7 @@ serve(async (req: Request) => {
         user_id: user.id,
         document_ids: documentIds,
         recipient_email: recipientEmail,
-        recipient_type: recipientType,
+        recipient_type: normalizedRecipientType,
         recipient_metadata: recipientMetadata || {},
         allow_download: allowDownload || false,
         expires_at: expiresAt,
@@ -114,10 +120,7 @@ serve(async (req: Request) => {
     const resendKey = Deno.env.get("RESEND_API_KEY");
     if (!resendKey) {
       // Update status to FAILED
-      await adminClient
-        .from("document_shares")
-        .update({ status: "FAILED" })
-        .eq("id", share.id);
+      await adminClient.from("document_shares").update({ status: "FAILED" }).eq("id", share.id);
       throw new Error("RESEND_API_KEY not configured");
     }
 
@@ -152,10 +155,7 @@ serve(async (req: Request) => {
 
     // Update share status
     const newStatus = emailResult?.id ? "SUCCESS" : "FAILED";
-    await adminClient
-      .from("document_shares")
-      .update({ status: newStatus })
-      .eq("id", share.id);
+    await adminClient.from("document_shares").update({ status: newStatus }).eq("id", share.id);
 
     // Create audit log entry
     await adminClient.from("share_audit_log").insert({
@@ -169,10 +169,10 @@ serve(async (req: Request) => {
       access_expires_at: expiresAt,
     });
 
-    return new Response(
-      JSON.stringify({ success: true, shareId: share.id, status: newStatus, shareLink }),
-      { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
+    return new Response(JSON.stringify({ success: true, shareId: share.id, status: newStatus, shareLink }), {
+      status: 200,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
   } catch (error: any) {
     console.error("Error in send-share-email:", error);
     return new Response(JSON.stringify({ error: error.message }), {
