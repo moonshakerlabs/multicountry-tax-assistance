@@ -36,7 +36,7 @@ interface UploadModalProps {
 const CURRENT_YEAR = new Date().getFullYear();
 const TAX_YEARS = Array.from({ length: 10 }, (_, i) => (CURRENT_YEAR - i).toString());
 
-type ModalFlow = 'none' | 'storage_choice' | 'gdpr_consent' | 'google_drive_setup' | 'upload';
+type ModalFlow = 'none' | 'storage_choice' | 'gdpr_consent' | 'google_drive_redirect' | 'upload';
 
 export default function UploadModal({ userProfile, onClose, onUploadComplete }: UploadModalProps) {
   const { user, profile } = useAuth();
@@ -68,6 +68,11 @@ export default function UploadModal({ userProfile, onClose, onUploadComplete }: 
   
   const isDE = userProfile?.preferred_language === 'DE';
 
+  // Refresh storage preference data when modal opens
+  useEffect(() => {
+    refreshStorage();
+  }, []);
+
   // Determine which flow to show based on storage preference
   useEffect(() => {
     if (storageLoading) return;
@@ -77,7 +82,7 @@ export default function UploadModal({ userProfile, onClose, onUploadComplete }: 
     } else if (storagePreference === 'saas' && !gdprConsentGiven) {
       setModalFlow('gdpr_consent');
     } else if (storagePreference === 'google_drive' && !googleDriveConnected) {
-      setModalFlow('google_drive_setup');
+      setModalFlow('google_drive_redirect');
     } else {
       setModalFlow('upload');
     }
@@ -160,7 +165,7 @@ export default function UploadModal({ userProfile, onClose, onUploadComplete }: 
   const handleSelectGoogleDrive = async () => {
     try {
       await setStoragePreference('google_drive');
-      setModalFlow('google_drive_setup');
+      setModalFlow('google_drive_redirect');
     } catch (error) {
       toast({
         title: isDE ? 'Fehler' : 'Error',
@@ -459,7 +464,7 @@ export default function UploadModal({ userProfile, onClose, onUploadComplete }: 
   }
 
   // Google Drive not connected — redirect to Profile
-  if (modalFlow === 'google_drive_setup') {
+  if (modalFlow === 'google_drive_redirect') {
     return (
       <div className="upload-modal-overlay" onClick={onClose}>
         <div className="upload-modal" onClick={e => e.stopPropagation()}>
