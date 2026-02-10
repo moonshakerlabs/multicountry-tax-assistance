@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useAuth } from '@/hooks/useAuth';
+import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { 
   LogOut, 
@@ -54,6 +55,7 @@ interface GroupedDocuments {
 
 export default function DocumentVault() {
   const { user, signOut } = useAuth();
+  const { toast } = useToast();
   const [documents, setDocuments] = useState<Document[]>([]);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -247,6 +249,22 @@ export default function DocumentVault() {
   const handleShareDocument = (doc: Document) => {
     if (!doc.share_enabled) return;
     setShareDocumentIds([doc.id]);
+    setShowShareModal(true);
+  };
+
+  const handleShareFolder = (docs: Document[]) => {
+    const shareableIds = docs.filter(d => d.share_enabled).map(d => d.id);
+    if (shareableIds.length === 0) {
+      toast({
+        title: isDE ? 'Fehler' : 'Error',
+        description: isDE
+          ? 'Leere Ordnerfreigabe ist nicht erlaubt. Aktivieren Sie die Freigabe für mindestens ein Dokument.'
+          : 'Empty folder sharing is not allowed. Enable sharing for at least one document in this folder.',
+        variant: 'destructive',
+      });
+      return;
+    }
+    setShareDocumentIds(shareableIds);
     setShowShareModal(true);
   };
 
@@ -469,6 +487,13 @@ export default function DocumentVault() {
                                         <span className="vault-group-count">
                                           {docs.length}
                                         </span>
+                                        <button
+                                          className="vault-folder-share-btn"
+                                          onClick={(e) => { e.stopPropagation(); handleShareFolder(docs); }}
+                                          title={isDE ? 'Ordner teilen' : 'Share folder'}
+                                        >
+                                          <Share2 className="vault-document-actions-icon" />
+                                        </button>
                                       </button>
                                       
                                       {expandedCategories.has(catKey) && (

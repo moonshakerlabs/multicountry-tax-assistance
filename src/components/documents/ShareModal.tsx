@@ -15,9 +15,9 @@ interface ShareModalProps {
 }
 
 const RECIPIENT_TYPES = [
-  { value: 'CA', labelEn: 'Chartered Accountant', labelDe: 'Steuerberater' },
-  { value: 'Family', labelEn: 'Family', labelDe: 'Familie' },
-  { value: 'Other', labelEn: 'Other', labelDe: 'Andere' },
+  { value: 'ca', labelEn: 'Chartered Accountant', labelDe: 'Steuerberater' },
+  { value: 'family', labelEn: 'Family', labelDe: 'Familie' },
+  { value: 'other', labelEn: 'Other', labelDe: 'Andere' },
 ];
 
 const CA_COUNTRIES = [
@@ -61,10 +61,10 @@ export default function ShareModal({ documentIds, isDE, onClose, onShareComplete
     }
 
     const recipientMetadata: Record<string, string> = {};
-    if (recipientType === 'CA' && caCountry) {
+    if (recipientType === 'ca' && caCountry) {
       recipientMetadata.country = caCountry;
     }
-    if (recipientType === 'Family' && familyRelation) {
+    if (recipientType === 'family' && familyRelation) {
       recipientMetadata.relationship = familyRelation;
     }
 
@@ -175,7 +175,7 @@ export default function ShareModal({ documentIds, isDE, onClose, onShareComplete
             </div>
 
             {/* CA Country */}
-            {recipientType === 'CA' && (
+            {recipientType === 'ca' && (
               <div className="share-field">
                 <label className="share-label">
                   {isDE ? 'Land' : 'Country'}
@@ -194,7 +194,7 @@ export default function ShareModal({ documentIds, isDE, onClose, onShareComplete
             )}
 
             {/* Family Relationship */}
-            {recipientType === 'Family' && (
+            {recipientType === 'family' && (
               <div className="share-field">
                 <label className="share-label">
                   {isDE ? 'Beziehung' : 'Relationship'}
