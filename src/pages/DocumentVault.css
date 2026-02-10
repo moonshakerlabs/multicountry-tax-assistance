@@ -394,3 +394,28 @@
   width: 1rem;
   height: 1rem;
 }
+
+.vault-document-share-btn,
+.vault-folder-share-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.375rem;
+  background: none;
+  border: none;
+  border-radius: 0.25rem;
+  cursor: pointer;
+  color: hsl(var(--primary));
+  transition: color 0.15s, background-color 0.15s;
+  flex-shrink: 0;
+}
+
+.vault-document-share-btn:hover,
+.vault-folder-share-btn:hover {
+  color: hsl(var(--primary));
+  background-color: hsl(var(--primary) / 0.1);
+}
+
+.vault-folder-share-btn {
+  margin-left: auto;
+}
