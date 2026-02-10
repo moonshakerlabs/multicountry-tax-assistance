@@ -44,14 +44,7 @@ serve(async (req: Request) => {
     const { documentIds, recipientEmail, recipientType, recipientMetadata, allowDownload, expiresAt } =
       await req.json();
 
-    const normalizedRecipientType = recipientType.toLowerCase();
-
-    if (!["ca", "family", "other"].includes(normalizedRecipientType)) {
-      return new Response(JSON.stringify({ success: false, error: "Invalid recipient type" }), {
-        status: 200,
-        headers: corsHeaders,
-      });
-    }
+    const recipientType = String(body.recipientType || "").toLowerCase();
 
     if (!documentIds?.length || !recipientEmail || !recipientType || !expiresAt) {
       return new Response(JSON.stringify({ error: "Missing required fields" }), {
@@ -103,7 +96,7 @@ serve(async (req: Request) => {
         user_id: user.id,
         document_ids: documentIds,
         recipient_email: recipientEmail,
-        recipient_type: normalizedRecipientType,
+        recipient_type: recipientType,
         recipient_metadata: recipientMetadata || {},
         allow_download: allowDownload || false,
         expires_at: expiresAt,
