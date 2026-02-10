@@ -6,7 +6,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
 import { useStoragePreference } from '@/hooks/useStoragePreference';
 import { supabase } from '@/integrations/supabase/client';
-import { ArrowLeft, ChevronDown, Check, X, Cloud, HardDrive, AlertCircle } from 'lucide-react';
+import { ArrowLeft, ChevronDown, Check, X, Cloud, HardDrive, AlertCircle, Unlink, Loader2 } from 'lucide-react';
 import { 
   ALL_COUNTRIES, 
   getLanguagesForCountries, 
@@ -46,6 +46,7 @@ export default function Profile() {
   const [isLoading, setIsLoading] = useState(false);
   const [showCountryDropdown, setShowCountryDropdown] = useState(false);
   const [userProfileData, setUserProfileData] = useState<UserProfile | null>(null);
+  const [isDisconnecting, setIsDisconnecting] = useState(false);
 
   // Available languages based on primary tax residency AND other tax countries
   const availableLanguages = getLanguagesForCountries(primaryTaxResidency, otherTaxCountries);
@@ -356,6 +357,56 @@ export default function Profile() {
                   </div>
                 </div>
               </div>
+              {googleDriveConnected && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="mt-2"
+                  disabled={isDisconnecting}
+                  onClick={async () => {
+                    setIsDisconnecting(true);
+                    try {
+                      const { data: { session } } = await supabase.auth.getSession();
+                      if (!session) throw new Error('Not logged in');
+                      
+                      const response = await fetch(
+                        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/google-drive-auth`,
+                        {
+                          method: 'POST',
+                          headers: {
+                            'Content-Type': 'application/json',
+                            Authorization: `Bearer ${session.access_token}`,
+                          },
+                          body: JSON.stringify({ action: 'disconnect' }),
+                        }
+                      );
+                      
+                      if (!response.ok) throw new Error('Disconnect failed');
+                      
+                      await refreshStoragePreference();
+                      toast({
+                        title: 'Google Drive disconnected',
+                        description: 'Your existing files in Google Drive are preserved.',
+                      });
+                    } catch (error: any) {
+                      toast({
+                        title: 'Error',
+                        description: error.message || 'Could not disconnect Google Drive.',
+                        variant: 'destructive',
+                      });
+                    } finally {
+                      setIsDisconnecting(false);
+                    }
+                  }}
+                >
+                  {isDisconnecting ? (
+                    <><Loader2 className="w-4 h-4 mr-1 animate-spin" /> Disconnecting...</>
+                  ) : (
+                    <><Unlink className="w-4 h-4 mr-1" /> Disconnect Google Drive</>
+                  )}
+                </Button>
+              )}
               <span className="profile-hint">
                 Choose where your tax documents are stored
               </span>
