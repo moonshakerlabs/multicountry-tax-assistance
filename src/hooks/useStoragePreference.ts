@@ -37,6 +37,8 @@ export function useStoragePreference(): UseStoragePreferenceReturn {
       return;
     }
 
+    setLoading(true);
+
     try {
       const { data: profile, error } = await supabase
         .from('user_profile')

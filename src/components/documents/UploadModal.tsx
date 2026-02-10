@@ -11,7 +11,7 @@ import { getMainCategoriesForCountry, getSubCategoriesForCountry, getCategoryLab
 import { ALL_COUNTRIES } from '@/lib/countryLanguageData';
 import StoragePreferenceModal from './StoragePreferenceModal';
 import GDPRConsentModal from './GDPRConsentModal';
-import GoogleDriveSetupModal from './GoogleDriveSetupModal';
+
 import './UploadModal.css';
 
 interface CustomCategory {
@@ -49,7 +49,6 @@ export default function UploadModal({ userProfile, onClose, onUploadComplete }: 
     loading: storageLoading,
     setStoragePreference,
     setGDPRConsent,
-    setGoogleDriveConnection,
     refresh: refreshStorage,
   } = useStoragePreference();
   
@@ -88,24 +87,6 @@ export default function UploadModal({ userProfile, onClose, onUploadComplete }: 
     }
   }, [storageLoading, needsStorageChoice, storagePreference, gdprConsentGiven, googleDriveConnected]);
 
-  // Handle Google Drive OAuth callback
-  useEffect(() => {
-    const urlParams = new URLSearchParams(window.location.search);
-    const code = urlParams.get('code');
-    const state = urlParams.get('state');
-    const storedState = sessionStorage.getItem('gdrive_oauth_state');
-
-    if (code && state && storedState === state) {
-      // Clean URL
-      const cleanUrl = window.location.pathname;
-      window.history.replaceState({}, '', cleanUrl);
-      
-      // Trigger callback
-      if ((window as any).__handleGDriveCallback) {
-        (window as any).__handleGDriveCallback(code);
-      }
-    }
-  }, []);
 
   // Get available countries from user profile
   const availableCountries = [
@@ -202,23 +183,6 @@ export default function UploadModal({ userProfile, onClose, onUploadComplete }: 
     });
   };
 
-  const handleGoogleDriveComplete = async (folderId: string) => {
-    try {
-      await setGoogleDriveConnection(folderId);
-      await refreshStorage();
-      setModalFlow('upload');
-      toast({
-        title: isDE ? 'Google Drive verbunden' : 'Google Drive connected',
-        description: isDE ? 'Ihr Google Drive ist jetzt eingerichtet.' : 'Your Google Drive is now set up.',
-      });
-    } catch (error) {
-      toast({
-        title: isDE ? 'Fehler' : 'Error',
-        description: isDE ? 'Verbindung konnte nicht gespeichert werden.' : 'Could not save connection.',
-        variant: 'destructive',
-      });
-    }
-  };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = e.target.files?.[0];
