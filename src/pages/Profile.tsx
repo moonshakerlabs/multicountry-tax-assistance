@@ -49,6 +49,7 @@ export default function Profile() {
   const [userProfileData, setUserProfileData] = useState<UserProfile | null>(null);
   const [isDisconnecting, setIsDisconnecting] = useState(false);
   const [showGoogleDriveSetup, setShowGoogleDriveSetup] = useState(false);
+  const [pendingOAuthCode, setPendingOAuthCode] = useState<string | null>(null);
 
   // Available languages based on primary tax residency AND other tax countries
   const availableLanguages = getLanguagesForCountries(primaryTaxResidency, otherTaxCountries);
@@ -61,6 +62,9 @@ export default function Profile() {
     const state = urlParams.get('state');
     const storedState = sessionStorage.getItem('gdrive_oauth_state');
     if (code && state && storedState === state) {
+      // Clean URL immediately
+      window.history.replaceState({}, '', window.location.pathname);
+      setPendingOAuthCode(code);
       setShowGoogleDriveSetup(true);
     }
   }, []);
@@ -482,6 +486,7 @@ export default function Profile() {
         {showGoogleDriveSetup && (
           <GoogleDriveSetupModal
             isDE={false}
+            pendingOAuthCode={pendingOAuthCode}
             onComplete={async (folderId) => {
               try {
                 const { error } = await supabase
@@ -493,6 +498,7 @@ export default function Profile() {
                   }, { onConflict: 'user_id' });
                 if (error) throw error;
                 await refreshStoragePreference();
+                setPendingOAuthCode(null);
                 setShowGoogleDriveSetup(false);
                 toast({
                   title: 'Google Drive connected',
@@ -506,7 +512,10 @@ export default function Profile() {
                 });
               }
             }}
-            onCancel={() => setShowGoogleDriveSetup(false)}
+            onCancel={() => {
+              setPendingOAuthCode(null);
+              setShowGoogleDriveSetup(false);
+            }}
             userEmail={profile?.email}
           />
         )}

@@ -11,6 +11,7 @@ interface GoogleDriveSetupModalProps {
   onComplete: (folderId: string) => void;
   onCancel: () => void;
   userEmail?: string;
+  pendingOAuthCode?: string | null;
 }
 
 const GOOGLE_AUTH_URL = 'https://accounts.google.com/o/oauth2/v2/auth';
@@ -21,6 +22,7 @@ export default function GoogleDriveSetupModal({
   onComplete,
   onCancel,
   userEmail,
+  pendingOAuthCode,
 }: GoogleDriveSetupModalProps) {
   const [step, setStep] = useState<SetupStep>('loading');
   const [errorMessage, setErrorMessage] = useState('');
@@ -53,6 +55,13 @@ export default function GoogleDriveSetupModal({
     }
     fetchConfig();
   }, [isDE]);
+
+  // Auto-process pending OAuth code passed from parent
+  useEffect(() => {
+    if (pendingOAuthCode && step === 'intro') {
+      handleOAuthCallback(pendingOAuthCode);
+    }
+  }, [pendingOAuthCode, step]);
 
   const handleConnect = () => {
     if (!googleClientId) {
@@ -143,8 +152,6 @@ export default function GoogleDriveSetupModal({
     }
   };
 
-  // Expose handleOAuthCallback for parent component
-  (window as any).__handleGDriveCallback = handleOAuthCallback;
 
   const renderContent = () => {
     switch (step) {
