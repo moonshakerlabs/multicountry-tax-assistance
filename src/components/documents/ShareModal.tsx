@@ -80,7 +80,7 @@ export default function ShareModal({ documentIds, isDE, onClose, onShareComplete
           recipientType,
           recipientMetadata,
           allowDownload,
-          expiresAt: new Date(expiresAt).toISOString(),
+          expiresAt: new Date(expiresAt + 'T23:59:59').toISOString(),
         },
       });
 

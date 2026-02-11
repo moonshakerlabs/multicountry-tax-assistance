@@ -10,7 +10,7 @@
 }
 
 .pricing-header-content {
-  max-width: 1280px;
+  max-width: 1400px;
   margin: 0 auto;
   padding: 0 1.5rem;
   height: 4rem;
@@ -61,7 +61,7 @@
 }
 
 .pricing-content {
-  max-width: 1280px;
+  max-width: 1400px;
   margin: 0 auto;
   padding: 0 1.5rem;
   text-align: center;
@@ -120,15 +120,21 @@
 .pricing-grid {
   margin-top: 3rem;
   display: grid;
-  gap: 1.5rem;
-  max-width: 64rem;
+  gap: 1.25rem;
+  max-width: 1400px;
   margin-left: auto;
   margin-right: auto;
 }
 
 @media (min-width: 768px) {
   .pricing-grid {
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (min-width: 1200px) {
+  .pricing-grid {
+    grid-template-columns: repeat(4, 1fr);
   }
 }
 
@@ -138,7 +144,7 @@
   background-color: hsl(var(--card));
   border: 1px solid hsl(var(--border));
   border-radius: 0.75rem;
-  padding: 2rem 1.5rem;
+  padding: 1.5rem 1.25rem;
   text-align: left;
   display: flex;
   flex-direction: column;
@@ -178,30 +184,30 @@
 }
 
 .pricing-card-header {
-  margin-bottom: 1.5rem;
+  margin-bottom: 1rem;
 }
 
 .pricing-plan-name {
-  font-size: 1.25rem;
+  font-size: 1.125rem;
   font-weight: 600;
   color: hsl(var(--foreground));
 }
 
 .pricing-plan-description {
   margin-top: 0.25rem;
-  font-size: 0.875rem;
+  font-size: 0.8rem;
   color: hsl(var(--muted-foreground));
 }
 
 .pricing-price-wrapper {
-  margin-bottom: 1.5rem;
+  margin-bottom: 1rem;
   display: flex;
   align-items: baseline;
   gap: 0.25rem;
 }
 
 .pricing-price-amount {
-  font-size: 2.5rem;
+  font-size: 2rem;
   font-weight: 700;
   color: hsl(var(--foreground));
   letter-spacing: -0.025em;
@@ -212,30 +218,86 @@
   color: hsl(var(--muted-foreground));
 }
 
-/* Features */
-.pricing-features-list {
-  list-style: none;
-  padding: 0;
-  margin: 0 0 2rem;
+.pricing-price-tbd {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: hsl(var(--muted-foreground));
+  font-style: italic;
+}
+
+/* Feature Sections */
+.pricing-sections {
   flex: 1;
   display: flex;
   flex-direction: column;
-  gap: 0.75rem;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.pricing-section {
+  border-top: 1px solid hsl(var(--border));
+  padding-top: 0.75rem;
+}
+
+.pricing-section-title {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: hsl(var(--foreground));
+  margin-bottom: 0.5rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.pricing-features-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
 }
 
 .pricing-feature-item {
   display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  font-size: 0.875rem;
+  align-items: flex-start;
+  gap: 0.4rem;
+  font-size: 0.8rem;
   color: hsl(var(--foreground));
+  line-height: 1.4;
+}
+
+.pricing-feature-disabled {
+  color: hsl(var(--muted-foreground));
+  opacity: 0.7;
 }
 
 .pricing-feature-check {
-  height: 1rem;
-  width: 1rem;
+  height: 0.875rem;
+  width: 0.875rem;
   color: hsl(var(--primary));
   flex-shrink: 0;
+  margin-top: 0.1rem;
+}
+
+.pricing-feature-x {
+  height: 0.875rem;
+  width: 0.875rem;
+  color: hsl(var(--muted-foreground));
+  flex-shrink: 0;
+  margin-top: 0.1rem;
+  opacity: 0.5;
+}
+
+.pricing-coming-soon {
+  display: inline-block;
+  font-size: 0.625rem;
+  font-weight: 600;
+  color: hsl(var(--primary));
+  background-color: hsl(var(--primary) / 0.1);
+  padding: 0.1rem 0.4rem;
+  border-radius: 9999px;
+  margin-left: 0.35rem;
+  vertical-align: middle;
 }
 
 .pricing-card-footer {
@@ -289,7 +351,7 @@
 }
 
 .pricing-footer-content {
-  max-width: 1280px;
+  max-width: 1400px;
   margin: 0 auto;
   padding: 0 1.5rem;
   display: flex;
