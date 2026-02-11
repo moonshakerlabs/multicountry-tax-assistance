@@ -31,7 +31,7 @@ export default function Index() {
         <div className="container-wide flex h-16 items-center justify-between">
           <div className="flex items-center gap-2">
             <div className="h-8 w-8 rounded-lg bg-primary" />
-            <span className="text-lg font-semibold text-foreground">TaxAlign</span>
+            <span className="text-lg font-semibold text-foreground">WorTaF</span>
           </div>
           <nav>
             {user ? (
@@ -91,7 +91,7 @@ export default function Index() {
         <div className="container-wide flex flex-col items-center justify-between gap-4 sm:flex-row">
           <div className="flex items-center gap-2">
             <div className="h-6 w-6 rounded bg-primary" />
-            <span className="font-medium text-foreground">TaxAlign</span>
+            <span className="font-medium text-foreground">WorTaF</span>
           </div>
           <nav className="flex gap-6 text-sm text-muted-foreground">
             <a href="#" className="hover:text-foreground transition-colors">Privacy Policy</a>

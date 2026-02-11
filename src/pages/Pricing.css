@@ -1,0 +1,340 @@
+.pricing-container {
+  min-height: 100vh;
+  background-color: hsl(var(--background));
+}
+
+/* Header */
+.pricing-header {
+  border-bottom: 1px solid hsl(var(--border));
+  background-color: hsl(var(--card));
+}
+
+.pricing-header-content {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 0 1.5rem;
+  height: 4rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.pricing-logo {
+  display: flex;
+  align-items: center;
+}
+
+.pricing-logo-link {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  text-decoration: none;
+}
+
+.pricing-logo-icon {
+  height: 2rem;
+  width: 2rem;
+  border-radius: 0.5rem;
+  background-color: hsl(var(--primary));
+}
+
+.pricing-logo-text {
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: hsl(var(--foreground));
+}
+
+.pricing-nav {
+  display: flex;
+  align-items: center;
+}
+
+.pricing-back-icon {
+  height: 1rem;
+  width: 1rem;
+  margin-right: 0.25rem;
+}
+
+/* Main */
+.pricing-main {
+  padding: 4rem 0 5rem;
+}
+
+.pricing-content {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 0 1.5rem;
+  text-align: center;
+}
+
+.pricing-title {
+  font-size: 2.25rem;
+  font-weight: 700;
+  letter-spacing: -0.025em;
+  color: hsl(var(--foreground));
+}
+
+@media (min-width: 640px) {
+  .pricing-title {
+    font-size: 3rem;
+  }
+}
+
+.pricing-subtitle {
+  margin-top: 0.75rem;
+  font-size: 1.125rem;
+  color: hsl(var(--muted-foreground));
+}
+
+/* Toggle */
+.pricing-toggle-wrapper {
+  margin-top: 2rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+}
+
+.pricing-toggle-label {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: hsl(var(--muted-foreground));
+  transition: color 0.2s ease;
+}
+
+.pricing-toggle-active {
+  color: hsl(var(--foreground));
+  font-weight: 600;
+}
+
+.pricing-savings-badge {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: hsl(var(--primary));
+  background-color: hsl(var(--primary) / 0.1);
+  padding: 0.25rem 0.75rem;
+  border-radius: 9999px;
+}
+
+/* Grid */
+.pricing-grid {
+  margin-top: 3rem;
+  display: grid;
+  gap: 1.5rem;
+  max-width: 64rem;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+@media (min-width: 768px) {
+  .pricing-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+/* Card */
+.pricing-card {
+  position: relative;
+  background-color: hsl(var(--card));
+  border: 1px solid hsl(var(--border));
+  border-radius: 0.75rem;
+  padding: 2rem 1.5rem;
+  text-align: left;
+  display: flex;
+  flex-direction: column;
+  transition: box-shadow 0.2s ease;
+}
+
+.pricing-card:hover {
+  box-shadow: 0 8px 24px -8px hsl(var(--foreground) / 0.08);
+}
+
+.pricing-card-popular {
+  border-color: hsl(var(--primary));
+  border-width: 2px;
+  box-shadow: 0 4px 16px -4px hsl(var(--primary) / 0.15);
+}
+
+.pricing-popular-badge {
+  position: absolute;
+  top: -0.75rem;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: hsl(var(--primary-foreground));
+  background-color: hsl(var(--primary));
+  padding: 0.25rem 0.75rem;
+  border-radius: 9999px;
+  white-space: nowrap;
+}
+
+.pricing-popular-icon {
+  height: 0.875rem;
+  width: 0.875rem;
+}
+
+.pricing-card-header {
+  margin-bottom: 1.5rem;
+}
+
+.pricing-plan-name {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: hsl(var(--foreground));
+}
+
+.pricing-plan-description {
+  margin-top: 0.25rem;
+  font-size: 0.875rem;
+  color: hsl(var(--muted-foreground));
+}
+
+.pricing-price-wrapper {
+  margin-bottom: 1.5rem;
+  display: flex;
+  align-items: baseline;
+  gap: 0.25rem;
+}
+
+.pricing-price-amount {
+  font-size: 2.5rem;
+  font-weight: 700;
+  color: hsl(var(--foreground));
+  letter-spacing: -0.025em;
+}
+
+.pricing-price-period {
+  font-size: 0.875rem;
+  color: hsl(var(--muted-foreground));
+}
+
+/* Features */
+.pricing-features-list {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 2rem;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.pricing-feature-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.875rem;
+  color: hsl(var(--foreground));
+}
+
+.pricing-feature-check {
+  height: 1rem;
+  width: 1rem;
+  color: hsl(var(--primary));
+  flex-shrink: 0;
+}
+
+.pricing-card-footer {
+  margin-top: auto;
+}
+
+.pricing-cta-btn {
+  width: 100%;
+}
+
+/* Legacy Notice */
+.pricing-legacy-notice {
+  margin-top: 4rem;
+  max-width: 48rem;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.pricing-legacy-content {
+  background-color: hsl(var(--muted) / 0.5);
+  border: 1px solid hsl(var(--border));
+  border-radius: 0.75rem;
+  padding: 2rem;
+  text-align: left;
+}
+
+.pricing-legacy-title {
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: hsl(var(--foreground));
+  margin-bottom: 0.75rem;
+}
+
+.pricing-legacy-text {
+  font-size: 0.875rem;
+  color: hsl(var(--muted-foreground));
+  line-height: 1.6;
+  margin-bottom: 0.75rem;
+}
+
+.pricing-legacy-warning {
+  font-size: 0.875rem;
+  color: hsl(var(--destructive));
+  line-height: 1.6;
+}
+
+/* Footer */
+.pricing-footer {
+  border-top: 1px solid hsl(var(--border));
+  padding: 3rem 0;
+}
+
+.pricing-footer-content {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 0 1.5rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+@media (min-width: 640px) {
+  .pricing-footer-content {
+    flex-direction: row;
+  }
+}
+
+.pricing-footer-logo {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.pricing-footer-logo-icon {
+  height: 1.5rem;
+  width: 1.5rem;
+  border-radius: 0.25rem;
+  background-color: hsl(var(--primary));
+}
+
+.pricing-footer-logo-text {
+  font-weight: 500;
+  color: hsl(var(--foreground));
+}
+
+.pricing-footer-nav {
+  display: flex;
+  gap: 1.5rem;
+  font-size: 0.875rem;
+}
+
+.pricing-footer-link {
+  color: hsl(var(--muted-foreground));
+  text-decoration: none;
+  transition: color 0.2s ease;
+}
+
+.pricing-footer-link:hover {
+  color: hsl(var(--foreground));
+}

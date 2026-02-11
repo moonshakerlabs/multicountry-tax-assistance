@@ -322,6 +322,45 @@ export type Database = {
           },
         ]
       }
+      subscription_history: {
+        Row: {
+          billing_cycle: string
+          change_date: string
+          change_type: string
+          created_at: string
+          id: string
+          is_legacy_applied: boolean
+          payment_reference_id: string | null
+          plan: string
+          price_at_purchase: number
+          user_id: string
+        }
+        Insert: {
+          billing_cycle: string
+          change_date?: string
+          change_type: string
+          created_at?: string
+          id?: string
+          is_legacy_applied?: boolean
+          payment_reference_id?: string | null
+          plan: string
+          price_at_purchase: number
+          user_id: string
+        }
+        Update: {
+          billing_cycle?: string
+          change_date?: string
+          change_type?: string
+          created_at?: string
+          id?: string
+          is_legacy_applied?: boolean
+          payment_reference_id?: string | null
+          plan?: string
+          price_at_purchase?: number
+          user_id?: string
+        }
+        Relationships: []
+      }
       user_profile: {
         Row: {
           created_at: string
@@ -381,6 +420,57 @@ export type Database = {
           created_at?: string
           id?: string
           role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
+      user_subscriptions: {
+        Row: {
+          billing_cycle: string
+          created_at: string
+          id: string
+          is_legacy_user: boolean
+          legacy_price_amount: number | null
+          legacy_valid_until: string | null
+          points_balance: number
+          subscription_end_date: string | null
+          subscription_plan: string
+          subscription_price_at_signup: number | null
+          subscription_start_date: string
+          subscription_status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          billing_cycle?: string
+          created_at?: string
+          id?: string
+          is_legacy_user?: boolean
+          legacy_price_amount?: number | null
+          legacy_valid_until?: string | null
+          points_balance?: number
+          subscription_end_date?: string | null
+          subscription_plan?: string
+          subscription_price_at_signup?: number | null
+          subscription_start_date?: string
+          subscription_status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          billing_cycle?: string
+          created_at?: string
+          id?: string
+          is_legacy_user?: boolean
+          legacy_price_amount?: number | null
+          legacy_valid_until?: string | null
+          points_balance?: number
+          subscription_end_date?: string | null
+          subscription_plan?: string
+          subscription_price_at_signup?: number | null
+          subscription_start_date?: string
+          subscription_status?: string
+          updated_at?: string
           user_id?: string
         }
         Relationships: []

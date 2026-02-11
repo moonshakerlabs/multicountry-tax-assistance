@@ -109,7 +109,7 @@ export default function Admin() {
           <div className="flex items-center gap-4">
             <Link to="/" className="flex items-center gap-2">
               <div className="h-8 w-8 rounded-lg bg-primary" />
-              <span className="text-lg font-semibold text-foreground">TaxAlign</span>
+              <span className="text-lg font-semibold text-foreground">WorTaF</span>
             </Link>
             <span className="text-sm font-medium px-2 py-1 rounded bg-accent/10 text-accent">Admin</span>
           </div>
