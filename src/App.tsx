@@ -14,6 +14,7 @@ import DocumentVault from "./pages/DocumentVault";
 import Admin from "./pages/Admin";
 import SharedDocumentView from "./pages/SharedDocumentView";
 import Pricing from "./pages/Pricing";
+import Community from "./pages/Community";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -51,6 +52,12 @@ const App = () => (
             <Route path="/profile" element={
               <ProtectedRoute>
                 <Profile />
+              </ProtectedRoute>
+            } />
+            
+            <Route path="/community" element={
+              <ProtectedRoute>
+                <Community />
               </ProtectedRoute>
             } />
             
