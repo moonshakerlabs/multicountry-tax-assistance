@@ -176,6 +176,41 @@
   line-height: 1.5;
 }
 
+/* TaxOverFlow CTA Section */
+.home-taxoverflow {
+  padding: 4rem 0;
+  text-align: center;
+  border-top: 1px solid hsl(var(--border));
+}
+
+.home-taxoverflow-content {
+  max-width: 600px;
+  margin: 0 auto;
+  padding: 0 1.5rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+}
+
+.home-taxoverflow-icon {
+  width: 3rem;
+  height: 3rem;
+  color: hsl(var(--primary));
+}
+
+.home-taxoverflow-title {
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: hsl(var(--foreground));
+}
+
+.home-taxoverflow-description {
+  color: hsl(var(--muted-foreground));
+  font-size: 1rem;
+  line-height: 1.6;
+}
+
 /* Footer */
 .home-footer {
   border-top: 1px solid hsl(var(--border));

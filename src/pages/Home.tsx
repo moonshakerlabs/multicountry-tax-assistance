@@ -1,6 +1,6 @@
 import { Link, Navigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { Shield, Globe, Share2 } from 'lucide-react';
+import { Shield, Globe, Share2, MessageCircle } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import './Home.css';
 
@@ -91,6 +91,20 @@ export default function Home() {
               </div>
             ))}
           </div>
+        </div>
+      </section>
+
+      {/* TaxOverFlow CTA Section */}
+      <section className="home-taxoverflow">
+        <div className="home-taxoverflow-content">
+          <MessageCircle className="home-taxoverflow-icon" />
+          <h2 className="home-taxoverflow-title">TaxOverFlow</h2>
+          <p className="home-taxoverflow-description">
+            Real taxpayers discussing cross-border tax questions. Browse what others are asking — no sign-up required.
+          </p>
+          <Button asChild variant="hero-outline" size="xl">
+            <Link to="/taxoverflow">See what others are talking about</Link>
+          </Button>
         </div>
       </section>
 
