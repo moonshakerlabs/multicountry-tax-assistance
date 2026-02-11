@@ -1,0 +1,66 @@
+.community-header {
+  border-bottom: 1px solid hsl(var(--border));
+  background: hsl(var(--card));
+  position: sticky;
+  top: 0;
+  z-index: 20;
+}
+
+.community-header-content {
+  max-width: 72rem;
+  margin: 0 auto;
+  padding: 0.75rem 1.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.community-header-left {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.community-logo-link {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  text-decoration: none;
+}
+
+.community-logo-icon {
+  width: 1.75rem;
+  height: 1.75rem;
+  border-radius: 0.5rem;
+  background: hsl(var(--primary));
+}
+
+.community-logo-text {
+  font-weight: 700;
+  font-size: 1.125rem;
+  color: hsl(var(--foreground));
+}
+
+.community-header-divider {
+  color: hsl(var(--muted));
+  font-size: 1.25rem;
+}
+
+.community-header-title {
+  font-size: 1rem;
+  font-weight: 600;
+  color: hsl(var(--foreground));
+}
+
+.community-header-right {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.community-back-icon,
+.community-plus-icon {
+  width: 1rem;
+  height: 1rem;
+  margin-right: 0.25rem;
+}

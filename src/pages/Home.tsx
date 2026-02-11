@@ -35,10 +35,13 @@ export default function Home() {
             <span className="home-logo-text">WorTaF</span>
           </div>
           <nav className="home-nav">
-            {user ? (
+           {user ? (
               <>
                 <Button asChild variant="ghost" size="sm">
                   <Link to="/pricing">Pricing</Link>
+                </Button>
+                <Button asChild variant="ghost" size="sm">
+                  <Link to="/community">Community</Link>
                 </Button>
                 <Button asChild variant="default">
                   <Link to="/dashboard">Dashboard</Link>
@@ -48,6 +51,9 @@ export default function Home() {
               <div className="home-auth-buttons">
                 <Button asChild variant="ghost" size="sm">
                   <Link to="/pricing">Pricing</Link>
+                </Button>
+                <Button asChild variant="ghost" size="sm">
+                  <Link to="/community">Community</Link>
                 </Button>
                 <Button asChild variant="outline">
                   <Link to="/auth?mode=signin">Sign In</Link>
