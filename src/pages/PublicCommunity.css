@@ -1,0 +1,231 @@
+.public-community-container {
+  min-height: 100vh;
+  background: hsl(var(--background));
+  color: hsl(var(--foreground));
+}
+
+.public-community-header {
+  border-bottom: 1px solid hsl(var(--border));
+  background: hsl(var(--background));
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.public-community-header-content {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 0.75rem 1.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.public-community-header-left {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.public-community-logo-link {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  text-decoration: none;
+}
+
+.public-community-logo-icon {
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  background: hsl(var(--primary));
+}
+
+.public-community-logo-text {
+  font-weight: 700;
+  font-size: 1.1rem;
+  color: hsl(var(--foreground));
+}
+
+.public-community-divider {
+  color: hsl(var(--muted-foreground));
+  font-size: 1.25rem;
+}
+
+.public-community-title {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: hsl(var(--foreground));
+}
+
+.public-community-header-right {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.public-community-main {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 2rem 1.5rem;
+}
+
+.public-community-intro {
+  text-align: center;
+  margin-bottom: 2rem;
+}
+
+.public-community-intro-title {
+  font-size: 1.75rem;
+  font-weight: 700;
+  margin-bottom: 0.5rem;
+}
+
+.public-community-intro-text {
+  color: hsl(var(--muted-foreground));
+  max-width: 600px;
+  margin: 0 auto;
+}
+
+.public-community-posts {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.public-post-card {
+  display: flex;
+  gap: 1rem;
+  padding: 1rem 1.25rem;
+  border: 1px solid hsl(var(--border));
+  border-radius: 8px;
+  background: hsl(var(--card));
+  transition: border-color 0.15s;
+}
+
+.public-post-card:hover {
+  border-color: hsl(var(--primary) / 0.4);
+}
+
+.public-post-votes {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.25rem;
+  padding-top: 0.25rem;
+  min-width: 40px;
+}
+
+.public-post-vote-icon {
+  width: 16px;
+  height: 16px;
+  color: hsl(var(--muted-foreground));
+}
+
+.public-post-vote-count {
+  font-weight: 600;
+  font-size: 0.95rem;
+}
+
+.public-post-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.public-post-meta {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.35rem;
+  flex-wrap: wrap;
+}
+
+.public-post-country {
+  font-size: 0.75rem;
+}
+
+.public-post-solved {
+  font-size: 0.7rem;
+  background: hsl(142 71% 45% / 0.15);
+  color: hsl(142 71% 35%);
+  border: none;
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.public-post-solved-icon {
+  width: 12px;
+  height: 12px;
+}
+
+.public-post-time {
+  font-size: 0.75rem;
+  color: hsl(var(--muted-foreground));
+}
+
+.public-post-title {
+  font-size: 1rem;
+  font-weight: 600;
+  margin-bottom: 0.25rem;
+}
+
+.public-post-excerpt {
+  font-size: 0.875rem;
+  color: hsl(var(--muted-foreground));
+  line-height: 1.5;
+  margin-bottom: 0.5rem;
+}
+
+.public-post-footer {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.public-post-stat {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 0.8rem;
+  color: hsl(var(--muted-foreground));
+}
+
+.public-post-stat-icon {
+  width: 14px;
+  height: 14px;
+}
+
+.public-post-tag {
+  font-size: 0.7rem;
+}
+
+.public-community-empty {
+  text-align: center;
+  padding: 3rem 1rem;
+  color: hsl(var(--muted-foreground));
+}
+
+.public-community-cta {
+  text-align: center;
+  margin-top: 2.5rem;
+  padding: 2rem;
+  border: 1px solid hsl(var(--border));
+  border-radius: 10px;
+  background: hsl(var(--muted) / 0.3);
+}
+
+.public-community-cta p {
+  margin-bottom: 1rem;
+  font-weight: 500;
+}
+
+@media (max-width: 640px) {
+  .public-community-header-content {
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+  .public-community-intro-title {
+    font-size: 1.35rem;
+  }
+}

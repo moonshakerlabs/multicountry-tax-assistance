@@ -15,6 +15,7 @@ import Admin from "./pages/Admin";
 import SharedDocumentView from "./pages/SharedDocumentView";
 import Pricing from "./pages/Pricing";
 import Community from "./pages/Community";
+import PublicCommunity from "./pages/PublicCommunity";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -32,7 +33,8 @@ const App = () => (
             <Route path="/auth" element={<Auth />} />
             <Route path="/login" element={<Auth />} />
             <Route path="/pricing" element={<Pricing />} />
-            
+            <Route path="/taxoverflow" element={<PublicCommunity />} />
+
             {/* Protected user routes */}
             <Route path="/dashboard" element={
               <ProtectedRoute>
