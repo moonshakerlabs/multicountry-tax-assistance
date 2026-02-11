@@ -313,10 +313,13 @@ export default function DocumentVault() {
           </div>
           <div className="vault-header-actions">
             <Button asChild variant="ghost" size="sm">
-              <Link to="/profile">
-                <User className="vault-action-icon" />
-                {isDE ? 'Profil' : 'Profile'}
-              </Link>
+              <Link to="/dashboard">Dashboard</Link>
+            </Button>
+            <Button asChild variant="ghost" size="sm">
+              <Link to="/profile">Profile</Link>
+            </Button>
+            <Button asChild variant="ghost" size="sm">
+              <Link to="/community">TaxOverFlow</Link>
             </Button>
             <Button variant="ghost" size="sm" onClick={signOut}>
               <LogOut className="vault-action-icon" />

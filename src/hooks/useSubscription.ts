@@ -56,9 +56,10 @@ export function useSubscription() {
 
   const getPostingLimit = (): { count: number; period: string } | null => {
     switch (subscription.subscription_plan) {
-      case 'PRO': return null; // unlimited
-      case 'FREEMIUM': return { count: 15, period: 'month' };
-      default: return { count: 1, period: 'week' };
+      case 'SUPER_PRO': return null; // unlimited
+      case 'PRO': return { count: 50, period: 'month' };
+      case 'FREEMIUM': return { count: 10, period: 'month' };
+      default: return { count: 1, period: 'month' };
     }
   };
 

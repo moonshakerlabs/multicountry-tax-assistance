@@ -1,4 +1,4 @@
-import { Link } from 'react-router-dom';
+import { Link, Navigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Shield, Globe, Share2 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
@@ -25,6 +25,11 @@ const features = [
 export default function Home() {
   const { user } = useAuth();
 
+  // Redirect logged-in users directly to dashboard
+  if (user) {
+    return <Navigate to="/dashboard" replace />;
+  }
+
   return (
     <div className="home-container">
       {/* Header */}
@@ -35,34 +40,17 @@ export default function Home() {
             <span className="home-logo-text">WorTaF</span>
           </div>
           <nav className="home-nav">
-           {user ? (
-              <>
-                <Button asChild variant="ghost" size="sm">
-                  <Link to="/pricing">Pricing</Link>
-                </Button>
-                <Button asChild variant="ghost" size="sm">
-                  <Link to="/community">Community</Link>
-                </Button>
-                <Button asChild variant="default">
-                  <Link to="/dashboard">Dashboard</Link>
-                </Button>
-              </>
-            ) : (
-              <div className="home-auth-buttons">
-                <Button asChild variant="ghost" size="sm">
-                  <Link to="/pricing">Pricing</Link>
-                </Button>
-                <Button asChild variant="ghost" size="sm">
-                  <Link to="/community">Community</Link>
-                </Button>
-                <Button asChild variant="outline">
-                  <Link to="/auth?mode=signin">Sign In</Link>
-                </Button>
-                <Button asChild variant="default">
-                  <Link to="/auth?mode=signup">Sign Up</Link>
-                </Button>
-              </div>
-            )}
+            <div className="home-auth-buttons">
+              <Button asChild variant="ghost" size="sm">
+                <Link to="/pricing">Pricing</Link>
+              </Button>
+              <Button asChild variant="outline">
+                <Link to="/auth?mode=signin">Sign In</Link>
+              </Button>
+              <Button asChild variant="default">
+                <Link to="/auth?mode=signup">Sign Up</Link>
+              </Button>
+            </div>
           </nav>
         </div>
       </header>

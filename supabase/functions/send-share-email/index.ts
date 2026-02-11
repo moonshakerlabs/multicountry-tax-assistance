@@ -121,13 +121,13 @@ serve(async (req: Request) => {
     const shareLink = `${appUrl}/shared/${token}`;
 
     const emailResult = await resend.emails.send({
-      from: "TaxAlign <onboarding@resend.dev>",
+      from: "WorTaF <onboarding@resend.dev>",
       to: [recipientEmail],
-      subject: `Documents shared with you via TaxAlign`,
+      subject: `Documents shared with you via WorTaF`,
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
           <h2 style="color: #1a1a2e;">Documents Shared With You</h2>
-          <p>Someone has shared <strong>${documentIds.length} document(s)</strong> with you via TaxAlign.</p>
+          <p>Someone has shared <strong>${documentIds.length} document(s)</strong> with you via WorTaF.</p>
           <p><strong>Access expires:</strong> ${new Date(expiresAt).toLocaleDateString()}</p>
           <div style="margin: 24px 0;">
             <a href="${shareLink}" style="background: #6366f1; color: white; padding: 12px 24px; border-radius: 6px; text-decoration: none; display: inline-block;">

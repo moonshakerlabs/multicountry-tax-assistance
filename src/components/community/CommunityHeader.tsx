@@ -18,14 +18,14 @@ export default function CommunityHeader({ onAskQuestion, canPost }: CommunityHea
             <span className="community-logo-text">WorTaF</span>
           </Link>
           <span className="community-header-divider">/</span>
-          <h1 className="community-header-title">Tax Community</h1>
+          <h1 className="community-header-title">TaxOverFlow</h1>
         </div>
         <div className="community-header-right">
           <Button asChild variant="ghost" size="sm">
-            <Link to="/dashboard">
-              <ArrowLeft className="community-back-icon" />
-              Dashboard
-            </Link>
+            <Link to="/dashboard">Dashboard</Link>
+          </Button>
+          <Button asChild variant="ghost" size="sm">
+            <Link to="/profile">Profile</Link>
           </Button>
           <Button onClick={onAskQuestion} disabled={!canPost} size="sm">
             <Plus className="community-plus-icon" />
