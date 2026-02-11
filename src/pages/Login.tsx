@@ -120,7 +120,7 @@ export default function Login() {
         <div className="mb-8 text-center">
           <Link to="/" className="inline-flex items-center gap-2">
             <div className="h-10 w-10 rounded-lg bg-primary" />
-            <span className="text-xl font-semibold text-foreground">TaxAlign</span>
+            <span className="text-xl font-semibold text-foreground">WorTaF</span>
           </Link>
         </div>
 

@@ -13,6 +13,7 @@ import Profile from "./pages/Profile";
 import DocumentVault from "./pages/DocumentVault";
 import Admin from "./pages/Admin";
 import SharedDocumentView from "./pages/SharedDocumentView";
+import Pricing from "./pages/Pricing";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -29,6 +30,7 @@ const App = () => (
             <Route path="/" element={<Home />} />
             <Route path="/auth" element={<Auth />} />
             <Route path="/login" element={<Auth />} />
+            <Route path="/pricing" element={<Pricing />} />
             
             {/* Protected user routes */}
             <Route path="/dashboard" element={

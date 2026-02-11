@@ -32,15 +32,23 @@ export default function Home() {
         <div className="home-header-content">
           <div className="home-logo">
             <div className="home-logo-icon" />
-            <span className="home-logo-text">TaxAlign</span>
+            <span className="home-logo-text">WorTaF</span>
           </div>
           <nav className="home-nav">
             {user ? (
-              <Button asChild variant="default">
-                <Link to="/dashboard">Dashboard</Link>
-              </Button>
+              <>
+                <Button asChild variant="ghost" size="sm">
+                  <Link to="/pricing">Pricing</Link>
+                </Button>
+                <Button asChild variant="default">
+                  <Link to="/dashboard">Dashboard</Link>
+                </Button>
+              </>
             ) : (
               <div className="home-auth-buttons">
+                <Button asChild variant="ghost" size="sm">
+                  <Link to="/pricing">Pricing</Link>
+                </Button>
                 <Button asChild variant="outline">
                   <Link to="/auth?mode=signin">Sign In</Link>
                 </Button>
@@ -66,7 +74,7 @@ export default function Home() {
           </p>
           <div className="home-hero-actions">
             <Button asChild variant="hero" size="xl">
-              <Link to="/auth?mode=signup">Get started – Free Early Access</Link>
+              <Link to="/pricing">Get Started – Early Access</Link>
             </Button>
             <Button asChild variant="hero-outline" size="xl">
               <a href="#how-it-works">How it works</a>
@@ -97,7 +105,7 @@ export default function Home() {
         <div className="home-footer-content">
           <div className="home-footer-logo">
             <div className="home-footer-logo-icon" />
-            <span className="home-footer-logo-text">TaxAlign</span>
+            <span className="home-footer-logo-text">WorTaF</span>
           </div>
           <nav className="home-footer-nav">
             <a href="#" className="home-footer-link">Privacy Policy</a>

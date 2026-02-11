@@ -76,7 +76,7 @@ export default function Dashboard() {
           <div className="dashboard-logo">
             <Link to="/" className="dashboard-logo-link">
               <div className="dashboard-logo-icon" />
-              <span className="dashboard-logo-text">TaxAlign</span>
+              <span className="dashboard-logo-text">WorTaF</span>
             </Link>
           </div>
           <div className="dashboard-header-actions">

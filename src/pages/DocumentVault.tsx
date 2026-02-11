@@ -308,7 +308,7 @@ export default function DocumentVault() {
           <div className="vault-logo">
             <Link to="/" className="vault-logo-link">
               <div className="vault-logo-icon" />
-              <span className="vault-logo-text">TaxAlign</span>
+              <span className="vault-logo-text">WorTaF</span>
             </Link>
           </div>
           <div className="vault-header-actions">

@@ -196,7 +196,7 @@ export default function Auth() {
         <div className="auth-logo">
           <Link to="/" className="auth-logo-link">
             <div className="auth-logo-icon" />
-            <span className="auth-logo-text">TaxAlign</span>
+            <span className="auth-logo-text">WorTaF</span>
           </Link>
         </div>
 
