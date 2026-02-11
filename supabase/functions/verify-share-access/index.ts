@@ -141,13 +141,17 @@ serve(async (req: Request) => {
 
       const accessibleDocs = (docs || []).filter((d: any) => d.share_enabled);
 
+      // Calculate remaining seconds until share expiry (min 60s, max 7 days)
+      const remainingMs = new Date(share.expires_at).getTime() - Date.now();
+      const remainingSec = Math.max(60, Math.min(Math.floor(remainingMs / 1000), 7 * 24 * 60 * 60));
+
       const documentsWithUrls = await Promise.all(
         accessibleDocs.map(async (doc: any) => {
           let signedUrl = null;
           if (doc.file_path) {
             const { data } = await adminClient.storage
               .from("user-documents")
-              .createSignedUrl(doc.file_path, 600); // 10 min
+              .createSignedUrl(doc.file_path, remainingSec);
             signedUrl = data?.signedUrl || null;
           }
           return {
