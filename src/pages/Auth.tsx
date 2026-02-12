@@ -192,7 +192,12 @@ export default function Auth() {
   return (
     <div className="auth-container">
       <div className="auth-content">
-        {/* Logo */}
+      {/* Back link & Logo */}
+        <div className="auth-back-row">
+          <Link to="/" className="auth-back-link">
+            ← Back to Home
+          </Link>
+        </div>
         <div className="auth-logo">
           <Link to="/" className="auth-logo-link">
             <div className="auth-logo-icon" />

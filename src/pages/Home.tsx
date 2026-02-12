@@ -1,6 +1,6 @@
 import { Link, Navigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { Shield, Globe, Share2, MessageCircle } from 'lucide-react';
+import { Shield, Globe, Share2 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import './Home.css';
 
@@ -8,7 +8,7 @@ const features = [
   {
     icon: Shield,
     title: 'Privacy-first & GDPR aligned',
-    description: 'Your documents are encrypted and protected. We never share your data with third parties.'
+    description: 'Built with a strong focus on privacy, aligned with global privacy policies and data protection laws to keep your financial information safe.'
   },
   {
     icon: Globe,
@@ -42,7 +42,13 @@ export default function Home() {
           <nav className="home-nav">
             <div className="home-auth-buttons">
               <Button asChild variant="ghost" size="sm">
+                <Link to="/taxoverflow">TaxOverFlow</Link>
+              </Button>
+              <Button asChild variant="ghost" size="sm">
                 <Link to="/pricing">Pricing</Link>
+              </Button>
+              <Button asChild variant="ghost" size="sm">
+                <Link to="/blog">Blog</Link>
               </Button>
               <Button asChild variant="outline">
                 <Link to="/auth?mode=signin">Sign In</Link>
@@ -73,6 +79,9 @@ export default function Home() {
             <Button asChild variant="hero-outline" size="xl">
               <a href="#how-it-works">How it works</a>
             </Button>
+            <Button asChild variant="hero-outline" size="xl">
+              <Link to="/taxoverflow">See what others are talking about</Link>
+            </Button>
           </div>
         </div>
       </section>
@@ -91,20 +100,6 @@ export default function Home() {
               </div>
             ))}
           </div>
-        </div>
-      </section>
-
-      {/* TaxOverFlow CTA Section */}
-      <section className="home-taxoverflow">
-        <div className="home-taxoverflow-content">
-          <MessageCircle className="home-taxoverflow-icon" />
-          <h2 className="home-taxoverflow-title">TaxOverFlow</h2>
-          <p className="home-taxoverflow-description">
-            Real taxpayers discussing cross-border tax questions. Browse what others are asking — no sign-up required.
-          </p>
-          <Button asChild variant="hero-outline" size="xl">
-            <Link to="/taxoverflow">See what others are talking about</Link>
-          </Button>
         </div>
       </section>
 

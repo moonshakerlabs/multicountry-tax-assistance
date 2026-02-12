@@ -12,6 +12,22 @@
   max-width: 28rem;
 }
 
+.auth-back-row {
+  margin-bottom: 1rem;
+  text-align: center;
+}
+
+.auth-back-link {
+  font-size: 0.875rem;
+  color: hsl(var(--muted-foreground));
+  text-decoration: none;
+  transition: color 0.2s;
+}
+
+.auth-back-link:hover {
+  color: hsl(var(--foreground));
+}
+
 .auth-logo {
   margin-bottom: 2rem;
   text-align: center;
