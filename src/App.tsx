@@ -17,6 +17,7 @@ import Pricing from "./pages/Pricing";
 import Community from "./pages/Community";
 import PublicCommunity from "./pages/PublicCommunity";
 import Blog from "./pages/Blog";
+import TermsAndConditions from "./pages/TermsAndConditions";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -36,6 +37,7 @@ const App = () => (
             <Route path="/pricing" element={<Pricing />} />
             <Route path="/blog" element={<Blog />} />
             <Route path="/taxoverflow" element={<PublicCommunity />} />
+            <Route path="/terms" element={<TermsAndConditions />} />
 
             {/* Protected user routes */}
             <Route path="/dashboard" element={
