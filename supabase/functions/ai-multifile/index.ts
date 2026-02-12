@@ -46,19 +46,24 @@ serve(async (req) => {
       });
     }
 
-    // Check subscription
-    const { data: sub } = await supabase
-      .from("user_subscriptions")
-      .select("subscription_plan, subscription_status")
-      .eq("user_id", user.id)
-      .maybeSingle();
+    // Check subscription — skip paywall in test environment
+    const isTestEnv = Deno.env.get("SUPABASE_URL")?.includes("jucqqowgqhxpqplzlyze") ?? false;
 
-    const plan = sub?.subscription_plan || "FREE";
-    if (plan === "FREE" || sub?.subscription_status !== "ACTIVE") {
-      return new Response(
-        JSON.stringify({ error: "UPGRADE_REQUIRED", message: "This feature requires a paid plan." }),
-        { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+    let plan = "SUPER_PRO"; // default for test
+    if (!isTestEnv) {
+      const { data: sub } = await supabase
+        .from("user_subscriptions")
+        .select("subscription_plan, subscription_status")
+        .eq("user_id", user.id)
+        .maybeSingle();
+
+      plan = sub?.subscription_plan || "FREE";
+      if (plan === "FREE" || sub?.subscription_status !== "ACTIVE") {
+        return new Response(
+          JSON.stringify({ error: "UPGRADE_REQUIRED", message: "This feature requires a paid plan." }),
+          { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
     }
 
     const limits = PLAN_LIMITS[plan] || PLAN_LIMITS.FREEMIUM;
