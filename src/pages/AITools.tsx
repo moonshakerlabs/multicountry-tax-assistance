@@ -69,8 +69,12 @@ export default function AITools() {
   const [copied, setCopied] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const plan = subscription.subscription_plan;
-  const isPaid = ['FREEMIUM', 'PRO', 'SUPER_PRO'].includes(plan);
+  const isTestEnv = window.location.hostname.includes('lovable.app') ||
+                    window.location.hostname.includes('lovableproject.com') ||
+                    window.location.hostname === 'localhost';
+
+  const plan = isTestEnv ? 'SUPER_PRO' : subscription.subscription_plan;
+  const isPaid = isTestEnv || ['FREEMIUM', 'PRO', 'SUPER_PRO'].includes(plan);
   const limits = PLAN_LIMITS[plan] || PLAN_LIMITS.FREEMIUM;
 
   const addFiles = useCallback(
