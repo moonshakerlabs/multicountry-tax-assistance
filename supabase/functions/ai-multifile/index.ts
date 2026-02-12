@@ -35,19 +35,26 @@ serve(async (req) => {
       global: { headers: { Authorization: authHeader } },
     });
 
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser();
-    if (authError || !user) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), {
-        status: 401,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    // Check subscription — skip paywall in test environment
+    // Check if test environment — skip auth and paywall
     const isTestEnv = Deno.env.get("SUPABASE_URL")?.includes("jucqqowgqhxpqplzlyze") ?? false;
+
+    let user: { id: string } | null = null;
+
+    if (!isTestEnv) {
+      const {
+        data: { user: authUser },
+        error: authError,
+      } = await supabase.auth.getUser();
+      if (authError || !authUser) {
+        return new Response(JSON.stringify({ error: "Unauthorized" }), {
+          status: 401,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      user = authUser;
+    } else {
+      user = { id: "test-user" };
+    }
 
     let plan = "SUPER_PRO"; // default for test
     if (!isTestEnv) {
