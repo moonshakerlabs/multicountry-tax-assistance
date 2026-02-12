@@ -12,6 +12,7 @@ import ProfileSetup from "./pages/ProfileSetup";
 import Profile from "./pages/Profile";
 import DocumentVault from "./pages/DocumentVault";
 import Admin from "./pages/Admin";
+import AITools from "./pages/AITools";
 import SharedDocumentView from "./pages/SharedDocumentView";
 import Pricing from "./pages/Pricing";
 import Community from "./pages/Community";
@@ -64,6 +65,11 @@ const App = () => (
             <Route path="/community" element={
               <ProtectedRoute>
                 <Community />
+              </ProtectedRoute>
+            } />
+            <Route path="/ai-tools" element={
+              <ProtectedRoute>
+                <AITools />
               </ProtectedRoute>
             } />
             

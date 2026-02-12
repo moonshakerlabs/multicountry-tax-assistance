@@ -1,1 +1,4 @@
 project_id = "jucqqowgqhxpqplzlyze"
+
+[functions.ai-multifile]
+verify_jwt = false

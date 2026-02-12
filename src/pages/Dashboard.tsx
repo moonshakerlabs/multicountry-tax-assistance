@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
-import { User, FileText, LogOut, FolderOpen, Upload, ChevronRight, MessageSquare } from 'lucide-react';
+import { User, FileText, LogOut, FolderOpen, Upload, ChevronRight, MessageSquare, Brain } from 'lucide-react';
 import './Dashboard.css';
 
 interface DocumentSummary {
@@ -88,6 +88,12 @@ export default function Dashboard() {
             </Button>
             <Button asChild variant="ghost" size="sm">
               <Link to="/community">TaxOverFlow</Link>
+            </Button>
+            <Button asChild variant="ghost" size="sm">
+              <Link to="/ai-tools">
+                <Brain className="dashboard-action-icon" />
+                AI Tools
+              </Link>
             </Button>
             <Button variant="ghost" size="sm" onClick={signOut}>
               <LogOut className="dashboard-action-icon" />
