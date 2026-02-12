@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate, Link, useSearchParams } from 'react-router-dom';
+import { useNavigate, Link, useSearchParams, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -14,15 +14,9 @@ const passwordSchema = z.string().min(6, 'Password must be at least 6 characters
 
 type AuthMode = 'signin' | 'signup';
 
-// Check if email is associated with Google provider
-async function checkEmailProvider(email: string): Promise<'google' | 'email' | 'unknown'> {
-  // We cannot directly check provider without exposing user enumeration
-  // Instead, we'll handle this during the login error response
-  return 'unknown';
-}
-
 export default function Auth() {
   const [searchParams] = useSearchParams();
+  const location = useLocation();
   const initialMode = searchParams.get('mode') === 'signup' ? 'signup' : 'signin';
   
   const [mode, setMode] = useState<AuthMode>(initialMode);
@@ -36,6 +30,26 @@ export default function Auth() {
   const { user, profile, signIn, signUp, signInWithGoogle } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
+
+  // Check if returning from T&C page with accepted terms
+  useEffect(() => {
+    const navState = location.state as {
+      termsAccepted?: boolean;
+      signupData?: { type: 'email' | 'google'; email?: string; password?: string };
+    } | null;
+
+    if (navState?.termsAccepted && navState.signupData) {
+      // Clear navigation state to prevent re-triggering
+      window.history.replaceState({}, document.title);
+      
+      const { signupData } = navState;
+      if (signupData.type === 'google') {
+        performGoogleSignUp();
+      } else if (signupData.email && signupData.password) {
+        performEmailSignUp(signupData.email, signupData.password);
+      }
+    }
+  }, [location.state]);
 
   // Redirect if already authenticated
   useEffect(() => {
@@ -89,17 +103,64 @@ export default function Auth() {
 
   const handleEmailBlur = async () => {
     if (!validateEmail()) return;
-    
-    // Reset Google account state
     setIsGoogleAccount(false);
     setShowGoogleHint(false);
+  };
+
+  // Actual signup functions (called after T&C acceptance)
+  const performEmailSignUp = async (signupEmail: string, signupPassword: string) => {
+    setIsLoading(true);
+    try {
+      const { error } = await signUp(signupEmail, signupPassword);
+      if (error) {
+        if (error.message.includes('already registered')) {
+          toast({
+            title: 'Account exists',
+            description: 'An account with this email already exists. Please sign in instead.',
+            variant: 'destructive'
+          });
+          setMode('signin');
+        } else {
+          toast({
+            title: 'Sign up failed',
+            description: 'Unable to create account. Please try again.',
+            variant: 'destructive'
+          });
+        }
+      } else {
+        toast({
+          title: 'Account created',
+          description: 'Welcome! You can now access your dashboard.',
+        });
+      }
+    } catch {
+      toast({
+        title: 'Error',
+        description: 'Unable to create account. Please try again.',
+        variant: 'destructive'
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const performGoogleSignUp = async () => {
+    setIsLoading(true);
+    const { error } = await signInWithGoogle();
+    if (error) {
+      toast({
+        title: 'Google sign up failed',
+        description: 'Unable to sign up. Please try again.',
+        variant: 'destructive'
+      });
+      setIsLoading(false);
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (isGoogleAccount) {
-      // Redirect to Google sign-in
       handleGoogleSignIn();
       return;
     }
@@ -111,35 +172,20 @@ export default function Auth() {
 
     try {
       if (mode === 'signup') {
-        const { error } = await signUp(email, password);
-        if (error) {
-          if (error.message.includes('already registered')) {
-            toast({
-              title: 'Account exists',
-              description: 'An account with this email already exists. Please sign in instead.',
-              variant: 'destructive'
-            });
-            setMode('signin');
-          } else {
-            toast({
-              title: 'Sign up failed',
-              description: 'Unable to create account. Please try again.',
-              variant: 'destructive'
-            });
-          }
-        } else {
-          toast({
-            title: 'Account created',
-            description: 'Welcome! You can now access your dashboard.',
-          });
-        }
+        // Redirect to T&C page instead of signing up directly
+        setIsLoading(false);
+        navigate('/terms', {
+          state: {
+            type: 'email',
+            email,
+            password,
+          },
+        });
+        return;
       } else {
         const { error } = await signIn(email, password);
         if (error) {
-          // Check if this might be a Google-only account
-          // Supabase returns "Invalid login credentials" for both wrong password and no password set
           if (error.message.includes('Invalid login credentials')) {
-            // Show Google sign-in hint without confirming if email exists
             setShowGoogleHint(true);
             setIsGoogleAccount(true);
             toast({
@@ -156,7 +202,7 @@ export default function Auth() {
           }
         }
       }
-    } catch (error) {
+    } catch {
       toast({
         title: 'Error',
         description: 'Unable to sign in. Please check your details and try again.',
@@ -168,6 +214,17 @@ export default function Auth() {
   };
 
   const handleGoogleSignIn = async () => {
+    if (mode === 'signup') {
+      // Redirect to T&C page for Google signup too
+      navigate('/terms', {
+        state: {
+          type: 'google',
+        },
+      });
+      return;
+    }
+    
+    // For sign-in, proceed directly
     setIsLoading(true);
     const { error } = await signInWithGoogle();
     if (error) {
