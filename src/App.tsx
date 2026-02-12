@@ -16,6 +16,7 @@ import SharedDocumentView from "./pages/SharedDocumentView";
 import Pricing from "./pages/Pricing";
 import Community from "./pages/Community";
 import PublicCommunity from "./pages/PublicCommunity";
+import Blog from "./pages/Blog";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -33,6 +34,7 @@ const App = () => (
             <Route path="/auth" element={<Auth />} />
             <Route path="/login" element={<Auth />} />
             <Route path="/pricing" element={<Pricing />} />
+            <Route path="/blog" element={<Blog />} />
             <Route path="/taxoverflow" element={<PublicCommunity />} />
 
             {/* Protected user routes */}
