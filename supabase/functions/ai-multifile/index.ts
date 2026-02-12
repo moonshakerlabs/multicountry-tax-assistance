@@ -143,10 +143,9 @@ serve(async (req) => {
       },
     ];
 
-    // Add files as inline data (images) or describe text-based ones
+    // Add files as inline data (images) or decode as text
     for (const file of files) {
       const isImage = file.type.startsWith("image/");
-      const isPDF = file.type === "application/pdf";
 
       if (isImage) {
         contentParts.push({
@@ -155,21 +154,13 @@ serve(async (req) => {
             url: `data:${file.type};base64,${file.base64}`,
           },
         });
-      } else if (isPDF) {
-        // Gemini supports PDF via inline data
-        contentParts.push({
-          type: "image_url",
-          image_url: {
-            url: `data:application/pdf;base64,${file.base64}`,
-          },
-        });
       } else {
-        // Text-based files: decode and include as text
+        // For PDFs, DOCX, CSV, TXT, XLSX etc — decode as text
         try {
           const decoded = atob(file.base64);
           contentParts.push({
             type: "text",
-            text: `\n--- File: ${file.name} ---\n${decoded}\n--- End of ${file.name} ---\n`,
+            text: `\n--- File: ${file.name} (${file.type}) ---\n${decoded}\n--- End of ${file.name} ---\n`,
           });
         } catch {
           contentParts.push({
