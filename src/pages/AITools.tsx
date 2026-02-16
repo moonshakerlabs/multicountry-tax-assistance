@@ -248,7 +248,6 @@ export default function AITools() {
           action: 'analyze',
           fileIds: relevantFiles.map((f) => f.id),
           instruction,
-          country: 'auto-detect',
         }),
       });
 
@@ -288,7 +287,6 @@ export default function AITools() {
           action: 'generate_report',
           reportContent,
           format,
-          country: 'auto',
         }),
       });
 
