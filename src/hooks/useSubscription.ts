@@ -48,6 +48,7 @@ export function useSubscription() {
 
   const getCountryLimit = (): number => {
     switch (subscription.subscription_plan) {
+      case 'SUPER_PRO': return 999;
       case 'PRO': return 5;
       case 'FREEMIUM': return 2;
       default: return 1;
