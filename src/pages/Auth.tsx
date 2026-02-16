@@ -54,8 +54,7 @@ export default function Auth() {
   // Redirect if already authenticated
   useEffect(() => {
     if (user && profile) {
-      const redirectPath = profile.role === 'admin' ? '/admin' : '/dashboard';
-      navigate(redirectPath, { replace: true });
+      navigate('/dashboard', { replace: true });
     }
   }, [user, profile, navigate]);
 
