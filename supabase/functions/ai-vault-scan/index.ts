@@ -71,6 +71,17 @@ serve(async (req) => {
     // Admin client for storage access
     const adminSupabase = createClient(supabaseUrl, serviceRoleKey);
 
+    // Auto-detect country from user profile
+    let userCountry = body.country || null;
+    if (!userCountry || userCountry === "auto-detect" || userCountry === "auto") {
+      const { data: profile } = await supabase
+        .from("user_profile")
+        .select("primary_tax_residency")
+        .eq("user_id", userId)
+        .maybeSingle();
+      userCountry = profile?.primary_tax_residency || "unknown";
+    }
+
     // ─── ACTION: SCAN ───
     if (action === "scan") {
       const { instruction } = body;
@@ -175,7 +186,8 @@ serve(async (req) => {
 
     // ─── ACTION: ANALYZE ───
     if (action === "analyze") {
-      const { fileIds, instruction, country } = body;
+      const { fileIds, instruction } = body;
+      const country = userCountry;
       if (!fileIds?.length || !instruction) {
         return new Response(JSON.stringify({ error: "fileIds and instruction are required" }), {
           status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -320,7 +332,8 @@ Files being analyzed: ${docs.map(d => d.file_name).join(", ")}`,
 
     // ─── ACTION: GENERATE REPORT ───
     if (action === "generate_report") {
-      const { reportContent, format, country } = body;
+      const { reportContent, format } = body;
+      const country = userCountry;
       if (!reportContent || !format) {
         return new Response(JSON.stringify({ error: "reportContent and format are required" }), {
           status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
