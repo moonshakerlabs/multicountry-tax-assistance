@@ -143,21 +143,29 @@ serve(async (req) => {
       },
     ];
 
-    // Add files as inline data (images) or decode as text
+    // Add files as inline data — images and PDFs go as visual content for OCR/parsing
     for (const file of files) {
       const isImage = file.type.startsWith("image/");
+      const isPDF = file.type === "application/pdf";
 
-      if (isImage) {
+      if (isImage || isPDF) {
+        // Gemini natively supports images and PDFs as inline visual data
         contentParts.push({
           type: "image_url",
           image_url: {
             url: `data:${file.type};base64,${file.base64}`,
           },
         });
+        contentParts.push({
+          type: "text",
+          text: `[Above: ${file.name}]`,
+        });
       } else {
-        // For PDFs, DOCX, CSV, TXT, XLSX etc — decode as text
+        // Text-based files: CSV, TXT, JSON, XML etc — decode as text
         try {
-          const decoded = atob(file.base64);
+          const decoded = new TextDecoder().decode(
+            Uint8Array.from(atob(file.base64), (c) => c.charCodeAt(0))
+          );
           contentParts.push({
             type: "text",
             text: `\n--- File: ${file.name} (${file.type}) ---\n${decoded}\n--- End of ${file.name} ---\n`,
@@ -186,12 +194,12 @@ serve(async (req) => {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          model: "google/gemini-2.5-flash",
+          model: "google/gemini-2.5-pro",
           messages: [
             {
               role: "system",
               content:
-                "You are a precise document analyst. Analyze uploaded files and follow the user's instruction exactly. Format your response in clear markdown. Never store, remember, or reference these files after this response. This is a zero-retention processing session.",
+                "You are a precise document analyst with OCR capabilities. When files contain images, scanned pages, or embedded visuals, use OCR to extract ALL text, numbers, tables, and data from them. Never say you cannot read an image — always attempt to extract data from every visual element. Analyze uploaded files and follow the user's instruction exactly. Format your response in clear markdown with tables where appropriate. Never store, remember, or reference these files after this response. This is a zero-retention processing session.",
             },
             { role: "user", content: contentParts },
           ],
