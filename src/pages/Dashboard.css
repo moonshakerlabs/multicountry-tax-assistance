@@ -334,3 +334,133 @@
   font-size: 0.875rem;
   color: hsl(var(--muted-foreground));
 }
+
+/* Admin/Customer Toggle */
+.dashboard-mode-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.25rem 0.75rem;
+  border-radius: 9999px;
+  background-color: hsl(var(--muted));
+  border: 1px solid hsl(var(--border));
+}
+
+.dashboard-mode-label {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: hsl(var(--muted-foreground));
+  transition: color 0.2s;
+}
+
+.dashboard-mode-label.active {
+  color: hsl(var(--primary));
+  font-weight: 600;
+}
+
+/* Role Badges */
+.dashboard-role-badge {
+  display: inline-block;
+  font-size: 0.7rem;
+  font-weight: 600;
+  padding: 0.15rem 0.5rem;
+  border-radius: 9999px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.dashboard-badge-super {
+  background-color: hsl(var(--primary) / 0.15);
+  color: hsl(var(--primary));
+  border: 1px solid hsl(var(--primary) / 0.3);
+}
+
+.dashboard-badge-admin {
+  background-color: hsl(270 60% 50% / 0.15);
+  color: hsl(270 60% 50%);
+  border: 1px solid hsl(270 60% 50% / 0.3);
+}
+
+.dashboard-badge-employee {
+  background-color: hsl(200 80% 50% / 0.15);
+  color: hsl(200 80% 50%);
+  border: 1px solid hsl(200 80% 50% / 0.3);
+}
+
+.dashboard-badge-user {
+  background-color: hsl(var(--muted));
+  color: hsl(var(--muted-foreground));
+  border: 1px solid hsl(var(--border));
+}
+
+/* Admin Panel */
+.admin-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+}
+
+.admin-section {
+  background-color: hsl(var(--card));
+  border: 1px solid hsl(var(--border));
+  border-radius: 0.75rem;
+  padding: 1.5rem;
+}
+
+.admin-section-title {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: hsl(var(--foreground));
+  margin: 0 0 1rem 0;
+}
+
+.admin-table-wrapper {
+  overflow-x: auto;
+  border: 1px solid hsl(var(--border));
+  border-radius: 0.5rem;
+}
+
+.admin-status-badge {
+  display: inline-block;
+  font-size: 0.7rem;
+  font-weight: 600;
+  padding: 0.15rem 0.5rem;
+  border-radius: 9999px;
+  text-transform: uppercase;
+}
+
+.admin-status-active {
+  background-color: hsl(142 76% 36% / 0.15);
+  color: hsl(142 76% 36%);
+}
+
+.admin-status-suspended {
+  background-color: hsl(0 84% 60% / 0.15);
+  color: hsl(0 84% 60%);
+}
+
+.admin-status-pending {
+  background-color: hsl(45 93% 47% / 0.15);
+  color: hsl(45 93% 47%);
+}
+
+.admin-create-user {
+  margin-bottom: 1.5rem;
+  padding: 1rem;
+  border-radius: 0.5rem;
+  background-color: hsl(var(--primary) / 0.03);
+  border: 1px dashed hsl(var(--primary) / 0.2);
+}
+
+.admin-create-form {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  align-items: center;
+}

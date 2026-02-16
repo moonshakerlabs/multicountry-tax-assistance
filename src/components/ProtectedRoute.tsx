@@ -6,18 +6,8 @@ interface ProtectedRouteProps {
   requiredRole?: 'user' | 'admin';
 }
 
-// Bypass auth entirely in test/preview environment
-const isTestEnv = window.location.hostname.includes('lovable.app') ||
-                  window.location.hostname.includes('lovableproject.com') ||
-                  window.location.hostname === 'localhost';
-
 export function ProtectedRoute({ children, requiredRole }: ProtectedRouteProps) {
-  const { user, profile, loading } = useAuth();
-
-  // In test environment, skip all auth checks
-  if (isTestEnv) {
-    return <>{children}</>;
-  }
+  const { user, profile, loading, userRoles } = useAuth();
 
   if (loading) {
     return (
@@ -39,8 +29,12 @@ export function ProtectedRoute({ children, requiredRole }: ProtectedRouteProps) 
     );
   }
 
-  if (requiredRole === 'admin' && profile.role !== 'admin') {
-    return <Navigate to="/dashboard" replace />;
+  // For admin routes, require any admin-level role
+  if (requiredRole === 'admin') {
+    const isAdmin = userRoles.some(r => ['super_admin', 'admin', 'employee_admin'].includes(r));
+    if (!isAdmin) {
+      return <Navigate to="/dashboard" replace />;
+    }
   }
 
   return <>{children}</>;

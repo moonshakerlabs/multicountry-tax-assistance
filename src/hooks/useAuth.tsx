@@ -2,7 +2,7 @@ import { createContext, useContext, useEffect, useState, ReactNode } from 'react
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 
-type AppRole = 'user' | 'admin';
+type AppRole = 'user' | 'admin' | 'super_admin' | 'employee_admin';
 
 interface Profile {
   id: string;
@@ -20,6 +20,9 @@ interface AuthContextType {
   session: Session | null;
   profile: Profile | null;
   loading: boolean;
+  userRoles: AppRole[];
+  isAnyAdmin: boolean;
+  isSuperAdmin: boolean;
   signUp: (email: string, password: string) => Promise<{ error: Error | null }>;
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
   signInWithGoogle: () => Promise<{ error: Error | null }>;
@@ -33,6 +36,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
+  const [userRoles, setUserRoles] = useState<AppRole[]>([]);
   const [loading, setLoading] = useState(true);
 
   const fetchProfile = async (userId: string) => {
@@ -54,40 +58,72 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const fetchUserRoles = async (userId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('user_roles')
+        .select('role')
+        .eq('user_id', userId);
+
+      if (error) {
+        console.error('Error fetching user roles:', error);
+        return ['user' as AppRole];
+      }
+      return (data?.map(r => r.role as AppRole)) || ['user' as AppRole];
+    } catch (error) {
+      console.error('Error fetching user roles:', error);
+      return ['user' as AppRole];
+    }
+  };
+
   const refreshProfile = async () => {
     if (user) {
-      const profileData = await fetchProfile(user.id);
+      const [profileData, roles] = await Promise.all([
+        fetchProfile(user.id),
+        fetchUserRoles(user.id),
+      ]);
       setProfile(profileData);
+      setUserRoles(roles);
     }
   };
 
   useEffect(() => {
-    // Set up auth state listener FIRST
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
         setSession(session);
         setUser(session?.user ?? null);
         
-        // Defer profile fetch with setTimeout to avoid deadlock
         if (session?.user) {
           setTimeout(() => {
-            fetchProfile(session.user.id).then(setProfile);
+            Promise.all([
+              fetchProfile(session.user.id),
+              fetchUserRoles(session.user.id),
+            ]).then(([profileData, roles]) => {
+              setProfile(profileData);
+              setUserRoles(roles);
+            });
           }, 0);
         } else {
           setProfile(null);
+          setUserRoles([]);
         }
         
         setLoading(false);
       }
     );
 
-    // THEN check for existing session
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       setUser(session?.user ?? null);
       
       if (session?.user) {
-        fetchProfile(session.user.id).then(setProfile);
+        Promise.all([
+          fetchProfile(session.user.id),
+          fetchUserRoles(session.user.id),
+        ]).then(([profileData, roles]) => {
+          setProfile(profileData);
+          setUserRoles(roles);
+        });
       }
       
       setLoading(false);
@@ -133,7 +169,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signOut = async () => {
     await supabase.auth.signOut();
     setProfile(null);
+    setUserRoles([]);
   };
+
+  const isAnyAdmin = userRoles.some(r => ['super_admin', 'admin', 'employee_admin'].includes(r));
+  const isSuperAdmin = userRoles.includes('super_admin');
 
   return (
     <AuthContext.Provider value={{
@@ -141,6 +181,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       session,
       profile,
       loading,
+      userRoles,
+      isAnyAdmin,
+      isSuperAdmin,
       signUp,
       signIn,
       signInWithGoogle,
