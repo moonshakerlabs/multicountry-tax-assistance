@@ -30,12 +30,13 @@ Deno.serve(async (req) => {
       const existing = existingUsers?.users?.find(u => u.email === email);
       
       if (existing) {
-        // User exists, just ensure they have super_admin role
+        // User exists, update password and ensure super_admin role
+        await adminSupabase.auth.admin.updateUserById(existing.id, { password });
         await adminSupabase.from("user_roles").delete().eq("user_id", existing.id);
         await adminSupabase.from("user_roles").insert({ user_id: existing.id, role: "super_admin" });
         await adminSupabase.from("profiles").update({ role: "super_admin" }).eq("id", existing.id);
         
-        return new Response(JSON.stringify({ success: true, message: "Existing user promoted to super_admin" }), {
+        return new Response(JSON.stringify({ success: true, message: "Existing user updated and promoted to super_admin" }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
