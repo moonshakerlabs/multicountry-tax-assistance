@@ -1,4 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { DRIVE_ROOT_FOLDER_NAME } from "../_shared/drive-constants.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -125,7 +126,7 @@ Deno.serve(async (req) => {
         }
 
         // Create or find WordTaxFiling folder
-        const rootFolderId = await findOrCreateFolder(access_token, "WordTaxFiling", "root");
+        const rootFolderId = await findOrCreateFolder(access_token, DRIVE_ROOT_FOLDER_NAME, "root");
 
         // Calculate token expiry
         const tokenExpiry = new Date(Date.now() + expires_in * 1000).toISOString();

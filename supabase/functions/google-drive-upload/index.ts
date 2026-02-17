@@ -1,4 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { DRIVE_ROOT_FOLDER_NAME } from "../_shared/drive-constants.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -85,46 +86,54 @@ Deno.serve(async (req) => {
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
-    // commenting to revert in case any problem comes
-    //  const rootFolderId = tokenRow.root_folder_id;
-
-    // substituing the above logic this below block is given
-
-    // Ensure WordTaxFiling root folder exists
-    let rootFolderId = tokenRow.root_folder_id;
 
     // Create admin client for DB updates
     const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const adminClient = createClient(supabaseUrl, serviceRoleKey);
 
+    // Step 1: Ensure root folder exists (check DB cache first, then Drive)
+    let rootFolderId = tokenRow.root_folder_id;
     if (!rootFolderId) {
-      console.log("Root folder missing. Creating WordTaxFiling...");
+      console.log(`Root folder missing in DB. Searching/creating "${DRIVE_ROOT_FOLDER_NAME}" on Drive...`);
+      rootFolderId = await findOrCreateFolder(accessToken, DRIVE_ROOT_FOLDER_NAME, "root");
 
-      rootFolderId = await findOrCreateFolder(accessToken, "WordTaxFiling", "root");
+      // Cache root folder ID in DB so we don't search again
+      await adminClient
+        .from("google_drive_tokens")
+        .update({ root_folder_id: rootFolderId })
+        .eq("user_id", userId);
 
-      // Save newly created root folder ID in DB
-      await adminClient.from("google_drive_tokens").update({ root_folder_id: rootFolderId }).eq("user_id", userId);
-
-      console.log("Root folder created:", rootFolderId);
+      console.log("Root folder ID cached:", rootFolderId);
+    } else {
+      // Verify the cached root folder still exists on Drive (not trashed)
+      const exists = await folderExists(accessToken, rootFolderId);
+      if (!exists) {
+        console.log("Cached root folder no longer exists. Re-creating...");
+        rootFolderId = await findOrCreateFolder(accessToken, DRIVE_ROOT_FOLDER_NAME, "root");
+        await adminClient
+          .from("google_drive_tokens")
+          .update({ root_folder_id: rootFolderId })
+          .eq("user_id", userId);
+      }
     }
 
-    // end of thie root folder creation logic. remove the block till here if not workign as expected
-
-    // Create or find folder structure: WordTaxFiling/{Country}/{Year}
+    // Step 2: Ensure country folder exists under root
     const countryFolderId = await findOrCreateFolder(accessToken, country, rootFolderId);
+
+    // Step 3: Ensure year folder exists under country
     const yearFolderId = await findOrCreateFolder(accessToken, year, countryFolderId);
 
-    // Rename file: {Country}-{Category}-{Year}-{OriginalFilename}
-    const renamedFilename = `${country}-${category}-${year}-${originalFilename}`;
+    // Step 4: Build filename with category prefix and handle duplicates
+    const desiredFilename = `${category}-${originalFilename}`;
+    const finalFilename = await getUniqueFilename(accessToken, yearFolderId, desiredFilename);
 
-    // Upload file to Google Drive
+    // Step 5: Upload file to Google Drive
     const fileBytes = await file.arrayBuffer();
     const metadata = {
-      name: renamedFilename,
+      name: finalFilename,
       parents: [yearFolderId],
     };
 
-    // Use multipart upload
     const boundary = "boundary_" + Date.now();
     const metadataPart = JSON.stringify(metadata);
     const multipartBody = new Uint8Array(
@@ -157,7 +166,7 @@ Deno.serve(async (req) => {
         file_id: uploadResult.id,
         file_name: uploadResult.name,
         web_view_link: uploadResult.webViewLink,
-        drive_folder_path: `WordTaxFiling/${country}/${year}`,
+        drive_folder_path: `${DRIVE_ROOT_FOLDER_NAME}/${country}/${year}`,
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
@@ -190,7 +199,6 @@ async function refreshAccessToken(refreshToken: string, userId: string): Promise
     throw new Error(`Token refresh failed: ${data.error_description || data.error}`);
   }
 
-  // Update stored token
   const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
   const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
   const adminClient = createClient(supabaseUrl, serviceRoleKey);
@@ -204,17 +212,37 @@ async function refreshAccessToken(refreshToken: string, userId: string): Promise
   return data.access_token;
 }
 
+/** Check if a folder ID still exists and is not trashed */
+async function folderExists(accessToken: string, folderId: string): Promise<boolean> {
+  try {
+    const res = await fetch(
+      `${DRIVE_FILES_URL}/${folderId}?fields=id,trashed`,
+      { headers: { Authorization: `Bearer ${accessToken}` } },
+    );
+    if (!res.ok) return false;
+    const data = await res.json();
+    return !data.trashed;
+  } catch {
+    return false;
+  }
+}
+
+/** Find an existing folder by name+parent, or create it. Reuses existing folders. */
 async function findOrCreateFolder(accessToken: string, name: string, parent: string): Promise<string> {
-  const query = `name='${name}' and mimeType='application/vnd.google-apps.folder' and '${parent}' in parents and trashed=false`;
-  const searchResponse = await fetch(`${DRIVE_FILES_URL}?q=${encodeURIComponent(query)}&fields=files(id,name)`, {
-    headers: { Authorization: `Bearer ${accessToken}` },
-  });
+  const escapedName = name.replace(/'/g, "\\'");
+  const query = `name='${escapedName}' and mimeType='application/vnd.google-apps.folder' and '${parent}' in parents and trashed=false`;
+  const searchResponse = await fetch(
+    `${DRIVE_FILES_URL}?q=${encodeURIComponent(query)}&fields=files(id,name)`,
+    { headers: { Authorization: `Bearer ${accessToken}` } },
+  );
   const searchData = await searchResponse.json();
 
   if (searchData.files && searchData.files.length > 0) {
+    console.log(`Folder "${name}" already exists under parent "${parent}": ${searchData.files[0].id}`);
     return searchData.files[0].id;
   }
 
+  console.log(`Creating folder "${name}" under parent "${parent}"...`);
   const createResponse = await fetch(DRIVE_FILES_URL, {
     method: "POST",
     headers: {
@@ -231,6 +259,50 @@ async function findOrCreateFolder(accessToken: string, name: string, parent: str
   return createData.id;
 }
 
+/** Check for existing files with the same name and return a unique name with _1, _2, etc. */
+async function getUniqueFilename(accessToken: string, folderId: string, desiredName: string): Promise<string> {
+  // Split into name and extension
+  const lastDot = desiredName.lastIndexOf(".");
+  const baseName = lastDot > 0 ? desiredName.substring(0, lastDot) : desiredName;
+  const extension = lastDot > 0 ? desiredName.substring(lastDot) : "";
+
+  // Check if exact name exists
+  const escapedName = desiredName.replace(/'/g, "\\'");
+  const query = `name='${escapedName}' and '${folderId}' in parents and trashed=false`;
+  const res = await fetch(
+    `${DRIVE_FILES_URL}?q=${encodeURIComponent(query)}&fields=files(id)`,
+    { headers: { Authorization: `Bearer ${accessToken}` } },
+  );
+  const data = await res.json();
+
+  if (!data.files || data.files.length === 0) {
+    return desiredName; // No conflict
+  }
+
+  // Find the next available suffix
+  let suffix = 1;
+  while (true) {
+    const candidateName = `${baseName}_${suffix}${extension}`;
+    const escapedCandidate = candidateName.replace(/'/g, "\\'");
+    const q = `name='${escapedCandidate}' and '${folderId}' in parents and trashed=false`;
+    const r = await fetch(
+      `${DRIVE_FILES_URL}?q=${encodeURIComponent(q)}&fields=files(id)`,
+      { headers: { Authorization: `Bearer ${accessToken}` } },
+    );
+    const d = await r.json();
+
+    if (!d.files || d.files.length === 0) {
+      console.log(`Duplicate detected. Using filename: ${candidateName}`);
+      return candidateName;
+    }
+    suffix++;
+    if (suffix > 100) {
+      // Safety limit
+      return `${baseName}_${Date.now()}${extension}`;
+    }
+  }
+}
+
 async function buildMultipartBody(
   boundary: string,
   metadata: string,
@@ -240,17 +312,14 @@ async function buildMultipartBody(
   const encoder = new TextEncoder();
   const parts: Uint8Array[] = [];
 
-  // Metadata part
   parts.push(encoder.encode(`--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n`));
   parts.push(encoder.encode(metadata));
   parts.push(encoder.encode(`\r\n`));
 
-  // File part
   parts.push(encoder.encode(`--${boundary}\r\nContent-Type: ${mimeType}\r\n\r\n`));
   parts.push(fileBytes);
   parts.push(encoder.encode(`\r\n--${boundary}--`));
 
-  // Combine all parts
   let totalLength = 0;
   for (const part of parts) totalLength += part.length;
 
