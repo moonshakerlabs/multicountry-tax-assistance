@@ -21,12 +21,9 @@ export function ProtectedRoute({ children, requiredRole }: ProtectedRouteProps) 
     return <Navigate to="/login" replace />;
   }
 
+  // If profile is null after loading, redirect to profile setup instead of hanging
   if (!profile) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-background">
-        <div className="animate-pulse text-muted-foreground">Loading profile...</div>
-      </div>
-    );
+    return <Navigate to="/profile-setup" replace />;
   }
 
   // For admin routes, require any admin-level role

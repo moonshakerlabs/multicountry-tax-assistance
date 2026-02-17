@@ -89,8 +89,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   useEffect(() => {
+    let isMounted = true;
+
+    // Listener for ONGOING auth changes (does NOT control loading)
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
+        if (!isMounted) return;
         setSession(session);
         setUser(session?.user ?? null);
         
@@ -100,37 +104,51 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               fetchProfile(session.user.id),
               fetchUserRoles(session.user.id),
             ]).then(([profileData, roles]) => {
+              if (!isMounted) return;
               setProfile(profileData);
               setUserRoles(roles);
+              setLoading(false);
             });
           }, 0);
         } else {
           setProfile(null);
           setUserRoles([]);
+          setLoading(false);
         }
-        
-        setLoading(false);
       }
     );
 
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      
-      if (session?.user) {
-        Promise.all([
-          fetchProfile(session.user.id),
-          fetchUserRoles(session.user.id),
-        ]).then(([profileData, roles]) => {
+    // INITIAL load — fetch profile BEFORE setting loading to false
+    const initializeAuth = async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!isMounted) return;
+
+        setSession(session);
+        setUser(session?.user ?? null);
+
+        if (session?.user) {
+          const [profileData, roles] = await Promise.all([
+            fetchProfile(session.user.id),
+            fetchUserRoles(session.user.id),
+          ]);
+          if (!isMounted) return;
           setProfile(profileData);
           setUserRoles(roles);
-        });
+        }
+      } catch (error) {
+        console.error('Error initializing auth:', error);
+      } finally {
+        if (isMounted) setLoading(false);
       }
-      
-      setLoading(false);
-    });
+    };
 
-    return () => subscription.unsubscribe();
+    initializeAuth();
+
+    return () => {
+      isMounted = false;
+      subscription.unsubscribe();
+    };
   }, []);
 
   const signUp = async (email: string, password: string) => {
