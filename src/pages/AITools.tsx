@@ -27,8 +27,6 @@ import {
   Download,
   FileSpreadsheet,
   Key,
-  Eye,
-  EyeOff,
 } from 'lucide-react';
 import './AITools.css';
 
@@ -118,24 +116,7 @@ export default function AITools() {
     return () => authSub.unsubscribe();
   }, []);
 
-  // Custom API key state
-  const [customApiKey, setCustomApiKey] = useState(() => localStorage.getItem('ai_custom_api_key') || '');
-  const [showApiKey, setShowApiKey] = useState(false);
-  const [showApiKeySettings, setShowApiKeySettings] = useState(false);
-
-  const saveCustomApiKey = (key: string) => {
-    setCustomApiKey(key);
-    if (key) {
-      localStorage.setItem('ai_custom_api_key', key);
-    } else {
-      localStorage.removeItem('ai_custom_api_key');
-    }
-  };
-
   const getCustomHeaders = (): Record<string, string> => {
-    if (customApiKey.trim()) {
-      return { 'x-custom-ai-key': customApiKey.trim() };
-    }
     return {};
   };
 
@@ -513,57 +494,7 @@ export default function AITools() {
                 <span className="ai-tools-pro-badge">PRO</span>
               )}
             </button>
-            <button
-              className={`ai-tools-mode-btn ${showApiKeySettings ? 'active' : ''}`}
-              onClick={() => setShowApiKeySettings(!showApiKeySettings)}
-              title="Custom API Key Settings"
-            >
-              <Key className="h-4 w-4" />
-              API Key
-              {customApiKey && <span className="ai-tools-pro-badge" style={{ background: 'hsl(var(--primary))' }}>✓</span>}
-            </button>
           </div>
-
-          {/* API Key Settings Panel */}
-          {showApiKeySettings && (
-            <div className="ai-tools-api-key-panel">
-              <div className="ai-tools-api-key-header">
-                <Key className="h-4 w-4" />
-                <span>Custom AI API Key (Optional)</span>
-              </div>
-              <p className="ai-tools-api-key-desc">
-                Provide your own Lovable AI API key. If not set, the default platform key will be used.
-              </p>
-              <div className="ai-tools-api-key-input-wrap">
-                <input
-                  type={showApiKey ? 'text' : 'password'}
-                  value={customApiKey}
-                  onChange={(e) => saveCustomApiKey(e.target.value)}
-                  placeholder="Enter your API key..."
-                  className="ai-tools-api-key-input"
-                />
-                <button
-                  className="ai-tools-api-key-toggle"
-                  onClick={() => setShowApiKey(!showApiKey)}
-                  title={showApiKey ? 'Hide key' : 'Show key'}
-                >
-                  {showApiKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                </button>
-                {customApiKey && (
-                  <button
-                    className="ai-tools-api-key-clear"
-                    onClick={() => saveCustomApiKey('')}
-                    title="Clear key"
-                  >
-                    <X className="h-4 w-4" />
-                  </button>
-                )}
-              </div>
-              <p className="ai-tools-api-key-status">
-                {customApiKey ? '✅ Custom key active — will be used for all AI requests' : '⚡ Using default platform key'}
-              </p>
-            </div>
-          )}
 
           {/* Privacy Banner */}
           <div className="ai-tools-privacy-banner">

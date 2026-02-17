@@ -46,31 +46,40 @@ serve(async (req) => {
       userId = "test-user";
     }
 
-    // Check plan — Pro or Super Pro only
+    // Check plan — Pro or Super Pro only (super_admin bypasses)
     if (!isTestEnv) {
-      const { data: sub } = await supabase
-        .from("user_subscriptions")
-        .select("subscription_plan, subscription_status")
+      // Check if user is super_admin — bypass paywall
+      const { data: roleData } = await adminSupabase
+        .from("user_roles")
+        .select("role")
         .eq("user_id", userId)
+        .eq("role", "super_admin")
         .maybeSingle();
 
-      const plan = sub?.subscription_plan || "FREE";
-      if (!["PRO", "SUPER_PRO"].includes(plan) || sub?.subscription_status !== "ACTIVE") {
-        return new Response(
-          JSON.stringify({ error: "UPGRADE_REQUIRED", message: "Vault Scan requires Pro or Super Pro plan." }),
-          { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
+      if (!roleData) {
+        const { data: sub } = await adminSupabase
+          .from("user_subscriptions")
+          .select("subscription_plan, subscription_status")
+          .eq("user_id", userId)
+          .maybeSingle();
+
+        const plan = sub?.subscription_plan || "FREE";
+        if (!["PRO", "SUPER_PRO"].includes(plan) || sub?.subscription_status !== "ACTIVE") {
+          return new Response(
+            JSON.stringify({ error: "UPGRADE_REQUIRED", message: "Vault Scan requires Pro or Super Pro plan." }),
+            { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
       }
     }
 
     const body = await req.json();
     const { action } = body;
 
-    // Use custom API key if provided, otherwise fall back to LOVABLE_API_KEY
-    const customApiKey = req.headers.get("x-custom-ai-key");
+    // Use LOVABLE_API_KEY for AI requests
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    const aiApiKey = customApiKey || LOVABLE_API_KEY;
-    if (!aiApiKey) throw new Error("No AI API key available. Please provide a custom key or contact support.");
+    const aiApiKey = LOVABLE_API_KEY;
+    if (!aiApiKey) throw new Error("AI API key not configured. Please contact support.");
 
     // Admin client for storage access
     const adminSupabase = createClient(supabaseUrl, serviceRoleKey);

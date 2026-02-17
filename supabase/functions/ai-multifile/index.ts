@@ -56,18 +56,32 @@ serve(async (req) => {
 
     let plan = "SUPER_PRO"; // default for test
     if (!isTestEnv) {
-      const { data: sub } = await supabase
-        .from("user_subscriptions")
-        .select("subscription_plan, subscription_status")
+      // Check if user is super_admin — bypass paywall
+      const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+      const adminSupabase = createClient(supabaseUrl, serviceRoleKey);
+      const { data: roleData } = await adminSupabase
+        .from("user_roles")
+        .select("role")
         .eq("user_id", user.id)
+        .eq("role", "super_admin")
         .maybeSingle();
 
-      plan = sub?.subscription_plan || "FREE";
-      if (plan === "FREE" || sub?.subscription_status !== "ACTIVE") {
-        return new Response(
-          JSON.stringify({ error: "UPGRADE_REQUIRED", message: "This feature requires a paid plan." }),
-          { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
+      if (roleData) {
+        plan = "SUPER_PRO";
+      } else {
+        const { data: sub } = await adminSupabase
+          .from("user_subscriptions")
+          .select("subscription_plan, subscription_status")
+          .eq("user_id", user.id)
+          .maybeSingle();
+
+        plan = sub?.subscription_plan || "FREE";
+        if (plan === "FREE" || sub?.subscription_status !== "ACTIVE") {
+          return new Response(
+            JSON.stringify({ error: "UPGRADE_REQUIRED", message: "This feature requires a paid plan." }),
+            { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
       }
     }
 
@@ -177,12 +191,11 @@ serve(async (req) => {
       }
     }
 
-    // Use custom API key if provided, otherwise fall back to LOVABLE_API_KEY
-    const customApiKey = req.headers.get("x-custom-ai-key");
+    // Use LOVABLE_API_KEY for AI requests
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    const aiApiKey = customApiKey || LOVABLE_API_KEY;
+    const aiApiKey = LOVABLE_API_KEY;
     if (!aiApiKey) {
-      throw new Error("No AI API key available. Please provide a custom key or contact support.");
+      throw new Error("AI API key not configured. Please contact support.");
     }
 
     // Stream response from AI
