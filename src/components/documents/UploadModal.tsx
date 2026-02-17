@@ -6,7 +6,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import { useStoragePreference } from '@/hooks/useStoragePreference';
 import { supabase } from '@/integrations/supabase/client';
-import { X, Upload, Plus, FileUp, HardDrive } from 'lucide-react';
+import { X, Upload, Plus, FileUp, HardDrive, Trash2 } from 'lucide-react';
 import { getMainCategoriesForCountry, getSubCategoriesForCountry, getCategoryLabel } from '@/lib/categories';
 import { ALL_COUNTRIES } from '@/lib/countryLanguageData';
 import StoragePreferenceModal from './StoragePreferenceModal';
@@ -33,10 +33,18 @@ interface UploadModalProps {
   onUploadComplete: () => void;
 }
 
+interface FileEntry {
+  file: File;
+  customName: string; // optional custom name
+}
+
 const CURRENT_YEAR = new Date().getFullYear();
 const TAX_YEARS = Array.from({ length: 10 }, (_, i) => (CURRENT_YEAR - i).toString());
 
 type ModalFlow = 'none' | 'storage_choice' | 'gdpr_consent' | 'google_drive_redirect' | 'upload';
+
+const ALLOWED_TYPES = ['application/pdf', 'image/jpeg', 'image/png', 'image/gif', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'];
+const MAX_FILE_SIZE = 52428800; // 50 MB
 
 export default function UploadModal({ userProfile, onClose, onUploadComplete }: UploadModalProps) {
   const { user, profile } = useAuth();
@@ -54,7 +62,7 @@ export default function UploadModal({ userProfile, onClose, onUploadComplete }: 
   
   const [modalFlow, setModalFlow] = useState<ModalFlow>('none');
   const [isUploading, setIsUploading] = useState(false);
-  const [file, setFile] = useState<File | null>(null);
+  const [fileEntries, setFileEntries] = useState<FileEntry[]>([]);
   const [customCategories, setCustomCategories] = useState<CustomCategory[]>([]);
   
   // Form state
@@ -185,33 +193,55 @@ export default function UploadModal({ userProfile, onClose, onUploadComplete }: 
 
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const selectedFile = e.target.files?.[0];
-    if (selectedFile) {
-      const allowedTypes = ['application/pdf', 'image/jpeg', 'image/png', 'image/gif', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'];
-      if (!allowedTypes.includes(selectedFile.type)) {
+    const selectedFiles = e.target.files;
+    if (!selectedFiles || selectedFiles.length === 0) return;
+
+    const newEntries: FileEntry[] = [];
+    for (let i = 0; i < selectedFiles.length; i++) {
+      const f = selectedFiles[i];
+      if (!ALLOWED_TYPES.includes(f.type)) {
         toast({
           title: isDE ? 'Ungültiger Dateityp' : 'Invalid file type',
-          description: isDE 
-            ? 'Bitte laden Sie nur PDF, Word oder Bilddateien hoch.'
-            : 'Please upload PDF, Word or image files only.',
+          description: `${f.name}: ${isDE ? 'Nur PDF, Word oder Bilddateien.' : 'Only PDF, Word or image files.'}`,
           variant: 'destructive',
         });
-        return;
+        continue;
       }
-      
-      if (selectedFile.size > 52428800) {
+      if (f.size > MAX_FILE_SIZE) {
         toast({
           title: isDE ? 'Datei zu groß' : 'File too large',
-          description: isDE 
-            ? 'Die maximale Dateigröße beträgt 50 MB.'
-            : 'Maximum file size is 50 MB.',
+          description: `${f.name}: ${isDE ? 'Max. 50 MB.' : 'Max 50 MB.'}`,
           variant: 'destructive',
         });
-        return;
+        continue;
       }
-      
-      setFile(selectedFile);
+      newEntries.push({ file: f, customName: '' });
     }
+    setFileEntries(prev => [...prev, ...newEntries]);
+    // Reset input so same files can be re-selected
+    e.target.value = '';
+  };
+
+  const removeFile = (index: number) => {
+    setFileEntries(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const updateCustomName = (index: number, name: string) => {
+    setFileEntries(prev => prev.map((entry, i) => i === index ? { ...entry, customName: name } : entry));
+  };
+
+  const getEffectiveFileName = (entry: FileEntry): string => {
+    if (entry.customName.trim()) {
+      // Keep original extension
+      const ext = entry.file.name.split('.').pop();
+      const baseName = entry.customName.trim();
+      // If user already included extension, use as-is
+      if (baseName.toLowerCase().endsWith(`.${ext?.toLowerCase()}`)) {
+        return baseName;
+      }
+      return `${baseName}.${ext}`;
+    }
+    return entry.file.name;
   };
 
   const handleAddCustomCategory = async () => {
@@ -261,109 +291,122 @@ export default function UploadModal({ userProfile, onClose, onUploadComplete }: 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!file || !user || !mainCategory || !subCategory) {
+    if (fileEntries.length === 0 || !user || !mainCategory || !subCategory) {
       toast({
         title: isDE ? 'Fehlende Felder' : 'Missing fields',
         description: isDE 
-          ? 'Bitte füllen Sie alle erforderlichen Felder aus.'
-          : 'Please fill in all required fields.',
+          ? 'Bitte füllen Sie alle erforderlichen Felder aus und wählen Sie mindestens eine Datei.'
+          : 'Please fill in all required fields and select at least one file.',
         variant: 'destructive',
       });
       return;
     }
     
     setIsUploading(true);
+    let successCount = 0;
+    let failCount = 0;
     
     try {
-      if (storagePreference === 'google_drive') {
-        // Upload to Google Drive via edge function
-        const { data: { session } } = await supabase.auth.getSession();
-        if (!session) throw new Error('Not logged in');
+      for (const entry of fileEntries) {
+        const effectiveName = getEffectiveFileName(entry);
 
-        const formData = new FormData();
-        formData.append('file', file);
-        formData.append('country', country);
-        formData.append('year', taxYear);
-        formData.append('category', subCategory);
-        formData.append('original_filename', file.name);
+        try {
+          if (storagePreference === 'google_drive') {
+            const { data: { session } } = await supabase.auth.getSession();
+            if (!session) throw new Error('Not logged in');
 
-        const response = await fetch(
-          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/google-drive-upload`,
-          {
-            method: 'POST',
-            headers: {
-              Authorization: `Bearer ${session.access_token}`,
-            },
-            body: formData,
+            const formData = new FormData();
+            formData.append('file', entry.file);
+            formData.append('country', country);
+            formData.append('year', taxYear);
+            formData.append('category', subCategory);
+            formData.append('original_filename', effectiveName);
+
+            const response = await fetch(
+              `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/google-drive-upload`,
+              {
+                method: 'POST',
+                headers: {
+                  Authorization: `Bearer ${session.access_token}`,
+                },
+                body: formData,
+              }
+            );
+
+            const result = await response.json();
+            if (!response.ok) {
+              throw new Error(result.message || result.error || 'Upload failed');
+            }
+
+            const documentId = crypto.randomUUID();
+            await supabase.from('documents').insert({
+              id: documentId,
+              user_id: user.id,
+              country,
+              tax_year: taxYear,
+              main_category: mainCategory,
+              sub_category: subCategory,
+              file_name: result.file_name || effectiveName,
+              file_path: `gdrive://${result.file_id}`,
+            });
+          } else {
+            // SaaS storage upload
+            const documentId = crypto.randomUUID();
+            const fileExt = entry.file.name.split('.').pop();
+            const filePath = `${user.id}/${documentId}.${fileExt}`;
+            
+            const { error: uploadError } = await supabase.storage
+              .from('user-documents')
+              .upload(filePath, entry.file);
+            
+            if (uploadError) throw uploadError;
+            
+            const { error: dbError } = await supabase
+              .from('documents')
+              .insert({
+                id: documentId,
+                user_id: user.id,
+                country,
+                tax_year: taxYear,
+                main_category: mainCategory,
+                sub_category: subCategory,
+                file_name: effectiveName,
+                file_path: filePath,
+              });
+            
+            if (dbError) {
+              await supabase.storage.from('user-documents').remove([filePath]);
+              throw dbError;
+            }
           }
-        );
-
-        const result = await response.json();
-        if (!response.ok) {
-          throw new Error(result.message || result.error || 'Upload failed');
+          successCount++;
+        } catch (fileError: any) {
+          console.error(`Upload error for ${effectiveName}:`, fileError);
+          failCount++;
         }
+      }
 
-        // Also store document record in our DB for tracking
-        const documentId = crypto.randomUUID();
-        await supabase.from('documents').insert({
-          id: documentId,
-          user_id: user.id,
-          country,
-          tax_year: taxYear,
-          main_category: mainCategory,
-          sub_category: subCategory,
-          file_name: result.file_name || file.name,
-          file_path: `gdrive://${result.file_id}`,
-        });
-
+      if (successCount > 0) {
         toast({
           title: isDE ? 'Erfolgreich hochgeladen' : 'Upload successful',
-          description: isDE 
-            ? `Dokument in Google Drive gespeichert: ${result.drive_folder_path}`
-            : `Document saved to Google Drive: ${result.drive_folder_path}`,
+          description: failCount > 0
+            ? (isDE 
+              ? `${successCount} Dokument(e) hochgeladen, ${failCount} fehlgeschlagen.`
+              : `${successCount} document(s) uploaded, ${failCount} failed.`)
+            : (isDE 
+              ? `${successCount} Dokument(e) erfolgreich hochgeladen.`
+              : `${successCount} document(s) uploaded successfully.`),
         });
-        
         onUploadComplete();
-        return;
-      }
-
-      // SaaS storage upload
-      const documentId = crypto.randomUUID();
-      const fileExt = file.name.split('.').pop();
-      const filePath = `${user.id}/${documentId}.${fileExt}`;
-      
-      const { error: uploadError } = await supabase.storage
-        .from('user-documents')
-        .upload(filePath, file);
-      
-      if (uploadError) throw uploadError;
-      
-      const { error: dbError } = await supabase
-        .from('documents')
-        .insert({
-          id: documentId,
-          user_id: user.id,
-          country,
-          tax_year: taxYear,
-          main_category: mainCategory,
-          sub_category: subCategory,
-          file_name: file.name,
-          file_path: filePath,
+      } else {
+        toast({
+          title: isDE ? 'Hochladen fehlgeschlagen' : 'Upload failed',
+          description: isDE 
+            ? 'Keine Dokumente konnten hochgeladen werden.'
+            : 'No documents could be uploaded.',
+          variant: 'destructive',
         });
-      
-      if (dbError) {
-        await supabase.storage.from('user-documents').remove([filePath]);
-        throw dbError;
       }
-      
-      toast({
-        title: isDE ? 'Erfolgreich hochgeladen' : 'Upload successful',
-        description: isDE 
-          ? 'Ihr Dokument wurde gespeichert.'
-          : 'Your document has been saved.',
-      });
-      
-      onUploadComplete();
     } catch (error: any) {
       console.error('Upload error:', error);
       toast({
@@ -467,7 +510,7 @@ export default function UploadModal({ userProfile, onClose, onUploadComplete }: 
       <div className="upload-modal" onClick={e => e.stopPropagation()}>
         <div className="upload-modal-header">
           <h2 className="upload-modal-title">
-            {isDE ? 'Dokument hochladen' : 'Upload Document'}
+            {isDE ? 'Dokumente hochladen' : 'Upload Documents'}
           </h2>
           <button className="upload-modal-close" onClick={onClose}>
             <X className="upload-modal-close-icon" />
@@ -487,9 +530,9 @@ export default function UploadModal({ userProfile, onClose, onUploadComplete }: 
             </span>
           </div>
 
-          {/* File Upload */}
+          {/* File Upload - Multiple */}
           <div className="upload-field">
-            <Label>{isDE ? 'Datei *' : 'File *'}</Label>
+            <Label>{isDE ? 'Dateien *' : 'Files *'}</Label>
             <div className="upload-dropzone">
               <input
                 type="file"
@@ -497,21 +540,24 @@ export default function UploadModal({ userProfile, onClose, onUploadComplete }: 
                 className="upload-file-input"
                 onChange={handleFileChange}
                 accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.gif"
+                multiple
               />
               <label htmlFor="file-upload" className="upload-dropzone-label">
-                {file ? (
+                {fileEntries.length > 0 ? (
                   <>
                     <FileUp className="upload-dropzone-icon upload-dropzone-icon-success" />
-                    <span className="upload-dropzone-text">{file.name}</span>
+                    <span className="upload-dropzone-text">
+                      {fileEntries.length} {isDE ? 'Datei(en) ausgewählt' : 'file(s) selected'}
+                    </span>
                     <span className="upload-dropzone-hint">
-                      {(file.size / 1024 / 1024).toFixed(2)} MB
+                      {isDE ? 'Klicken, um weitere hinzuzufügen' : 'Click to add more'}
                     </span>
                   </>
                 ) : (
                   <>
                     <Upload className="upload-dropzone-icon" />
                     <span className="upload-dropzone-text">
-                      {isDE ? 'Datei auswählen oder hierher ziehen' : 'Choose a file or drag it here'}
+                      {isDE ? 'Dateien auswählen oder hierher ziehen' : 'Choose files or drag them here'}
                     </span>
                     <span className="upload-dropzone-hint">
                       PDF, Word, {isDE ? 'oder Bilder' : 'or images'} ({isDE ? 'max' : 'max'}. 50 MB)
@@ -521,6 +567,36 @@ export default function UploadModal({ userProfile, onClose, onUploadComplete }: 
               </label>
             </div>
           </div>
+
+          {/* File list with optional custom names */}
+          {fileEntries.length > 0 && (
+            <div className="upload-file-list">
+              {fileEntries.map((entry, index) => (
+                <div key={index} className="upload-file-entry">
+                  <div className="upload-file-entry-header">
+                    <FileUp className="upload-file-entry-icon" />
+                    <span className="upload-file-entry-name">{entry.file.name}</span>
+                    <span className="upload-file-entry-size">
+                      {(entry.file.size / 1024 / 1024).toFixed(2)} MB
+                    </span>
+                    <button
+                      type="button"
+                      className="upload-file-entry-remove"
+                      onClick={() => removeFile(index)}
+                    >
+                      <Trash2 className="upload-file-entry-remove-icon" />
+                    </button>
+                  </div>
+                  <Input
+                    value={entry.customName}
+                    onChange={(e) => updateCustomName(index, e.target.value)}
+                    placeholder={isDE ? 'Benutzerdefinierter Dateiname (optional)' : 'Custom file name (optional)'}
+                    className="upload-file-entry-custom-name"
+                  />
+                </div>
+              ))}
+            </div>
+          )}
 
           {/* Country Selection */}
           <div className="upload-field">
@@ -635,10 +711,12 @@ export default function UploadModal({ userProfile, onClose, onUploadComplete }: 
             <Button type="button" variant="outline" onClick={onClose} disabled={isUploading}>
               {isDE ? 'Abbrechen' : 'Cancel'}
             </Button>
-            <Button type="submit" disabled={isUploading || !file || !mainCategory || !subCategory}>
+            <Button type="submit" disabled={isUploading || fileEntries.length === 0 || !mainCategory || !subCategory}>
               {isUploading 
                 ? (isDE ? 'Wird hochgeladen...' : 'Uploading...') 
-                : (isDE ? 'Hochladen' : 'Upload')}
+                : (isDE 
+                  ? `${fileEntries.length} Datei(en) hochladen` 
+                  : `Upload ${fileEntries.length} file(s)`)}
             </Button>
           </div>
         </form>
