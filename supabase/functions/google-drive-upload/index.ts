@@ -85,10 +85,32 @@ Deno.serve(async (req) => {
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
+    // commenting to revert in case any problem comes
+    //  const rootFolderId = tokenRow.root_folder_id;
 
-    const rootFolderId = tokenRow.root_folder_id;
+    // substituing the above logic this below block is given
 
-    // Create or find folder structure: WorldTaxFiling/{Country}/{Year}
+    // Ensure WordTaxFiling root folder exists
+    let rootFolderId = tokenRow.root_folder_id;
+
+    // Create admin client for DB updates
+    const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const adminClient = createClient(supabaseUrl, serviceRoleKey);
+
+    if (!rootFolderId) {
+      console.log("Root folder missing. Creating WordTaxFiling...");
+
+      rootFolderId = await findOrCreateFolder(accessToken, "WordTaxFiling", "root");
+
+      // Save newly created root folder ID in DB
+      await adminClient.from("google_drive_tokens").update({ root_folder_id: rootFolderId }).eq("user_id", userId);
+
+      console.log("Root folder created:", rootFolderId);
+    }
+
+    // end of thie root folder creation logic. remove the block till here if not workign as expected
+
+    // Create or find folder structure: WordTaxFiling/{Country}/{Year}
     const countryFolderId = await findOrCreateFolder(accessToken, country, rootFolderId);
     const yearFolderId = await findOrCreateFolder(accessToken, year, countryFolderId);
 
@@ -135,7 +157,7 @@ Deno.serve(async (req) => {
         file_id: uploadResult.id,
         file_name: uploadResult.name,
         web_view_link: uploadResult.webViewLink,
-        drive_folder_path: `WorldTaxFiling/${country}/${year}`,
+        drive_folder_path: `WordTaxFiling/${country}/${year}`,
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
