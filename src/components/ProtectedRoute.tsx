@@ -31,7 +31,7 @@ export function ProtectedRoute({ children, requiredRole }: ProtectedRouteProps) 
 
   // For admin routes, require any admin-level role
   if (requiredRole === 'admin') {
-    const isAdmin = userRoles.some(r => ['super_admin', 'admin', 'employee_admin'].includes(r));
+    const isAdmin = userRoles.some(r => ['super_admin', 'employee_admin', 'user_admin'].includes(r));
     if (!isAdmin) {
       return <Navigate to="/dashboard" replace />;
     }
