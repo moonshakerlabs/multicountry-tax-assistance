@@ -2,7 +2,7 @@ import { createContext, useContext, useEffect, useState, ReactNode } from 'react
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 
-type AppRole = 'user' | 'admin' | 'super_admin' | 'employee_admin';
+type AppRole = 'user' | 'admin' | 'super_admin' | 'employee_admin' | 'user_admin';
 
 interface Profile {
   id: string;
@@ -181,7 +181,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUserRoles([]);
   };
 
-  const isAnyAdmin = userRoles.some(r => ['super_admin', 'admin', 'employee_admin'].includes(r));
+  const isAnyAdmin = userRoles.some(r => ['super_admin', 'employee_admin', 'user_admin'].includes(r));
   const isSuperAdmin = userRoles.includes('super_admin');
 
   return (
