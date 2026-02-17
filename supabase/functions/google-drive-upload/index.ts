@@ -36,7 +36,10 @@ Deno.serve(async (req) => {
     global: { headers: { Authorization: authHeader } },
   });
 
-  const { data: { user }, error: userError } = await supabase.auth.getUser();
+  const {
+    data: { user },
+    error: userError,
+  } = await supabase.auth.getUser();
   if (userError || !user) {
     return new Response(JSON.stringify({ error: "Unauthorized" }), {
       status: 401,
@@ -57,7 +60,7 @@ Deno.serve(async (req) => {
     if (tokenError || !tokenRow) {
       return new Response(
         JSON.stringify({ error: "Google Drive not connected. Please connect in your profile settings." }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
 
@@ -79,13 +82,13 @@ Deno.serve(async (req) => {
     if (!file || !country || !year || !category || !originalFilename) {
       return new Response(
         JSON.stringify({ error: "Missing required fields: file, country, year, category, original_filename" }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
 
     const rootFolderId = tokenRow.root_folder_id;
 
-    // Create or find folder structure: WordTaxFiling/{Country}/{Year}
+    // Create or find folder structure: WorldTaxFiling/{Country}/{Year}
     const countryFolderId = await findOrCreateFolder(accessToken, country, rootFolderId);
     const yearFolderId = await findOrCreateFolder(accessToken, year, countryFolderId);
 
@@ -103,7 +106,7 @@ Deno.serve(async (req) => {
     const boundary = "boundary_" + Date.now();
     const metadataPart = JSON.stringify(metadata);
     const multipartBody = new Uint8Array(
-      await buildMultipartBody(boundary, metadataPart, new Uint8Array(fileBytes), file.type)
+      await buildMultipartBody(boundary, metadataPart, new Uint8Array(fileBytes), file.type),
     );
 
     const uploadResponse = await fetch(`${DRIVE_UPLOAD_URL}?uploadType=multipart&fields=id,name,webViewLink`, {
@@ -118,10 +121,10 @@ Deno.serve(async (req) => {
     if (!uploadResponse.ok) {
       const errorData = await uploadResponse.text();
       console.error("Upload failed:", errorData);
-      return new Response(
-        JSON.stringify({ error: "Failed to upload to Google Drive", details: errorData }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      return new Response(JSON.stringify({ error: "Failed to upload to Google Drive", details: errorData }), {
+        status: 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
     const uploadResult = await uploadResponse.json();
@@ -132,16 +135,16 @@ Deno.serve(async (req) => {
         file_id: uploadResult.id,
         file_name: uploadResult.name,
         web_view_link: uploadResult.webViewLink,
-        drive_folder_path: `WordTaxFiling/${country}/${year}`,
+        drive_folder_path: `WorldTaxFiling/${country}/${year}`,
       }),
-      { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      { headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
   } catch (error) {
     console.error("Upload error:", error);
-    return new Response(
-      JSON.stringify({ error: "Internal server error", details: error.message }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
+    return new Response(JSON.stringify({ error: "Internal server error", details: error.message }), {
+      status: 500,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
   }
 });
 
@@ -179,16 +182,11 @@ async function refreshAccessToken(refreshToken: string, userId: string): Promise
   return data.access_token;
 }
 
-async function findOrCreateFolder(
-  accessToken: string,
-  name: string,
-  parent: string
-): Promise<string> {
+async function findOrCreateFolder(accessToken: string, name: string, parent: string): Promise<string> {
   const query = `name='${name}' and mimeType='application/vnd.google-apps.folder' and '${parent}' in parents and trashed=false`;
-  const searchResponse = await fetch(
-    `${DRIVE_FILES_URL}?q=${encodeURIComponent(query)}&fields=files(id,name)`,
-    { headers: { Authorization: `Bearer ${accessToken}` } }
-  );
+  const searchResponse = await fetch(`${DRIVE_FILES_URL}?q=${encodeURIComponent(query)}&fields=files(id,name)`, {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
   const searchData = await searchResponse.json();
 
   if (searchData.files && searchData.files.length > 0) {
@@ -215,7 +213,7 @@ async function buildMultipartBody(
   boundary: string,
   metadata: string,
   fileBytes: Uint8Array,
-  mimeType: string
+  mimeType: string,
 ): Promise<ArrayBuffer> {
   const encoder = new TextEncoder();
   const parts: Uint8Array[] = [];
