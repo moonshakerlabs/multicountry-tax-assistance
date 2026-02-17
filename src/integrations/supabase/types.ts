@@ -721,9 +721,9 @@ export type Database = {
       app_role:
         | "user"
         | "admin"
-        | "super_admin"
         | "employee_admin"
         | "user_admin"
+        | "super_admin"
       document_category:
         | "employment"
         | "interest"
@@ -863,9 +863,9 @@ export const Constants = {
       app_role: [
         "user",
         "admin",
-        "super_admin",
         "employee_admin",
         "user_admin",
+        "super_admin",
       ],
       document_category: [
         "employment",
