@@ -41,17 +41,15 @@ serve(async (req) => {
     let user: { id: string } | null = null;
 
     if (!isTestEnv) {
-      const {
-        data: { user: authUser },
-        error: authError,
-      } = await supabase.auth.getUser();
-      if (authError || !authUser) {
+      const token = authHeader.replace("Bearer ", "");
+      const { data: claimsData, error: claimsError } = await supabase.auth.getClaims(token);
+      if (claimsError || !claimsData?.claims?.sub) {
         return new Response(JSON.stringify({ error: "Unauthorized" }), {
           status: 401,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
-      user = authUser;
+      user = { id: claimsData.claims.sub as string };
     } else {
       user = { id: "test-user" };
     }
