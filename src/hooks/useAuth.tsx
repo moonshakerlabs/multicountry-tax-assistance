@@ -92,6 +92,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     let isMounted = true;
 
     // Listener for ONGOING auth changes (does NOT control loading)
+    // Track whether initial load is complete
+    let initialLoadDone = false;
+
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
         if (!isMounted) return;
@@ -99,7 +102,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setUser(session?.user ?? null);
         
         if (session?.user) {
-          // Use setTimeout to avoid deadlock with Supabase internals
+          // If initial load already done, we need to re-fetch profile
+          // Set loading true to prevent premature redirect while fetching
+          if (initialLoadDone) {
+            setLoading(true);
+          }
           setTimeout(() => {
             Promise.all([
               fetchProfile(session.user.id),
@@ -108,11 +115,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               if (!isMounted) return;
               setProfile(profileData);
               setUserRoles(roles);
+              setLoading(false);
             });
           }, 0);
         } else {
           setProfile(null);
           setUserRoles([]);
+          if (initialLoadDone) {
+            setLoading(false);
+          }
         }
       }
     );
@@ -138,7 +149,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       } catch (error) {
         console.error('Error initializing auth:', error);
       } finally {
-        if (isMounted) setLoading(false);
+        if (isMounted) {
+          initialLoadDone = true;
+          setLoading(false);
+        }
       }
     };
 

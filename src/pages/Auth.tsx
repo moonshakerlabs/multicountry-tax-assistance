@@ -119,6 +119,12 @@ export default function Auth() {
             variant: 'destructive'
           });
           setMode('signin');
+        } else if (error.message.includes('weak_password') || error.message.includes('Password should contain')) {
+          toast({
+            title: 'Weak password',
+            description: 'Password must include uppercase, lowercase, numbers, and special characters (e.g. !@#$%).',
+            variant: 'destructive'
+          });
         } else {
           toast({
             title: 'Sign up failed',
@@ -129,7 +135,7 @@ export default function Auth() {
       } else {
         toast({
           title: 'Account created',
-          description: 'Welcome! You can now access your dashboard.',
+          description: 'Please check your email to verify your account before signing in.',
         });
       }
     } catch {
