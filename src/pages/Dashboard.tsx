@@ -2,9 +2,10 @@ import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
+import { Checkbox } from '@/components/ui/checkbox';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
-import { User, FileText, LogOut, FolderOpen, Upload, ChevronRight, MessageSquare, Brain, Shield, Users, CheckCircle, XCircle, Eye } from 'lucide-react';
+import { User, FileText, LogOut, FolderOpen, Upload, ChevronRight, MessageSquare, Brain, Shield, Users, CheckCircle, XCircle, Eye, Settings } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Input } from '@/components/ui/input';
@@ -52,6 +53,19 @@ export default function Dashboard() {
   const [newAdminEmail, setNewAdminEmail] = useState('');
   const [newAdminRole, setNewAdminRole] = useState<string>('employee_admin');
   const [creatingAdmin, setCreatingAdmin] = useState(false);
+
+  // Permissions state
+  interface RolePermission {
+    id: string;
+    role: string;
+    module: string;
+    can_read: boolean;
+    can_write: boolean;
+  }
+  const [rolePermissions, setRolePermissions] = useState<RolePermission[]>([]);
+  const [savingPermissions, setSavingPermissions] = useState(false);
+  const MODULES = ['employees', 'customers', 'subscriptions', 'payments', 'posts', 'moderation', 'activity_logs'];
+  const PERMISSION_ROLES = ['admin', 'employee_admin'];
 
   const displayName = profile?.first_name 
     ? profile.first_name 
@@ -104,25 +118,37 @@ export default function Dashboard() {
   const fetchAdminData = async () => {
     setLoadingAdmin(true);
     try {
-      // Fetch all posts (including pending/flagged)
-      const { data: posts } = await supabase
-        .from('community_posts')
-        .select('*')
-        .order('created_at', { ascending: false });
+      const [postsRes, usersRes, permsRes] = await Promise.all([
+        supabase.from('community_posts').select('*').order('created_at', { ascending: false }),
+        supabase.from('profiles').select('*').order('created_at', { ascending: false }),
+        supabase.from('role_permissions').select('*'),
+      ]);
       
-      setPendingPosts(posts || []);
-
-      // Fetch all users
-      const { data: users } = await supabase
-        .from('profiles')
-        .select('*')
-        .order('created_at', { ascending: false });
-      
-      setAllUsers(users as UserProfile[] || []);
+      setPendingPosts(postsRes.data || []);
+      setAllUsers((usersRes.data as UserProfile[]) || []);
+      setRolePermissions((permsRes.data as RolePermission[]) || []);
     } catch (error) {
       console.error('Error fetching admin data:', error);
     } finally {
       setLoadingAdmin(false);
+    }
+  };
+
+  const handlePermissionChange = async (role: string, module: string, field: 'can_read' | 'can_write', value: boolean) => {
+    // Optimistic update
+    setRolePermissions(prev => prev.map(p =>
+      p.role === role && p.module === module ? { ...p, [field]: value } : p
+    ));
+
+    const { error } = await supabase
+      .from('role_permissions')
+      .update({ [field]: value })
+      .eq('role', role as any)
+      .eq('module', module);
+
+    if (error) {
+      toast({ title: 'Error', description: 'Failed to update permission.', variant: 'destructive' });
+      fetchAdminData(); // revert
     }
   };
 
@@ -448,7 +474,59 @@ export default function Dashboard() {
                     </Table>
                   </div>
                 )}
-              </div>
+               </div>
+
+              {/* Permission Management (Super Admin only) */}
+              {isSuperAdmin && (
+                <div className="admin-section">
+                  <h2 className="admin-section-title">
+                    <Settings className="h-5 w-5" /> Role Permission Management
+                  </h2>
+                  <p className="text-sm text-muted-foreground mb-4">
+                    Configure module access for each role. Super Admins always have full access.
+                  </p>
+                  {PERMISSION_ROLES.map(role => (
+                    <div key={role} className="mb-6">
+                      <h3 className="text-sm font-semibold mb-2 capitalize">
+                        <span className={`dashboard-role-badge ${getRoleBadgeClass(role)}`}>{role.replace('_', ' ')}</span>
+                      </h3>
+                      <div className="admin-table-wrapper">
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead>Module</TableHead>
+                              <TableHead className="text-center">Read</TableHead>
+                              <TableHead className="text-center">Write</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {MODULES.map(mod => {
+                              const perm = rolePermissions.find(p => p.role === role && p.module === mod);
+                              return (
+                                <TableRow key={mod}>
+                                  <TableCell className="capitalize font-medium">{mod.replace('_', ' ')}</TableCell>
+                                  <TableCell className="text-center">
+                                    <Checkbox
+                                      checked={perm?.can_read ?? false}
+                                      onCheckedChange={(val) => handlePermissionChange(role, mod, 'can_read', !!val)}
+                                    />
+                                  </TableCell>
+                                  <TableCell className="text-center">
+                                    <Checkbox
+                                      checked={perm?.can_write ?? false}
+                                      onCheckedChange={(val) => handlePermissionChange(role, mod, 'can_write', !!val)}
+                                    />
+                                  </TableCell>
+                                </TableRow>
+                              );
+                            })}
+                          </TableBody>
+                        </Table>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           ) : (
             /* ─── CUSTOMER PANEL ─── */

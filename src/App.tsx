@@ -19,6 +19,7 @@ import Community from "./pages/Community";
 import PublicCommunity from "./pages/PublicCommunity";
 import Blog from "./pages/Blog";
 import TermsAndConditions from "./pages/TermsAndConditions";
+import ResetPassword from "./pages/ResetPassword";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -39,6 +40,7 @@ const App = () => (
             <Route path="/blog" element={<Blog />} />
             <Route path="/taxoverflow" element={<PublicCommunity />} />
             <Route path="/terms" element={<TermsAndConditions />} />
+            <Route path="/reset-password" element={<ResetPassword />} />
 
             {/* Protected user routes */}
             <Route path="/dashboard" element={

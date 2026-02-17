@@ -27,7 +27,7 @@ export default function Auth() {
   const [showGoogleHint, setShowGoogleHint] = useState(false);
   const [isGoogleAccount, setIsGoogleAccount] = useState(false);
   
-  const { user, profile, signIn, signUp, signInWithGoogle } = useAuth();
+  const { user, profile, signIn, signUp, signInWithGoogle, resetPassword } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
 
@@ -153,6 +153,22 @@ export default function Auth() {
         variant: 'destructive'
       });
       setIsLoading(false);
+    }
+  };
+
+  const handleForgotPassword = async () => {
+    if (!email.trim()) {
+      toast({ title: 'Email required', description: 'Please enter your email address first.', variant: 'destructive' });
+      return;
+    }
+    if (!validateEmail()) return;
+    setIsLoading(true);
+    const { error } = await resetPassword(email);
+    setIsLoading(false);
+    if (error) {
+      toast({ title: 'Error', description: 'Unable to send reset link. Please try again.', variant: 'destructive' });
+    } else {
+      toast({ title: 'Reset link sent', description: 'Check your email for a password reset link.' });
     }
   };
 
@@ -349,7 +365,17 @@ export default function Auth() {
               />
               {errors.email && (
                 <p className="auth-error-text">{errors.email}</p>
-              )}
+             )}
+             {mode === 'signin' && !isGoogleAccount && (
+               <button
+                 type="button"
+                 onClick={handleForgotPassword}
+                 className="auth-toggle-link text-sm mt-1"
+                 disabled={isLoading}
+               >
+                 Forgot password?
+               </button>
+             )}
             </div>
             
             {!isGoogleAccount && (
