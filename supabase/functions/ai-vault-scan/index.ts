@@ -34,13 +34,14 @@ serve(async (req) => {
     let userId: string;
 
     if (!isTestEnv) {
-      const { data: { user }, error } = await supabase.auth.getUser();
-      if (error || !user) {
+      const token = authHeader.replace("Bearer ", "");
+      const { data: claimsData, error: claimsError } = await supabase.auth.getClaims(token);
+      if (claimsError || !claimsData?.claims?.sub) {
         return new Response(JSON.stringify({ error: "Unauthorized" }), {
           status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
-      userId = user.id;
+      userId = claimsData.claims.sub as string;
     } else {
       userId = "test-user";
     }

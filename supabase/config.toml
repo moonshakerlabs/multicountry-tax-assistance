@@ -1,1 +1,28 @@
 project_id = "nkrrggcfvmgnnekhgrcj"
+
+[functions.ai-multifile]
+verify_jwt = false
+
+[functions.ai-vault-scan]
+verify_jwt = false
+
+[functions.google-drive-upload]
+verify_jwt = false
+
+[functions.google-drive-auth]
+verify_jwt = false
+
+[functions.google-drive-config]
+verify_jwt = false
+
+[functions.send-share-email]
+verify_jwt = false
+
+[functions.verify-share-access]
+verify_jwt = false
+
+[functions.revoke-share]
+verify_jwt = false
+
+[functions.admin-bootstrap]
+verify_jwt = false
