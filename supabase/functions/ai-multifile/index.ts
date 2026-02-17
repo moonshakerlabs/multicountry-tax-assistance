@@ -191,16 +191,16 @@ serve(async (req) => {
       }
     }
 
-    // Use LOVABLE_API_KEY for AI requests
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    const aiApiKey = LOVABLE_API_KEY;
+    // Resolve AI API key: custom > Lovable default
+    const aiApiKey = Deno.env.get("AI_API_KEY") || Deno.env.get("LOVABLE_API_KEY");
     if (!aiApiKey) {
       throw new Error("AI API key not configured. Please contact support.");
     }
+    const aiGatewayUrl = Deno.env.get("AI_GATEWAY_URL") || "https://ai.gateway.lovable.dev/v1/chat/completions";
 
     // Stream response from AI
     const aiResponse = await fetch(
-      "https://ai.gateway.lovable.dev/v1/chat/completions",
+      aiGatewayUrl,
       {
         method: "POST",
         headers: {
