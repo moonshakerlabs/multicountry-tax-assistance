@@ -53,11 +53,7 @@ const App = () => (
                 <DocumentVault />
               </ProtectedRoute>
             } />
-            <Route path="/profile-setup" element={
-              <ProtectedRoute>
-                <ProfileSetup />
-              </ProtectedRoute>
-            } />
+            <Route path="/profile-setup" element={<ProfileSetup />} />
             <Route path="/profile" element={
               <ProtectedRoute>
                 <Profile />

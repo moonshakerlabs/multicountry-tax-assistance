@@ -99,6 +99,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setUser(session?.user ?? null);
         
         if (session?.user) {
+          // Use setTimeout to avoid deadlock with Supabase internals
           setTimeout(() => {
             Promise.all([
               fetchProfile(session.user.id),
@@ -107,13 +108,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               if (!isMounted) return;
               setProfile(profileData);
               setUserRoles(roles);
-              setLoading(false);
             });
           }, 0);
         } else {
           setProfile(null);
           setUserRoles([]);
-          setLoading(false);
         }
       }
     );
