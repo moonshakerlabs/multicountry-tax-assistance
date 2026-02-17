@@ -4,7 +4,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
+    "authorization, x-client-info, apikey, content-type, x-custom-ai-key, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
 // Plan limits
@@ -42,14 +42,14 @@ serve(async (req) => {
 
     if (!isTestEnv) {
       const token = authHeader.replace("Bearer ", "");
-      const { data: claimsData, error: claimsError } = await supabase.auth.getClaims(token);
-      if (claimsError || !claimsData?.claims?.sub) {
+      const { data: { user: authUser }, error: authError } = await supabase.auth.getUser(token);
+      if (authError || !authUser) {
         return new Response(JSON.stringify({ error: "Unauthorized" }), {
           status: 401,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
-      user = { id: claimsData.claims.sub as string };
+      user = authUser;
     } else {
       user = { id: "test-user" };
     }
@@ -177,9 +177,12 @@ serve(async (req) => {
       }
     }
 
+    // Use custom API key if provided, otherwise fall back to LOVABLE_API_KEY
+    const customApiKey = req.headers.get("x-custom-ai-key");
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) {
-      throw new Error("LOVABLE_API_KEY is not configured");
+    const aiApiKey = customApiKey || LOVABLE_API_KEY;
+    if (!aiApiKey) {
+      throw new Error("No AI API key available. Please provide a custom key or contact support.");
     }
 
     // Stream response from AI
@@ -188,7 +191,7 @@ serve(async (req) => {
       {
         method: "POST",
         headers: {
-          Authorization: `Bearer ${LOVABLE_API_KEY}`,
+          Authorization: `Bearer ${aiApiKey}`,
           "Content-Type": "application/json",
         },
         body: JSON.stringify({

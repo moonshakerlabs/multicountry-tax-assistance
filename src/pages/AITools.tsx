@@ -1,5 +1,6 @@
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { useAuth } from '@/hooks/useAuth';
@@ -25,6 +26,9 @@ import {
   CheckCircle,
   Download,
   FileSpreadsheet,
+  Key,
+  Eye,
+  EyeOff,
 } from 'lucide-react';
 import './AITools.css';
 
@@ -99,6 +103,41 @@ export default function AITools() {
   const [generatingReport, setGeneratingReport] = useState(false);
   const [reportLink, setReportLink] = useState('');
   const [reportFileName, setReportFileName] = useState('');
+  const [sessionToken, setSessionToken] = useState<string | null>(null);
+
+  // Get user session token
+  useEffect(() => {
+    const getToken = async () => {
+      const { data } = await supabase.auth.getSession();
+      setSessionToken(data.session?.access_token || null);
+    };
+    getToken();
+    const { data: { subscription: authSub } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSessionToken(session?.access_token || null);
+    });
+    return () => authSub.unsubscribe();
+  }, []);
+
+  // Custom API key state
+  const [customApiKey, setCustomApiKey] = useState(() => localStorage.getItem('ai_custom_api_key') || '');
+  const [showApiKey, setShowApiKey] = useState(false);
+  const [showApiKeySettings, setShowApiKeySettings] = useState(false);
+
+  const saveCustomApiKey = (key: string) => {
+    setCustomApiKey(key);
+    if (key) {
+      localStorage.setItem('ai_custom_api_key', key);
+    } else {
+      localStorage.removeItem('ai_custom_api_key');
+    }
+  };
+
+  const getCustomHeaders = (): Record<string, string> => {
+    if (customApiKey.trim()) {
+      return { 'x-custom-ai-key': customApiKey.trim() };
+    }
+    return {};
+  };
 
   const isTestEnv = window.location.hostname.includes('lovable.app') ||
                     window.location.hostname.includes('lovableproject.com') ||
@@ -143,11 +182,12 @@ export default function AITools() {
       files.forEach((file, i) => formData.append(`file${i}`, file));
 
       const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-      const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+      const token = sessionToken;
+      if (!token) throw new Error('Not authenticated. Please log in again.');
 
       const resp = await fetch(`${supabaseUrl}/functions/v1/ai-multifile`, {
         method: 'POST',
-        headers: { Authorization: `Bearer ${supabaseKey}` },
+        headers: { Authorization: `Bearer ${token}`, ...getCustomHeaders() },
         body: formData,
       });
 
@@ -182,13 +222,15 @@ export default function AITools() {
 
     try {
       const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-      const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+      const token = sessionToken;
+      if (!token) throw new Error('Not authenticated. Please log in again.');
 
       const resp = await fetch(`${supabaseUrl}/functions/v1/ai-vault-scan`, {
         method: 'POST',
         headers: {
-          Authorization: `Bearer ${supabaseKey}`,
+          Authorization: `Bearer ${token}`,
           'Content-Type': 'application/json',
+          ...getCustomHeaders(),
         },
         body: JSON.stringify({ action: 'scan', instruction }),
       });
@@ -236,13 +278,15 @@ export default function AITools() {
 
     try {
       const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-      const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+      const token = sessionToken;
+      if (!token) throw new Error('Not authenticated. Please log in again.');
 
       const resp = await fetch(`${supabaseUrl}/functions/v1/ai-vault-scan`, {
         method: 'POST',
         headers: {
-          Authorization: `Bearer ${supabaseKey}`,
+          Authorization: `Bearer ${token}`,
           'Content-Type': 'application/json',
+          ...getCustomHeaders(),
         },
         body: JSON.stringify({
           action: 'analyze',
@@ -275,13 +319,15 @@ export default function AITools() {
 
     try {
       const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-      const supabaseKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+      const token = sessionToken;
+      if (!token) throw new Error('Not authenticated. Please log in again.');
 
       const resp = await fetch(`${supabaseUrl}/functions/v1/ai-vault-scan`, {
         method: 'POST',
         headers: {
-          Authorization: `Bearer ${supabaseKey}`,
+          Authorization: `Bearer ${token}`,
           'Content-Type': 'application/json',
+          ...getCustomHeaders(),
         },
         body: JSON.stringify({
           action: 'generate_report',
@@ -467,7 +513,57 @@ export default function AITools() {
                 <span className="ai-tools-pro-badge">PRO</span>
               )}
             </button>
+            <button
+              className={`ai-tools-mode-btn ${showApiKeySettings ? 'active' : ''}`}
+              onClick={() => setShowApiKeySettings(!showApiKeySettings)}
+              title="Custom API Key Settings"
+            >
+              <Key className="h-4 w-4" />
+              API Key
+              {customApiKey && <span className="ai-tools-pro-badge" style={{ background: 'hsl(var(--primary))' }}>✓</span>}
+            </button>
           </div>
+
+          {/* API Key Settings Panel */}
+          {showApiKeySettings && (
+            <div className="ai-tools-api-key-panel">
+              <div className="ai-tools-api-key-header">
+                <Key className="h-4 w-4" />
+                <span>Custom AI API Key (Optional)</span>
+              </div>
+              <p className="ai-tools-api-key-desc">
+                Provide your own Lovable AI API key. If not set, the default platform key will be used.
+              </p>
+              <div className="ai-tools-api-key-input-wrap">
+                <input
+                  type={showApiKey ? 'text' : 'password'}
+                  value={customApiKey}
+                  onChange={(e) => saveCustomApiKey(e.target.value)}
+                  placeholder="Enter your API key..."
+                  className="ai-tools-api-key-input"
+                />
+                <button
+                  className="ai-tools-api-key-toggle"
+                  onClick={() => setShowApiKey(!showApiKey)}
+                  title={showApiKey ? 'Hide key' : 'Show key'}
+                >
+                  {showApiKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+                {customApiKey && (
+                  <button
+                    className="ai-tools-api-key-clear"
+                    onClick={() => saveCustomApiKey('')}
+                    title="Clear key"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                )}
+              </div>
+              <p className="ai-tools-api-key-status">
+                {customApiKey ? '✅ Custom key active — will be used for all AI requests' : '⚡ Using default platform key'}
+              </p>
+            </div>
+          )}
 
           {/* Privacy Banner */}
           <div className="ai-tools-privacy-banner">
