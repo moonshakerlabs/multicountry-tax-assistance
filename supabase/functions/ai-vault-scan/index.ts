@@ -76,10 +76,10 @@ serve(async (req) => {
     const body = await req.json();
     const { action } = body;
 
-    // Use LOVABLE_API_KEY for AI requests
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    const aiApiKey = LOVABLE_API_KEY;
+    // Resolve AI API key: custom > Lovable default
+    const aiApiKey = Deno.env.get("AI_API_KEY") || Deno.env.get("LOVABLE_API_KEY");
     if (!aiApiKey) throw new Error("AI API key not configured. Please contact support.");
+    const aiGatewayUrl = Deno.env.get("AI_GATEWAY_URL") || "https://ai.gateway.lovable.dev/v1/chat/completions";
 
     // Admin client for storage access
     const adminSupabase = createClient(supabaseUrl, serviceRoleKey);
@@ -124,7 +124,7 @@ serve(async (req) => {
         `${i + 1}. ID: ${d.id} | Name: ${d.file_name} | Type: ${d.file_type} | Category: ${d.main_category}/${d.sub_category} | Country: ${d.country} | Tax Year: ${d.tax_year}`
       ).join("\n");
 
-      const aiResp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      const aiResp = await fetch(aiGatewayUrl, {
         method: "POST",
         headers: {
           Authorization: `Bearer ${aiApiKey}`,
@@ -300,7 +300,7 @@ Files being analyzed: ${docs.map(d => d.file_name).join(", ")}`,
       }
 
       // Stream AI response
-      const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      const aiResponse = await fetch(aiGatewayUrl, {
         method: "POST",
         headers: {
           Authorization: `Bearer ${aiApiKey}`,
