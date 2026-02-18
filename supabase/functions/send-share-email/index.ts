@@ -94,6 +94,12 @@ serve(async (req: Request) => {
       });
     }
 
+    // ─── App Configuration ────────────────────────────────────────────────
+    // Once wortaf.com domain is verified in Resend, change emailFrom to:
+    // "WorTaF <noreply@wortaf.com>"
+    const EMAIL_FROM = "WorTaF <onboarding@resend.dev>";
+    // ─────────────────────────────────────────────────────────────────────
+
     const resendKey = Deno.env.get("RESEND_API_KEY");
     if (!resendKey) {
       throw new Error("RESEND_API_KEY not configured");
@@ -146,9 +152,8 @@ serve(async (req: Request) => {
       // Send email via Resend
       let emailStatus = "FAILED";
       try {
-        const fromAddress = "WorTaF <noreply@wortaf.com>";
         const emailResult = await resend.emails.send({
-          from: fromAddress,
+          from: EMAIL_FROM,
           to: [recipientEmail],
           subject: `Documents shared with you via WorTaF`,
           html: `

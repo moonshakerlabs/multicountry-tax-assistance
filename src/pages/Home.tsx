@@ -25,7 +25,6 @@ const features = [
 export default function Home() {
   const { user } = useAuth();
 
-  // Redirect logged-in users directly to dashboard
   if (user) {
     return <Navigate to="/dashboard" replace />;
   }
@@ -64,34 +63,28 @@ export default function Home() {
       {/* Hero Section */}
       <section className="home-hero">
         <div className="home-hero-content">
+          <div className="home-hero-tagline">A platform for cross-border financial clarity</div>
           <h1 className="home-hero-title">
-            Organise tax documents.
+            Organise tax records.
             <br />
-            <span className="home-hero-subtitle">Align income across years.</span>
+            <span className="home-hero-subtitle">Align income across jurisdictions.</span>
           </h1>
           <p className="home-hero-description">
-            A private tax helper for cross-border income clarity. Built for Indians in Germany and anyone managing multi-country finances.
+            Built for globally mobile tax payers managing income across multiple countries.
           </p>
           <div className="home-hero-actions">
             <Button asChild variant="hero" size="xl">
               <Link to="/pricing">Get Started – Early Access</Link>
             </Button>
             <Button asChild variant="hero-outline" size="xl">
-              <a href="#how-it-works">How it works</a>
-            </Button>
-            <Button asChild variant="hero-outline" size="xl">
               <Link to="/taxoverflow">See what others are talking about</Link>
             </Button>
           </div>
-        </div>
-      </section>
 
-      {/* Features Section */}
-      <section id="how-it-works" className="home-features">
-        <div className="home-features-content">
-          <div className="home-features-grid">
+          {/* Feature cards directly below buttons */}
+          <div className="home-features-inline">
             {features.map((feature) => (
-              <div key={feature.title} className="home-feature-card">
+              <div key={feature.title} className="home-feature-card-inline">
                 <div className="home-feature-icon-wrapper">
                   <feature.icon className="home-feature-icon" />
                 </div>
