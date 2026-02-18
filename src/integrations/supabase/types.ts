@@ -588,6 +588,39 @@ export type Database = {
         }
         Relationships: []
       }
+      user_otps: {
+        Row: {
+          created_at: string
+          email: string
+          expires_at: string
+          id: string
+          otp_code: string
+          otp_type: string
+          used_at: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          email: string
+          expires_at?: string
+          id?: string
+          otp_code: string
+          otp_type?: string
+          used_at?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          expires_at?: string
+          id?: string
+          otp_code?: string
+          otp_type?: string
+          used_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       user_profile: {
         Row: {
           created_at: string
@@ -647,6 +680,51 @@ export type Database = {
           created_at?: string
           id?: string
           role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
+      user_security_settings: {
+        Row: {
+          created_at: string
+          security_answer_1: string | null
+          security_answer_2: string | null
+          security_answer_3: string | null
+          security_question_1: string | null
+          security_question_2: string | null
+          security_question_3: string | null
+          session_timeout_minutes: number
+          two_fa_enabled: boolean
+          two_fa_verified: boolean
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          security_answer_1?: string | null
+          security_answer_2?: string | null
+          security_answer_3?: string | null
+          security_question_1?: string | null
+          security_question_2?: string | null
+          security_question_3?: string | null
+          session_timeout_minutes?: number
+          two_fa_enabled?: boolean
+          two_fa_verified?: boolean
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          security_answer_1?: string | null
+          security_answer_2?: string | null
+          security_answer_3?: string | null
+          security_question_1?: string | null
+          security_question_2?: string | null
+          security_question_3?: string | null
+          session_timeout_minutes?: number
+          two_fa_enabled?: boolean
+          two_fa_verified?: boolean
+          updated_at?: string
           user_id?: string
         }
         Relationships: []
