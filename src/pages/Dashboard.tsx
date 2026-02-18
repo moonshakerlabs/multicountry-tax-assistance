@@ -6,7 +6,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
-import { User, FileText, LogOut, FolderOpen, Upload, ChevronRight, MessageSquare, Brain, Shield, Users, CheckCircle, XCircle, Settings, Activity, CreditCard, Briefcase, ArrowLeft, HeadphonesIcon, TicketIcon } from 'lucide-react';
+import { User, FileText, LogOut, FolderOpen, Upload, ChevronRight, MessageSquare, Brain, Shield, Users, CheckCircle, XCircle, Settings, Activity, CreditCard, Briefcase, ArrowLeft, HeadphonesIcon, TicketIcon, Eye, RotateCcw, X } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Input } from '@/components/ui/input';
@@ -247,6 +247,38 @@ export default function Dashboard() {
     }
   };
 
+  const handleSendForReview = async (post: PendingPost, reason: string) => {
+    // Update post status to REVIEW
+    const { error } = await supabase
+      .from('community_posts')
+      .update({ status: 'REVIEW' })
+      .eq('id', post.id);
+    if (error) {
+      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+      return;
+    }
+    // Get author email
+    const { data: authorProfile } = await supabase
+      .from('profiles')
+      .select('email')
+      .eq('id', post.user_id)
+      .maybeSingle();
+    if (authorProfile?.email) {
+      // Send notification email via edge function
+      const { data: { session } } = await supabase.auth.getSession();
+      await supabase.functions.invoke('send-post-review-email', {
+        body: {
+          authorEmail: authorProfile.email,
+          postTitle: post.title,
+          reason,
+        },
+      }).catch(console.error);
+    }
+    toast({ title: 'Post sent for review', description: 'The author has been notified.' });
+    logActivity('send_for_review', 'community_post', post.id, { reason });
+    fetchAdminData();
+  };
+
   const handleRoleChange = async (userId: string, newRole: string) => {
     if (userId === user?.id) {
       toast({ title: 'Not allowed', description: 'You cannot change your own role.', variant: 'destructive' });
@@ -328,6 +360,166 @@ export default function Dashboard() {
       default: return role;
     }
   };
+
+  // ─── Moderation Tab Component ─────────────────────────────────────────
+  function ModerationTab({ pendingPosts, loadingAdmin, handlePostAction, handleSendForReview }: {
+    pendingPosts: PendingPost[];
+    loadingAdmin: boolean;
+    handlePostAction: (id: string, status: string) => Promise<void>;
+    handleSendForReview: (post: PendingPost, reason: string) => Promise<void>;
+  }) {
+    const [selectedPost, setSelectedPost] = useState<PendingPost | null>(null);
+    const [showReviewModal, setShowReviewModal] = useState(false);
+    const [reviewReason, setReviewReason] = useState('');
+    const [actioning, setActioning] = useState(false);
+
+    const doAction = async (action: 'approve' | 'reject') => {
+      if (!selectedPost) return;
+      setActioning(true);
+      if (action === 'approve') {
+        await handlePostAction(selectedPost.id, 'ACTIVE');
+      } else {
+        await handlePostAction(selectedPost.id, 'REJECTED');
+      }
+      setActioning(false);
+      setSelectedPost(null);
+    };
+
+    const doSendForReview = async () => {
+      if (!selectedPost || !reviewReason.trim()) return;
+      setActioning(true);
+      await handleSendForReview(selectedPost, reviewReason.trim());
+      setActioning(false);
+      setReviewReason('');
+      setShowReviewModal(false);
+      setSelectedPost(null);
+    };
+
+    if (selectedPost) {
+      return (
+        <div className="admin-section">
+          <Button variant="ghost" size="sm" className="mb-4" onClick={() => setSelectedPost(null)}>
+            <ArrowLeft className="h-4 w-4 mr-1" /> Back to list
+          </Button>
+          <h2 className="admin-section-title"><MessageSquare className="h-5 w-5" /> Post Details</h2>
+          <div className="rounded-lg border p-5 mb-4 space-y-3">
+            <div className="flex items-start justify-between gap-3">
+              <h3 className="text-base font-semibold leading-snug">{selectedPost.title}</h3>
+              <span className={`admin-status-badge admin-status-${selectedPost.status.toLowerCase()} shrink-0`}>{selectedPost.status}</span>
+            </div>
+            <div className="text-xs text-muted-foreground flex gap-4">
+              <span>Country: <strong>{selectedPost.country}</strong></span>
+              <span>Posted: <strong>{format(new Date(selectedPost.created_at), 'MMM d, yyyy HH:mm')}</strong></span>
+            </div>
+            <div className="border-t pt-3">
+              <p className="text-sm text-foreground whitespace-pre-wrap leading-relaxed">{selectedPost.description}</p>
+            </div>
+          </div>
+
+          {/* Action buttons */}
+          <div className="flex gap-3 flex-wrap">
+            <Button
+              size="sm"
+              className="bg-green-600 hover:bg-green-700 text-white"
+              onClick={() => doAction('approve')}
+              disabled={actioning || selectedPost.status === 'ACTIVE'}
+            >
+              <CheckCircle className="h-4 w-4 mr-1" /> Approve
+            </Button>
+            <Button
+              size="sm"
+              className="bg-orange-500 hover:bg-orange-600 text-white"
+              onClick={() => setShowReviewModal(true)}
+              disabled={actioning}
+            >
+              <RotateCcw className="h-4 w-4 mr-1" /> Send for Review
+            </Button>
+            <Button
+              size="sm"
+              className="bg-red-600 hover:bg-red-700 text-white"
+              onClick={() => doAction('reject')}
+              disabled={actioning || selectedPost.status === 'REJECTED'}
+            >
+              <X className="h-4 w-4 mr-1" /> Reject
+            </Button>
+          </div>
+
+          {/* Send for Review reason modal */}
+          {showReviewModal && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+              <div className="bg-background rounded-xl border shadow-xl p-6 w-full max-w-md mx-4">
+                <h3 className="font-semibold text-base mb-3">Reason for Sending Back for Review</h3>
+                <p className="text-sm text-muted-foreground mb-4">
+                  The original poster will be notified by email with this reason.
+                </p>
+                <textarea
+                  className="w-full border border-border rounded-lg p-3 text-sm bg-background resize-none outline-none focus:border-primary"
+                  rows={4}
+                  placeholder="E.g. Please revise your post to focus only on tax-related queries and remove any personal opinions..."
+                  value={reviewReason}
+                  onChange={e => setReviewReason(e.target.value)}
+                />
+                <div className="flex gap-2 mt-4 justify-end">
+                  <Button variant="ghost" size="sm" onClick={() => { setShowReviewModal(false); setReviewReason(''); }}>Cancel</Button>
+                  <Button
+                    size="sm"
+                    className="bg-orange-500 hover:bg-orange-600 text-white"
+                    disabled={!reviewReason.trim() || actioning}
+                    onClick={doSendForReview}
+                  >
+                    {actioning ? 'Sending...' : 'Send Notification & Return Post'}
+                  </Button>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    return (
+      <div className="admin-section">
+        <h2 className="admin-section-title"><MessageSquare className="h-5 w-5" /> Community Post Moderation</h2>
+        <p className="text-sm text-muted-foreground mb-4">Click on a post to review its full content and take action.</p>
+        {loadingAdmin ? (
+          <p className="text-muted-foreground">Loading posts...</p>
+        ) : pendingPosts.length === 0 ? (
+          <p className="text-muted-foreground">No posts to moderate.</p>
+        ) : (
+          <div className="admin-table-wrapper">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Title</TableHead>
+                  <TableHead>Country</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Date</TableHead>
+                  <TableHead>Action</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {pendingPosts.map(post => (
+                  <TableRow key={post.id} className="cursor-pointer hover:bg-muted/50" onClick={() => setSelectedPost(post)}>
+                    <TableCell className="font-medium max-w-[200px] truncate">{post.title}</TableCell>
+                    <TableCell>{post.country}</TableCell>
+                    <TableCell>
+                      <span className={`admin-status-badge admin-status-${post.status.toLowerCase()}`}>{post.status}</span>
+                    </TableCell>
+                    <TableCell className="text-muted-foreground text-sm">{format(new Date(post.created_at), 'MMM d, yyyy')}</TableCell>
+                    <TableCell>
+                      <Button size="sm" variant="outline" onClick={(e) => { e.stopPropagation(); setSelectedPost(post); }}>
+                        <Eye className="h-3.5 w-3.5 mr-1" /> Review
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        )}
+      </div>
+    );
+  }
 
   // ─── Admin Support Tab Component ─────────────────────────────────────
   function AdminSupportTab() {
@@ -576,60 +768,12 @@ export default function Dashboard() {
 
                 {/* ─── MODERATION TAB ─── */}
                 <TabsContent value="moderation">
-                  <div className="admin-section">
-                    <h2 className="admin-section-title">
-                      <MessageSquare className="h-5 w-5" /> Community Post Moderation
-                    </h2>
-                    {loadingAdmin ? (
-                      <p className="text-muted-foreground">Loading posts...</p>
-                    ) : pendingPosts.length === 0 ? (
-                      <p className="text-muted-foreground">No posts to moderate.</p>
-                    ) : (
-                      <div className="admin-table-wrapper">
-                        <Table>
-                          <TableHeader>
-                            <TableRow>
-                              <TableHead>Title</TableHead>
-                              <TableHead>Country</TableHead>
-                              <TableHead>Status</TableHead>
-                              <TableHead>Date</TableHead>
-                              <TableHead>Actions</TableHead>
-                            </TableRow>
-                          </TableHeader>
-                          <TableBody>
-                            {pendingPosts.map(post => (
-                              <TableRow key={post.id}>
-                                <TableCell className="font-medium max-w-[200px] truncate">{post.title}</TableCell>
-                                <TableCell>{post.country}</TableCell>
-                                <TableCell>
-                                  <span className={`admin-status-badge admin-status-${post.status.toLowerCase()}`}>
-                                    {post.status}
-                                  </span>
-                                </TableCell>
-                                <TableCell className="text-muted-foreground text-sm">
-                                  {format(new Date(post.created_at), 'MMM d, yyyy')}
-                                </TableCell>
-                                <TableCell>
-                                  <div className="flex gap-1">
-                                    {post.status !== 'ACTIVE' && (
-                                      <Button size="sm" variant="outline" onClick={() => handlePostAction(post.id, 'ACTIVE')}>
-                                        <CheckCircle className="h-3.5 w-3.5 mr-1" /> Approve
-                                      </Button>
-                                    )}
-                                    {post.status !== 'SUSPENDED' && (
-                                      <Button size="sm" variant="destructive" onClick={() => handlePostAction(post.id, 'SUSPENDED')}>
-                                        <XCircle className="h-3.5 w-3.5 mr-1" /> Suspend
-                                      </Button>
-                                    )}
-                                  </div>
-                                </TableCell>
-                              </TableRow>
-                            ))}
-                          </TableBody>
-                        </Table>
-                      </div>
-                    )}
-                  </div>
+                  <ModerationTab
+                    pendingPosts={pendingPosts}
+                    loadingAdmin={loadingAdmin}
+                    handlePostAction={handlePostAction}
+                    handleSendForReview={handleSendForReview}
+                  />
                 </TabsContent>
 
                 {/* ─── EMPLOYEES TAB ─── */}

@@ -1,8 +1,32 @@
+import { useState } from 'react';
 import { Link, Navigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { Shield, Globe, Share2 } from 'lucide-react';
+import { Shield, Globe, Share2, ChevronDown, ChevronUp } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import './Home.css';
+
+const faqs = [
+  {
+    q: 'What membership plans are available?',
+    a: 'WorTaF offers Free, Standard, and Professional plans tailored to individual taxpayers and professionals managing cross-border income. Each plan includes different document storage limits, AI tools access, and community features. Visit the Pricing page for full details.',
+  },
+  {
+    q: 'Can I try WorTaF before subscribing?',
+    a: 'Yes! Our Free plan lets you get started with core document organisation features at no cost. You can upgrade at any time as your needs grow.',
+  },
+  {
+    q: 'What happens to my data if I cancel my subscription?',
+    a: 'Your data remains securely stored for 30 days after cancellation. During this period you can export your documents. After 30 days, data is permanently deleted in line with our GDPR-aligned data policy.',
+  },
+  {
+    q: 'Is WorTaF compliant with GDPR and other privacy regulations?',
+    a: 'Absolutely. WorTaF is built with a privacy-first architecture. All data is stored with explicit user consent, and you retain full control over your documents and personal data at all times.',
+  },
+  {
+    q: 'Which countries does WorTaF currently support?',
+    a: 'WorTaF currently supports tax document organisation for Germany, India, and the UAE, with more countries being added regularly. Our platform is designed from the ground up for globally mobile taxpayers.',
+  },
+];
 
 const features = [
   {
@@ -24,6 +48,7 @@ const features = [
 
 export default function Home() {
   const { user } = useAuth();
+  const [openFaq, setOpenFaq] = useState<number | null>(null);
 
   if (user) {
     return <Navigate to="/dashboard" replace />;
@@ -90,6 +115,36 @@ export default function Home() {
                 </div>
                 <h3 className="home-feature-title">{feature.title}</h3>
                 <p className="home-feature-description">{feature.description}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* FAQ Section */}
+      <section className="home-faq">
+        <div className="home-faq-content">
+          <h2 className="home-faq-title">Frequently Asked Questions</h2>
+          <p className="home-faq-subtitle">Everything you need to know about WorTaF membership and plans.</p>
+          <div className="home-faq-list">
+            {faqs.map((faq, i) => (
+              <div key={i} className="home-faq-item">
+                <button
+                  className="home-faq-question"
+                  onClick={() => setOpenFaq(openFaq === i ? null : i)}
+                  aria-expanded={openFaq === i}
+                >
+                  <span>{faq.q}</span>
+                  {openFaq === i
+                    ? <ChevronUp className="home-faq-chevron" />
+                    : <ChevronDown className="home-faq-chevron" />
+                  }
+                </button>
+                {openFaq === i && (
+                  <div className="home-faq-answer">
+                    <p>{faq.a}</p>
+                  </div>
+                )}
               </div>
             ))}
           </div>
