@@ -72,7 +72,11 @@ Deno.serve(async (req) => {
 
     if (!emailRes.ok) {
       const errBody = await emailRes.text();
-      throw new Error(`Failed to send email: ${errBody}`);
+      // Log error but don't block — OTP is stored in DB; inform caller that email failed
+      console.error(`Failed to send email: ${errBody}`);
+      return new Response(JSON.stringify({ success: true, emailWarning: `Email delivery failed: ${errBody}` }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
     }
 
     return new Response(JSON.stringify({ success: true }), {
