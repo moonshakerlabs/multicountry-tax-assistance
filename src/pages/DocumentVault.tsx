@@ -13,11 +13,13 @@ import {
   FileText, 
   ChevronDown, 
   ChevronRight,
-  User,
   Search,
   X,
   MoreHorizontal,
-  Share2
+  Share2,
+  CheckSquare,
+  Square,
+  XCircle
 } from 'lucide-react';
 import UploadModal from '@/components/documents/UploadModal';
 import DocumentActions from '@/components/documents/DocumentActions';
@@ -63,10 +65,13 @@ export default function DocumentVault() {
   const [showShareModal, setShowShareModal] = useState(false);
   const [shareDocumentIds, setShareDocumentIds] = useState<string[]>([]);
 
-  
   const [selectedDocument, setSelectedDocument] = useState<Document | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   
+  // Selection mode state
+  const [selectionMode, setSelectionMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+
   // Filter states
   const [filterCountry, setFilterCountry] = useState<string>('all');
   const [filterYear, setFilterYear] = useState<string>('all');
@@ -94,7 +99,6 @@ export default function DocumentVault() {
       if (!user) return;
       
       try {
-        // Fetch user profile
         const { data: profileData } = await supabase
           .from('user_profile')
           .select('*')
@@ -105,7 +109,6 @@ export default function DocumentVault() {
           setUserProfile(profileData as UserProfile);
         }
         
-        // Fetch documents
         const { data: docsData, error } = await supabase
           .from('documents')
           .select('*')
@@ -137,7 +140,6 @@ export default function DocumentVault() {
   const filteredAndGrouped = useMemo(() => {
     let filtered = documents;
     
-    // Apply search filter
     if (searchQuery) {
       const query = searchQuery.toLowerCase();
       filtered = filtered.filter(doc => 
@@ -147,17 +149,14 @@ export default function DocumentVault() {
       );
     }
     
-    // Apply country filter
     if (filterCountry !== 'all') {
       filtered = filtered.filter(doc => doc.country === filterCountry);
     }
     
-    // Apply year filter
     if (filterYear !== 'all') {
       filtered = filtered.filter(doc => doc.tax_year === filterYear);
     }
     
-    // Group by Country → Tax Year → Main Category
     const grouped: GroupedDocuments = {};
     
     filtered.forEach(doc => {
@@ -178,11 +177,7 @@ export default function DocumentVault() {
   const toggleCountry = (country: string) => {
     setExpandedCountries(prev => {
       const next = new Set(prev);
-      if (next.has(country)) {
-        next.delete(country);
-      } else {
-        next.add(country);
-      }
+      if (next.has(country)) next.delete(country); else next.add(country);
       return next;
     });
   };
@@ -190,11 +185,7 @@ export default function DocumentVault() {
   const toggleYear = (key: string) => {
     setExpandedYears(prev => {
       const next = new Set(prev);
-      if (next.has(key)) {
-        next.delete(key);
-      } else {
-        next.add(key);
-      }
+      if (next.has(key)) next.delete(key); else next.add(key);
       return next;
     });
   };
@@ -202,11 +193,7 @@ export default function DocumentVault() {
   const toggleCategory = (key: string) => {
     setExpandedCategories(prev => {
       const next = new Set(prev);
-      if (next.has(key)) {
-        next.delete(key);
-      } else {
-        next.add(key);
-      }
+      if (next.has(key)) next.delete(key); else next.add(key);
       return next;
     });
   };
@@ -218,7 +205,6 @@ export default function DocumentVault() {
       .select('*')
       .eq('user_id', user.id)
       .order('created_at', { ascending: false });
-    
     setDocuments(data || []);
   };
 
@@ -237,29 +223,15 @@ export default function DocumentVault() {
     setSelectedDocument(null);
   };
 
+  // Share All: select all share-enabled docs and open modal
   const handleShareAll = () => {
     const shareableIds = documents.filter(d => d.share_enabled).map(d => d.id);
-    if (shareableIds.length === 0) {
-      return;
-    }
-    setShareDocumentIds(shareableIds);
-    setShowShareModal(true);
-  };
-
-  const handleShareDocument = (doc: Document) => {
-    if (!doc.share_enabled) return;
-    setShareDocumentIds([doc.id]);
-    setShowShareModal(true);
-  };
-
-  const handleShareFolder = (docs: Document[]) => {
-    const shareableIds = docs.filter(d => d.share_enabled).map(d => d.id);
     if (shareableIds.length === 0) {
       toast({
         title: isDE ? 'Fehler' : 'Error',
         description: isDE
-          ? 'Leere Ordnerfreigabe ist nicht erlaubt. Aktivieren Sie die Freigabe für mindestens ein Dokument.'
-          : 'Empty folder sharing is not allowed. Enable sharing for at least one document in this folder.',
+          ? 'Keine freigebbaren Dokumente vorhanden. Aktivieren Sie zuerst die Freigabe für Dokumente.'
+          : 'No shareable documents found. Enable sharing for documents first.',
         variant: 'destructive',
       });
       return;
@@ -268,15 +240,66 @@ export default function DocumentVault() {
     setShowShareModal(true);
   };
 
-  const toggleShareEnabled = async (doc: Document) => {
-    if (!user) return;
-    const newValue = !doc.share_enabled;
-    await supabase
-      .from('documents')
-      .update({ share_enabled: newValue })
-      .eq('id', doc.id)
-      .eq('user_id', user.id);
-    await refreshDocuments();
+  // Enter selection mode
+  const handleShareSelected = () => {
+    setSelectionMode(true);
+    setSelectedIds(new Set());
+  };
+
+  // Exit selection mode
+  const handleCancelSelection = () => {
+    setSelectionMode(false);
+    setSelectedIds(new Set());
+  };
+
+  // Deselect all
+  const handleDeselectAll = () => {
+    setSelectedIds(new Set());
+  };
+
+  // Toggle single document selection (only share-enabled)
+  const handleToggleDoc = (doc: Document) => {
+    if (!doc.share_enabled) return;
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(doc.id)) next.delete(doc.id); else next.add(doc.id);
+      return next;
+    });
+  };
+
+  // Select all share-enabled docs in a folder (category)
+  const handleSelectFolder = (docs: Document[]) => {
+    const shareableIds = docs.filter(d => d.share_enabled).map(d => d.id);
+    if (shareableIds.length === 0) {
+      toast({
+        title: isDE ? 'Hinweis' : 'Notice',
+        description: isDE
+          ? 'Kein Dokument in diesem Ordner hat die Freigabe aktiviert.'
+          : 'No documents in this folder have sharing enabled.',
+      });
+      return;
+    }
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      shareableIds.forEach(id => next.add(id));
+      return next;
+    });
+  };
+
+  // Share selected documents
+  const handleShareSelectedDocs = () => {
+    if (selectedIds.size === 0) {
+      toast({
+        title: isDE ? 'Fehler' : 'Error',
+        description: isDE ? 'Bitte mindestens ein Dokument auswählen.' : 'Please select at least one document.',
+        variant: 'destructive',
+      });
+      return;
+    }
+    setShareDocumentIds(Array.from(selectedIds));
+    setShowShareModal(true);
+    setSelectionMode(false);
+    setSelectedIds(new Set());
   };
 
   const getCountryLabel = (code: string) => {
@@ -299,6 +322,7 @@ export default function DocumentVault() {
 
   const hasDocuments = documents.length > 0;
   const hasFilteredResults = Object.keys(filteredAndGrouped).length > 0;
+  const shareableCount = documents.filter(d => d.share_enabled).length;
 
   return (
     <div className="vault-container">
@@ -346,17 +370,47 @@ export default function DocumentVault() {
 
           {/* Actions Bar */}
           <div className="vault-actions-bar">
-            <Button onClick={() => setShowUploadModal(true)} className="vault-upload-btn">
-              <Upload className="vault-upload-icon" />
-              {isDE ? 'Dokument hochladen' : 'Upload Document'}
-            </Button>
-            {documents.some(d => d.share_enabled) && (
-              <Button onClick={handleShareAll} variant="outline" className="vault-share-btn">
-                <Share2 className="vault-upload-icon" />
-                {isDE ? 'Alle teilen' : 'Share All'}
+            <div className="vault-actions-left">
+              <Button onClick={() => setShowUploadModal(true)} className="vault-upload-btn">
+                <Upload className="vault-btn-icon" />
+                {isDE ? 'Dokument hochladen' : 'Upload Document'}
               </Button>
-            )}
-            
+
+              {!selectionMode && shareableCount > 0 && (
+                <>
+                  <Button onClick={handleShareAll} variant="outline" className="vault-share-btn">
+                    <Share2 className="vault-btn-icon" />
+                    {isDE ? 'Alle teilen' : 'Share All'}
+                  </Button>
+                  <Button onClick={handleShareSelected} variant="outline" className="vault-share-btn">
+                    <CheckSquare className="vault-btn-icon" />
+                    {isDE ? 'Auswahl teilen' : 'Share Selected'}
+                  </Button>
+                </>
+              )}
+
+              {selectionMode && (
+                <>
+                  <Button
+                    onClick={handleShareSelectedDocs}
+                    className="vault-share-confirm-btn"
+                    disabled={selectedIds.size === 0}
+                  >
+                    <Share2 className="vault-btn-icon" />
+                    {isDE ? `${selectedIds.size} teilen` : `Share ${selectedIds.size} selected`}
+                  </Button>
+                  <Button onClick={handleDeselectAll} variant="ghost" size="sm" className="vault-deselect-btn">
+                    <XCircle className="vault-btn-icon" />
+                    {isDE ? 'Alle abwählen' : 'Deselect All'}
+                  </Button>
+                  <Button onClick={handleCancelSelection} variant="ghost" size="sm" className="vault-cancel-btn">
+                    <X className="vault-btn-icon" />
+                    {isDE ? 'Abbrechen' : 'Cancel'}
+                  </Button>
+                </>
+              )}
+            </div>
+
             <div className="vault-search">
               <Search className="vault-search-icon" />
               <Input
@@ -376,6 +430,18 @@ export default function DocumentVault() {
               )}
             </div>
           </div>
+
+          {/* Selection mode banner */}
+          {selectionMode && (
+            <div className="vault-selection-banner">
+              <CheckSquare className="vault-selection-banner-icon" />
+              <span>
+                {isDE
+                  ? `Auswahlmodus aktiv – Klicken Sie auf Ordner oder Dateien (mit aktivierter Freigabe). ${selectedIds.size} ausgewählt.`
+                  : `Selection mode active – click folders or files with sharing enabled. ${selectedIds.size} selected.`}
+              </span>
+            </div>
+          )}
 
           {/* Filters */}
           <div className="vault-filters">
@@ -422,7 +488,7 @@ export default function DocumentVault() {
                     : 'Upload your first document to get started.'}
                 </p>
                 <Button onClick={() => setShowUploadModal(true)} className="vault-empty-btn">
-                  <Upload className="vault-upload-icon" />
+                  <Upload className="vault-btn-icon" />
                   {isDE ? 'Dokument hochladen' : 'Upload Document'}
                 </Button>
               </div>
@@ -475,64 +541,102 @@ export default function DocumentVault() {
                               <div className="vault-category-groups">
                                 {Object.entries(categories).map(([category, docs]) => {
                                   const catKey = `${yearKey}-${category}`;
+                                  const folderShareableCount = docs.filter(d => d.share_enabled).length;
+                                  const folderSelectedCount = docs.filter(d => selectedIds.has(d.id)).length;
+                                  const allFolderSelected = folderShareableCount > 0 && folderSelectedCount === folderShareableCount;
+
                                   return (
                                     <div key={catKey} className="vault-category-group">
-                                      <button 
-                                        className="vault-group-header vault-category-header"
-                                        onClick={() => toggleCategory(catKey)}
-                                      >
-                                        {expandedCategories.has(catKey) ? (
-                                          <ChevronDown className="vault-chevron" />
-                                        ) : (
-                                          <ChevronRight className="vault-chevron" />
+                                      <div className="vault-category-row">
+                                        {/* Folder checkbox in selection mode */}
+                                        {selectionMode && folderShareableCount > 0 && (
+                                          <button
+                                            className="vault-select-checkbox"
+                                            onClick={(e) => { e.stopPropagation(); handleSelectFolder(docs); }}
+                                            title={isDE ? 'Ordner auswählen' : 'Select folder'}
+                                          >
+                                            {allFolderSelected
+                                              ? <CheckSquare className="vault-checkbox-icon vault-checkbox-checked" />
+                                              : folderSelectedCount > 0
+                                              ? <CheckSquare className="vault-checkbox-icon vault-checkbox-partial" />
+                                              : <Square className="vault-checkbox-icon" />
+                                            }
+                                          </button>
                                         )}
-                                        <span className="vault-group-title">{category.replace(/_/g, ' ')}</span>
-                                        <span className="vault-group-count">
-                                          {docs.length}
-                                        </span>
-                                        <button
-                                          className="vault-folder-share-btn"
-                                          onClick={(e) => { e.stopPropagation(); handleShareFolder(docs); }}
-                                          title={isDE ? 'Ordner teilen' : 'Share folder'}
+                                        <button 
+                                          className="vault-group-header vault-category-header"
+                                          style={{ flex: 1 }}
+                                          onClick={() => toggleCategory(catKey)}
                                         >
-                                          <Share2 className="vault-document-actions-icon" />
+                                          {expandedCategories.has(catKey) ? (
+                                            <ChevronDown className="vault-chevron" />
+                                          ) : (
+                                            <ChevronRight className="vault-chevron" />
+                                          )}
+                                          <span className="vault-group-title">{category.replace(/_/g, ' ')}</span>
+                                          <span className="vault-group-count">
+                                            {docs.length}
+                                            {folderShareableCount > 0 && (
+                                              <span className="vault-share-badge">
+                                                {' '}· {folderShareableCount} {isDE ? 'teilbar' : 'shareable'}
+                                              </span>
+                                            )}
+                                          </span>
                                         </button>
-                                      </button>
+                                      </div>
                                       
                                       {expandedCategories.has(catKey) && (
                                         <div className="vault-documents-list">
-                                          {docs.map(doc => (
-                                            <div key={doc.id} className="vault-document-item">
-                                              <FileText className="vault-document-icon" />
-                                              <div className="vault-document-info">
-                                                <span className="vault-document-name">
-                                                  {doc.file_name || 'Unnamed document'}
-                                                </span>
-                                                <span className="vault-document-meta">
-                                                  {doc.sub_category?.replace(/_/g, ' ') || doc.custom_sub_category}
-                                                </span>
-                                              </div>
-                                              <span className="vault-document-date">
-                                                {new Date(doc.created_at).toLocaleDateString(isDE ? 'de-DE' : 'en-GB')}
-                                              </span>
-                                              {doc.share_enabled && (
-                                                <button
-                                                  className="vault-document-share-btn"
-                                                  onClick={() => handleShareDocument(doc)}
-                                                  title={isDE ? 'Teilen' : 'Share'}
-                                                >
-                                                  <Share2 className="vault-document-actions-icon" />
-                                                </button>
-                                              )}
-                                              <button 
-                                                className="vault-document-actions-btn"
-                                                onClick={() => setSelectedDocument(doc)}
-                                                title={isDE ? 'Aktionen' : 'Actions'}
+                                          {docs.map(doc => {
+                                            const isSelected = selectedIds.has(doc.id);
+                                            const isSelectable = doc.share_enabled;
+
+                                            return (
+                                              <div
+                                                key={doc.id}
+                                                className={`vault-document-item ${selectionMode && isSelectable ? 'vault-document-selectable' : ''} ${isSelected ? 'vault-document-selected' : ''} ${selectionMode && !isSelectable ? 'vault-document-not-selectable' : ''}`}
+                                                onClick={selectionMode && isSelectable ? () => handleToggleDoc(doc) : undefined}
                                               >
-                                                <MoreHorizontal className="vault-document-actions-icon" />
-                                              </button>
-                                            </div>
-                                          ))}
+                                                {/* Checkbox in selection mode */}
+                                                {selectionMode && (
+                                                  <div className="vault-doc-checkbox">
+                                                    {isSelectable
+                                                      ? isSelected
+                                                        ? <CheckSquare className="vault-checkbox-icon vault-checkbox-checked" />
+                                                        : <Square className="vault-checkbox-icon" />
+                                                      : <Square className="vault-checkbox-icon vault-checkbox-disabled" />
+                                                    }
+                                                  </div>
+                                                )}
+                                                <FileText className={`vault-document-icon ${isSelected ? 'vault-document-icon-selected' : ''}`} />
+                                                <div className="vault-document-info">
+                                                  <span className="vault-document-name">
+                                                    {doc.file_name || 'Unnamed document'}
+                                                  </span>
+                                                  <span className="vault-document-meta">
+                                                    {doc.sub_category?.replace(/_/g, ' ') || doc.custom_sub_category}
+                                                    {doc.share_enabled && (
+                                                      <span className="vault-share-enabled-badge">
+                                                        {' '}· {isDE ? 'Freigabe aktiv' : 'Sharing on'}
+                                                      </span>
+                                                    )}
+                                                  </span>
+                                                </div>
+                                                <span className="vault-document-date">
+                                                  {new Date(doc.created_at).toLocaleDateString(isDE ? 'de-DE' : 'en-GB')}
+                                                </span>
+                                                {!selectionMode && (
+                                                  <button 
+                                                    className="vault-document-actions-btn"
+                                                    onClick={() => setSelectedDocument(doc)}
+                                                    title={isDE ? 'Aktionen' : 'Actions'}
+                                                  >
+                                                    <MoreHorizontal className="vault-document-actions-icon" />
+                                                  </button>
+                                                )}
+                                              </div>
+                                            );
+                                          })}
                                         </div>
                                       )}
                                     </div>
@@ -569,7 +673,7 @@ export default function DocumentVault() {
           onClose={() => setSelectedDocument(null)}
           onDocumentUpdated={handleDocumentUpdated}
           onDocumentDeleted={handleDocumentDeleted}
-      />
+        />
       )}
 
       {/* Share Modal */}
