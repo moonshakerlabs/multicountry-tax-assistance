@@ -100,7 +100,7 @@ export default function Dashboard() {
 
   // Permissions state
   const [rolePermissions, setRolePermissions] = useState<RolePermission[]>([]);
-  const MODULES = ['employees', 'customers', 'subscriptions', 'payments', 'posts', 'moderation', 'activity_logs', 'support'];
+  const MODULES = ['employees', 'customers', 'subscriptions', 'payments', 'posts', 'moderation', 'activity_logs', 'support', 'blog'];
 
   // Determine which roles current user can edit permissions for
   const getEditableRoles = () => {
@@ -182,7 +182,7 @@ export default function Dashboard() {
     setLoadingAdmin(true);
     try {
       const [postsRes, usersRes, permsRes, logsRes, subsRes, postCountsRes] = await Promise.all([
-        supabase.from('community_posts').select('*').eq('status', 'PENDING').order('created_at', { ascending: false }),
+        supabase.from('community_posts').select('*').in('status', ['PENDING', 'ACTIVE', 'REJECTED', 'REVIEW']).order('created_at', { ascending: false }),
         supabase.from('profiles').select('*').order('created_at', { ascending: false }),
         supabase.from('role_permissions').select('*'),
         supabase.from('activity_logs').select('*').order('created_at', { ascending: false }).limit(100),
@@ -400,8 +400,8 @@ export default function Dashboard() {
   };
 
   // ─── Moderation Tab Component ─────────────────────────────────────────
-  function ModerationTab({ pendingPosts, loadingAdmin, handlePostAction, handleSendForReview }: {
-    pendingPosts: PendingPost[];
+  function ModerationTab({ allPosts, loadingAdmin, handlePostAction, handleSendForReview }: {
+    allPosts: PendingPost[];
     loadingAdmin: boolean;
     handlePostAction: (id: string, status: string) => Promise<void>;
     handleSendForReview: (post: PendingPost, reason: string) => Promise<void>;
@@ -410,6 +410,16 @@ export default function Dashboard() {
     const [showReviewModal, setShowReviewModal] = useState(false);
     const [reviewReason, setReviewReason] = useState('');
     const [actioning, setActioning] = useState(false);
+    const [statusFilter, setStatusFilter] = useState<'PENDING' | 'ACTIVE' | 'REJECTED' | 'REVIEW'>('PENDING');
+
+    const filteredPosts = allPosts.filter(p => p.status === statusFilter);
+
+    const statusFilterOptions: { label: string; value: typeof statusFilter; color: string }[] = [
+      { label: 'Pending', value: 'PENDING', color: 'admin-status-pending' },
+      { label: 'Approved', value: 'ACTIVE', color: 'admin-status-active' },
+      { label: 'Rejected', value: 'REJECTED', color: 'admin-status-suspended' },
+      { label: 'Sent for Review', value: 'REVIEW', color: 'admin-status-review' },
+    ];
 
     const doAction = async (action: 'approve' | 'reject') => {
       if (!selectedPost) return;
@@ -460,7 +470,7 @@ export default function Dashboard() {
               size="sm"
               className="bg-green-600 hover:bg-green-700 text-white"
               onClick={() => doAction('approve')}
-              disabled={actioning}
+              disabled={actioning || selectedPost.status === 'ACTIVE'}
             >
               <CheckCircle className="h-4 w-4 mr-1" /> Approve
             </Button>
@@ -468,7 +478,7 @@ export default function Dashboard() {
               size="sm"
               className="bg-orange-500 hover:bg-orange-600 text-white"
               onClick={() => setShowReviewModal(true)}
-              disabled={actioning}
+              disabled={actioning || selectedPost.status === 'REVIEW'}
             >
               <RotateCcw className="h-4 w-4 mr-1" /> Send for Review
             </Button>
@@ -476,7 +486,7 @@ export default function Dashboard() {
               size="sm"
               className="bg-red-600 hover:bg-red-700 text-white"
               onClick={() => doAction('reject')}
-              disabled={actioning}
+              disabled={actioning || selectedPost.status === 'REJECTED'}
             >
               <X className="h-4 w-4 mr-1" /> Reject
             </Button>
@@ -519,10 +529,29 @@ export default function Dashboard() {
       <div className="admin-section">
         <h2 className="admin-section-title"><MessageSquare className="h-5 w-5" /> Community Post Moderation</h2>
         <p className="text-sm text-muted-foreground mb-4">Click on a post to review its full content and take action.</p>
+
+        {/* Status Filter Tabs */}
+        <div className="flex gap-2 flex-wrap mb-4">
+          {statusFilterOptions.map(opt => (
+            <button
+              key={opt.value}
+              onClick={() => setStatusFilter(opt.value)}
+              className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors ${
+                statusFilter === opt.value
+                  ? 'bg-primary text-primary-foreground border-primary'
+                  : 'bg-background text-muted-foreground border-border hover:border-primary/50'
+              }`}
+            >
+              {opt.label}
+              <span className="ml-1.5 opacity-70">({allPosts.filter(p => p.status === opt.value).length})</span>
+            </button>
+          ))}
+        </div>
+
         {loadingAdmin ? (
           <p className="text-muted-foreground">Loading posts...</p>
-        ) : pendingPosts.length === 0 ? (
-          <p className="text-muted-foreground">No posts to moderate.</p>
+        ) : filteredPosts.length === 0 ? (
+          <p className="text-muted-foreground">No {statusFilter.toLowerCase()} posts.</p>
         ) : (
           <div className="admin-table-wrapper">
             <Table>
@@ -536,7 +565,7 @@ export default function Dashboard() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {pendingPosts.map(post => (
+                {filteredPosts.map(post => (
                   <TableRow key={post.id} className="cursor-pointer hover:bg-muted/50" onClick={() => setSelectedPost(post)}>
                     <TableCell className="font-medium max-w-[200px] truncate">{post.title}</TableCell>
                     <TableCell>{post.country}</TableCell>
@@ -807,7 +836,7 @@ export default function Dashboard() {
                 {/* ─── MODERATION TAB ─── */}
                 <TabsContent value="moderation">
                   <ModerationTab
-                    pendingPosts={pendingPosts}
+                    allPosts={pendingPosts}
                     loadingAdmin={loadingAdmin}
                     handlePostAction={handlePostAction}
                     handleSendForReview={handleSendForReview}
@@ -1049,29 +1078,21 @@ export default function Dashboard() {
                                 {MODULES.map(mod => {
                                   const perm = rolePermissions.find(p => p.role === role && p.module === mod);
                                   return (
-                                    <TableRow key={mod}>
+                               <TableRow key={mod}>
                                       <TableCell className="capitalize font-medium">{mod.replace(/_/g, ' ')}</TableCell>
-                                      <TableCell className="text-center" style={{ position: 'relative', zIndex: 1 }}>
-                                        <div
-                                          style={{ display: 'flex', justifyContent: 'center', cursor: 'pointer' }}
-                                          onClick={() => handlePermissionChange(role, mod, 'can_read', !(perm?.can_read ?? false))}
-                                        >
-                                          <Checkbox
-                                            checked={perm?.can_read ?? false}
-                                            onCheckedChange={(val) => handlePermissionChange(role, mod, 'can_read', !!val)}
-                                          />
-                                        </div>
+                                      <TableCell className="text-center">
+                                        <Checkbox
+                                          checked={perm?.can_read ?? false}
+                                          onCheckedChange={(val) => handlePermissionChange(role, mod, 'can_read', !!val)}
+                                          className="cursor-pointer"
+                                        />
                                       </TableCell>
-                                      <TableCell className="text-center" style={{ position: 'relative', zIndex: 1 }}>
-                                        <div
-                                          style={{ display: 'flex', justifyContent: 'center', cursor: 'pointer' }}
-                                          onClick={() => handlePermissionChange(role, mod, 'can_write', !(perm?.can_write ?? false))}
-                                        >
-                                          <Checkbox
-                                            checked={perm?.can_write ?? false}
-                                            onCheckedChange={(val) => handlePermissionChange(role, mod, 'can_write', !!val)}
-                                          />
-                                        </div>
+                                      <TableCell className="text-center">
+                                        <Checkbox
+                                          checked={perm?.can_write ?? false}
+                                          onCheckedChange={(val) => handlePermissionChange(role, mod, 'can_write', !!val)}
+                                          className="cursor-pointer"
+                                        />
                                       </TableCell>
                                     </TableRow>
                                   );

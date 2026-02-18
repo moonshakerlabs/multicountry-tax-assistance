@@ -174,10 +174,7 @@ export default function PublicCommunity() {
                 <Button variant="ghost" size="sm" onClick={() => signOut()}>Sign out</Button>
               </>
             ) : (
-              <>
-                <Button asChild variant="outline" size="sm"><Link to="/auth?mode=signin">Sign In</Link></Button>
-                <Button asChild size="sm"><Link to="/auth?mode=signup">Join Now</Link></Button>
-              </>
+              <Button asChild variant="outline" size="sm"><Link to="/auth?mode=signin">Sign In</Link></Button>
             )}
           </div>
         </div>
@@ -187,8 +184,7 @@ export default function PublicCommunity() {
         <div className="public-community-intro">
           <h2 className="public-community-intro-title">What taxpayers are discussing</h2>
           <p className="public-community-intro-text">
-            Browse real tax questions from people managing cross-border finances.{' '}
-            {!user && <><Link to="/auth?mode=signup" className="public-community-join-link">Join free</Link> to ask questions, vote, and contribute answers.</>}
+            Browse real tax questions from people managing cross-border finances.
           </p>
         </div>
 
@@ -256,9 +252,9 @@ export default function PublicCommunity() {
                     {showGuestBlur && blurred && (
                       <div className="public-post-guest-cta">
                         <Lock className="public-post-guest-cta-icon" />
-                        <span>Join the forum to view the full post and answers or answer this question</span>
-                        <Button asChild size="sm" className="public-post-guest-cta-btn">
-                          <Link to="/auth?mode=signup">Join Free</Link>
+                        <span>Sign in to view the full post and answers or answer this question</span>
+                        <Button asChild size="sm" variant="outline" className="public-post-guest-cta-btn">
+                          <Link to="/auth?mode=signin">Sign In</Link>
                         </Button>
                       </div>
                     )}
@@ -326,9 +322,8 @@ export default function PublicCommunity() {
                           </div>
                           <div className="public-answers-login-overlay">
                             <Lock className="public-answers-lock-icon" />
-                            <p>Join the forum to view answers or answer this question</p>
+                            <p>Sign in to view answers or answer this question</p>
                             <div className="public-answers-overlay-actions">
-                              <Button asChild size="sm"><Link to="/auth?mode=signup">Join Free</Link></Button>
                               <Button asChild size="sm" variant="outline"><Link to="/auth?mode=signin">Sign In</Link></Button>
                             </div>
                           </div>
@@ -347,8 +342,7 @@ export default function PublicCommunity() {
             <h3 className="public-community-cta-title">Ready to join the conversation?</h3>
             <p>Ask tax questions, share expertise, and get answers from the community.</p>
             <div className="public-community-cta-actions">
-              <Button asChild size="lg"><Link to="/auth?mode=signup">Join TaxOverFlow Free</Link></Button>
-              <Button asChild size="lg" variant="outline"><Link to="/auth?mode=signin">Sign In</Link></Button>
+              <Button asChild size="lg"><Link to="/auth?mode=signin">Sign In to Participate</Link></Button>
             </div>
           </div>
         )}
