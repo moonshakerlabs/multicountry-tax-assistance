@@ -221,14 +221,21 @@ export default function Dashboard() {
   };
 
   const handlePermissionChange = async (role: string, module: string, field: 'can_read' | 'can_write', value: boolean) => {
-    setRolePermissions(prev => prev.map(p =>
-      p.role === role && p.module === module ? { ...p, [field]: value } : p
-    ));
+    // Optimistic update — handle both existing and new rows
+    setRolePermissions(prev => {
+      const exists = prev.find(p => p.role === role && p.module === module);
+      if (exists) {
+        return prev.map(p => p.role === role && p.module === module ? { ...p, [field]: value } : p);
+      } else {
+        return [...prev, { id: `${role}-${module}`, role, module, can_read: field === 'can_read' ? value : false, can_write: field === 'can_write' ? value : false }];
+      }
+    });
     const { error } = await supabase
       .from('role_permissions')
-      .update({ [field]: value })
-      .eq('role', role as any)
-      .eq('module', module);
+      .upsert(
+        { role: role as any, module, [field]: value },
+        { onConflict: 'role,module', ignoreDuplicates: false }
+      );
     if (error) {
       toast({ title: 'Error', description: 'Failed to update permission.', variant: 'destructive' });
       fetchAdminData();
