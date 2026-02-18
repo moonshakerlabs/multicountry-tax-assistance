@@ -26,9 +26,10 @@ interface PostDetailProps {
   onBack: () => void;
   onVotePost: (postId: string, voteType: 'UP' | 'DOWN') => void;
   onReport: (entityId: string, entityType: 'POST' | 'ANSWER') => void;
+  guidelinesAccepted: boolean;
 }
 
-export default function PostDetail({ postId, onBack, onVotePost, onReport }: PostDetailProps) {
+export default function PostDetail({ postId, onBack, onVotePost, onReport, guidelinesAccepted }: PostDetailProps) {
   const { user } = useAuth();
   const [post, setPost] = useState<any>(null);
   const [answers, setAnswers] = useState<AnswerData[]>([]);
@@ -327,7 +328,7 @@ export default function PostDetail({ postId, onBack, onVotePost, onReport }: Pos
       ))}
 
       {/* Post Answer Form */}
-      {user && (
+      {user && guidelinesAccepted ? (
         <form onSubmit={handleSubmitAnswer} className="post-detail-answer-form">
           <h4 className="answer-form-title">Your Answer</h4>
           <Textarea
@@ -343,7 +344,13 @@ export default function PostDetail({ postId, onBack, onVotePost, onReport }: Pos
             </Button>
           </div>
         </form>
-      )}
+      ) : user && !guidelinesAccepted ? (
+        <div className="post-detail-answer-form" style={{ textAlign: 'center', padding: '1.5rem', background: 'hsl(var(--muted) / 0.4)', borderRadius: '0.5rem', border: '1px dashed hsl(var(--border))' }}>
+          <p className="text-sm text-muted-foreground">
+            You must accept the <strong>Community Guidelines</strong> before answering questions.
+          </p>
+        </div>
+      ) : null}
     </div>
   );
 }
