@@ -79,10 +79,14 @@ serve(async (req) => {
     const body = await req.json();
     const { action } = body;
 
-    // Resolve AI API key: custom > Lovable default
-    const aiApiKey = Deno.env.get("AI_API_KEY") || Deno.env.get("LOVABLE_API_KEY");
+    // Resolve AI API key & gateway: only use custom values if non-empty
+    const customApiKey = Deno.env.get("AI_API_KEY")?.trim();
+    const customGatewayUrl = Deno.env.get("AI_GATEWAY_URL")?.trim();
+    const aiApiKey = (customApiKey && customApiKey.length > 0) ? customApiKey : Deno.env.get("LOVABLE_API_KEY");
+    const aiGatewayUrl = (customGatewayUrl && customGatewayUrl.length > 0)
+      ? customGatewayUrl
+      : "https://ai.gateway.lovable.dev/v1/chat/completions";
     if (!aiApiKey) throw new Error("AI API key not configured. Please contact support.");
-    const aiGatewayUrl = Deno.env.get("AI_GATEWAY_URL") || "https://ai.gateway.lovable.dev/v1/chat/completions";
 
 
     // Auto-detect country from user profile
@@ -120,7 +124,7 @@ serve(async (req) => {
         }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
 
-      // Ask AI to identify relevant files
+      // Ask AI to identify relevant files — use plain JSON prompt (no tool calls for reliability)
       const docList = docs.map((d, i) => 
         `${i + 1}. ID: ${d.id} | Name: ${d.file_name} | Type: ${d.file_type} | Category: ${d.main_category}/${d.sub_category} | Country: ${d.country} | Tax Year: ${d.tax_year}`
       ).join("\n");
@@ -136,57 +140,58 @@ serve(async (req) => {
           messages: [
             {
               role: "system",
-              content: `You are a document relevance classifier. Given a user's instruction and a list of documents from their vault, identify which documents are relevant to fulfill the instruction. Return a JSON array of objects with the fields: id, file_name, reason (brief reason why it's relevant). Only include truly relevant documents. If no documents are relevant, return an empty array. Return ONLY valid JSON, no markdown.`,
+              content: `You are a document relevance classifier. Given a user's instruction and a list of documents, identify which documents are relevant. You MUST respond with ONLY a valid JSON array (no markdown, no explanation, no code blocks). Each item must have: id (string), file_name (string), reason (string). If no documents are relevant, return an empty array [].`,
             },
             {
               role: "user",
-              content: `User instruction: "${instruction}"\n\nAvailable documents:\n${docList}`,
+              content: `User instruction: "${instruction}"\n\nAvailable documents:\n${docList}\n\nRespond with ONLY the JSON array.`,
             },
           ],
-          tools: [{
-            type: "function",
-            function: {
-              name: "identify_relevant_files",
-              description: "Identify relevant files from the vault",
-              parameters: {
-                type: "object",
-                properties: {
-                  relevant_files: {
-                    type: "array",
-                    items: {
-                      type: "object",
-                      properties: {
-                        id: { type: "string" },
-                        file_name: { type: "string" },
-                        reason: { type: "string" },
-                      },
-                      required: ["id", "file_name", "reason"],
-                    },
-                  },
-                },
-                required: ["relevant_files"],
-              },
-            },
-          }],
-          tool_choice: { type: "function", function: { name: "identify_relevant_files" } },
+          max_tokens: 4096,
         }),
       });
 
       if (!aiResp.ok) {
-        console.error("AI scan error:", aiResp.status, await aiResp.text());
-        throw new Error("AI classification failed");
+        const errBody = await aiResp.text();
+        console.error("AI scan error:", aiResp.status, errBody);
+        if (aiResp.status === 401) {
+          throw new Error("AI authentication failed. Please check your AI API key configuration.");
+        }
+        if (aiResp.status === 429) {
+          throw new Error("AI rate limit exceeded. Please try again in a moment.");
+        }
+        throw new Error(`AI classification failed (status ${aiResp.status}). Please try again.`);
       }
 
       const aiData = await aiResp.json();
-      const toolCall = aiData.choices?.[0]?.message?.tool_calls?.[0];
       let relevantFiles: any[] = [];
+      const rawContent = aiData.choices?.[0]?.message?.content || "";
 
-      if (toolCall?.function?.arguments) {
+      if (rawContent) {
         try {
-          const parsed = JSON.parse(toolCall.function.arguments);
-          relevantFiles = parsed.relevant_files || [];
-        } catch {
-          console.error("Failed to parse tool call arguments");
+          // Strip markdown code blocks if present
+          let cleaned = rawContent
+            .replace(/```json\s*/gi, "")
+            .replace(/```\s*/g, "")
+            .trim();
+          // Find JSON array boundaries
+          const start = cleaned.indexOf("[");
+          const end = cleaned.lastIndexOf("]");
+          if (start !== -1 && end !== -1) {
+            cleaned = cleaned.substring(start, end + 1);
+            const parsed = JSON.parse(cleaned);
+            if (Array.isArray(parsed)) {
+              relevantFiles = parsed;
+            }
+          }
+        } catch (e) {
+          console.error("Failed to parse AI classification response:", e, "Raw:", rawContent);
+          // Fallback: return all docs as relevant if parsing fails
+          relevantFiles = docs.map(d => ({
+            id: d.id,
+            file_name: d.file_name,
+            reason: "Included as potentially relevant (classification parsing failed)",
+          }));
         }
       }
 
@@ -197,6 +202,7 @@ serve(async (req) => {
         relevant_files: relevantFiles,
       }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
+
 
     // ─── ACTION: ANALYZE ───
     if (action === "analyze") {
