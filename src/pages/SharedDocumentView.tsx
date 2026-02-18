@@ -1,8 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { supabase } from '@/integrations/supabase/client';
 import { FileText, Download, Lock, Loader2, AlertTriangle, CheckCircle2 } from 'lucide-react';
 import './SharedDocumentView.css';
 
@@ -12,7 +11,6 @@ interface SharedDocument {
   fileType: string;
   mainCategory: string;
   subCategory: string;
-  signedUrl: string | null;
 }
 
 type ViewState = 'loading' | 'invalid' | 'expired' | 'email-entry' | 'otp-sent' | 'verified';
@@ -28,11 +26,13 @@ export default function SharedDocumentView() {
   const [documentCount, setDocumentCount] = useState(0);
   const [expiresAt, setExpiresAt] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [accessToken, setAccessToken] = useState<string | null>(null);
+  const [loadingDocId, setLoadingDocId] = useState<string | null>(null);
 
   const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
   const supabaseAnonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 
-  const callFunction = async (body: Record<string, unknown>) => {
+  const callFunction = useCallback(async (body: Record<string, unknown>) => {
     const res = await fetch(`${supabaseUrl}/functions/v1/verify-share-access`, {
       method: 'POST',
       headers: {
@@ -42,13 +42,10 @@ export default function SharedDocumentView() {
       body: JSON.stringify(body),
     });
     return res.json();
-  };
+  }, [supabaseUrl, supabaseAnonKey]);
 
   useEffect(() => {
-    if (!token) {
-      setState('invalid');
-      return;
-    }
+    if (!token) { setState('invalid'); return; }
 
     callFunction({ action: 'validate', token }).then((data) => {
       if (data.error) {
@@ -60,23 +57,17 @@ export default function SharedDocumentView() {
         setAllowDownload(data.allowDownload);
         setState('email-entry');
       }
-    }).catch(() => {
-      setState('invalid');
-    });
-  }, [token]);
+    }).catch(() => setState('invalid'));
+  }, [token, callFunction]);
 
   const handleSendOtp = async () => {
     if (!email) return;
     setIsSubmitting(true);
     setError('');
-
     try {
       const data = await callFunction({ action: 'send-otp', token, email });
-      if (data.error) {
-        setError(data.error);
-      } else {
-        setState('otp-sent');
-      }
+      if (data.error) setError(data.error);
+      else setState('otp-sent');
     } catch {
       setError('Failed to send verification code');
     } finally {
@@ -88,7 +79,6 @@ export default function SharedDocumentView() {
     if (!otp) return;
     setIsSubmitting(true);
     setError('');
-
     try {
       const data = await callFunction({ action: 'verify-otp', token, email, otp });
       if (data.error) {
@@ -96,6 +86,7 @@ export default function SharedDocumentView() {
       } else {
         setDocuments(data.documents || []);
         setAllowDownload(data.allowDownload);
+        setAccessToken(data.accessToken);
         setState('verified');
       }
     } catch {
@@ -105,14 +96,43 @@ export default function SharedDocumentView() {
     }
   };
 
-  const handleDownload = (doc: SharedDocument) => {
-    if (!allowDownload || !doc.signedUrl) return;
-    const link = document.createElement('a');
-    link.href = doc.signedUrl;
-    link.download = doc.fileName || 'document';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+  // Fetch a fresh signed URL on demand — never stale
+  const getFreshSignedUrl = async (documentId: string): Promise<string | null> => {
+    if (!accessToken) return null;
+    try {
+      const data = await callFunction({ action: 'get-url', token, accessToken, documentId });
+      return data.signedUrl || null;
+    } catch {
+      return null;
+    }
+  };
+
+  const handleView = async (doc: SharedDocument) => {
+    setLoadingDocId(doc.id);
+    try {
+      const url = await getFreshSignedUrl(doc.id);
+      if (url) window.open(url, '_blank');
+      else setError('Could not load document. Please try again.');
+    } finally {
+      setLoadingDocId(null);
+    }
+  };
+
+  const handleDownload = async (doc: SharedDocument) => {
+    if (!allowDownload) return;
+    setLoadingDocId(doc.id + '-dl');
+    try {
+      const url = await getFreshSignedUrl(doc.id);
+      if (!url) { setError('Could not download document. Please try again.'); return; }
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = doc.fileName || 'document';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } finally {
+      setLoadingDocId(null);
+    }
   };
 
   if (state === 'loading') {
@@ -209,12 +229,13 @@ export default function SharedDocumentView() {
     );
   }
 
-  // Verified state - show documents
+  // Verified state
   return (
     <div className="shared-view-container">
       <div className="shared-view-card shared-view-card-wide">
         <CheckCircle2 className="shared-view-success-icon" />
         <h2>Shared Documents</h2>
+        {error && <p className="shared-view-error">{error}</p>}
         <div className="shared-view-documents">
           {documents.map((doc) => (
             <div key={doc.id} className="shared-view-doc-item">
@@ -227,18 +248,25 @@ export default function SharedDocumentView() {
                 </span>
               </div>
               <div className="shared-view-doc-actions">
-                {doc.signedUrl && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={loadingDocId === doc.id}
+                  onClick={() => handleView(doc)}
+                >
+                  {loadingDocId === doc.id
+                    ? <Loader2 className="h-4 w-4 animate-spin" />
+                    : 'View'}
+                </Button>
+                {allowDownload && (
                   <Button
                     size="sm"
-                    variant="outline"
-                    onClick={() => window.open(doc.signedUrl!, '_blank')}
+                    disabled={loadingDocId === doc.id + '-dl'}
+                    onClick={() => handleDownload(doc)}
                   >
-                    View
-                  </Button>
-                )}
-                {allowDownload && doc.signedUrl && (
-                  <Button size="sm" onClick={() => handleDownload(doc)}>
-                    <Download className="h-4 w-4" />
+                    {loadingDocId === doc.id + '-dl'
+                      ? <Loader2 className="h-4 w-4 animate-spin" />
+                      : <Download className="h-4 w-4" />}
                   </Button>
                 )}
               </div>

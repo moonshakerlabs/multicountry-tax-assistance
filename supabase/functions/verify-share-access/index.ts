@@ -17,7 +17,7 @@ serve(async (req: Request) => {
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const adminClient = createClient(supabaseUrl, supabaseServiceKey);
 
-    const { action, token, email, otp } = await req.json();
+    const { action, token, email, otp, accessToken } = await req.json();
 
     if (!token) {
       return new Response(JSON.stringify({ error: "Token is required" }), {
@@ -26,12 +26,12 @@ serve(async (req: Request) => {
       });
     }
 
-    // Validate the share token
+    // Validate the share token — accepts both PENDING (just created) and SUCCESS (email sent)
     const { data: share, error: shareError } = await adminClient
       .from("document_shares")
       .select("*")
       .eq("token", token)
-      .eq("status", "SUCCESS")
+      .in("status", ["SUCCESS", "PENDING"])
       .single();
 
     if (shareError || !share) {
@@ -49,7 +49,7 @@ serve(async (req: Request) => {
       );
     }
 
-    // Action: validate - just check the token is valid
+    // ─── Action: validate ────────────────────────────────────────────────────
     if (action === "validate") {
       return new Response(
         JSON.stringify({
@@ -63,21 +63,18 @@ serve(async (req: Request) => {
       );
     }
 
-    // Action: send-otp - send OTP to the recipient email
+    // ─── Action: send-otp ────────────────────────────────────────────────────
     if (action === "send-otp") {
-      if (!email || email !== share.recipient_email) {
+      if (!email || email.toLowerCase() !== share.recipient_email.toLowerCase()) {
         return new Response(
           JSON.stringify({ error: "Email does not match the share recipient" }),
           { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
 
-      // Use Supabase Auth signInWithOtp
       const { error: otpError } = await adminClient.auth.signInWithOtp({
         email: share.recipient_email,
-        options: {
-          shouldCreateUser: true,
-        },
+        options: { shouldCreateUser: true },
       });
 
       if (otpError) {
@@ -94,7 +91,7 @@ serve(async (req: Request) => {
       );
     }
 
-    // Action: verify-otp - verify OTP and grant access
+    // ─── Action: verify-otp ──────────────────────────────────────────────────
     if (action === "verify-otp") {
       if (!email || !otp) {
         return new Response(
@@ -103,7 +100,7 @@ serve(async (req: Request) => {
         );
       }
 
-      if (email !== share.recipient_email) {
+      if (email.toLowerCase() !== share.recipient_email.toLowerCase()) {
         return new Response(
           JSON.stringify({ error: "Email does not match" }),
           { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -111,13 +108,13 @@ serve(async (req: Request) => {
       }
 
       // Verify OTP via Supabase Auth
-      const { error: verifyError } = await adminClient.auth.verifyOtp({
+      const { data: sessionData, error: verifyError } = await adminClient.auth.verifyOtp({
         email,
         token: otp,
         type: "email",
       });
 
-      if (verifyError) {
+      if (verifyError || !sessionData?.session) {
         console.error("OTP verify error:", verifyError);
         return new Response(
           JSON.stringify({ error: "Invalid or expired verification code" }),
@@ -125,52 +122,94 @@ serve(async (req: Request) => {
         );
       }
 
-      // Update audit log with OTP verified timestamp
+      // Update audit log
       await adminClient
         .from("share_audit_log")
         .update({ otp_verified_at: new Date().toISOString() })
         .eq("share_id", share.id);
 
-      // Re-verify share_enabled for each document and generate signed URLs
+      // Return doc metadata + access token — NO signed URLs here (they'd expire)
       const { data: docs, error: docsError } = await adminClient
         .from("documents")
-        .select("id, file_name, file_path, file_type, main_category, sub_category, share_enabled")
+        .select("id, file_name, file_type, main_category, sub_category, share_enabled")
         .in("id", share.document_ids);
 
       if (docsError) throw docsError;
 
-      const accessibleDocs = (docs || []).filter((d: any) => d.share_enabled);
-
-      // Calculate remaining seconds until share expiry (min 60s, max 7 days)
-      const remainingMs = new Date(share.expires_at).getTime() - Date.now();
-      const remainingSec = Math.max(60, Math.min(Math.floor(remainingMs / 1000), 7 * 24 * 60 * 60));
-
-      const documentsWithUrls = await Promise.all(
-        accessibleDocs.map(async (doc: any) => {
-          let signedUrl = null;
-          if (doc.file_path) {
-            const { data } = await adminClient.storage
-              .from("user-documents")
-              .createSignedUrl(doc.file_path, remainingSec);
-            signedUrl = data?.signedUrl || null;
-          }
-          return {
-            id: doc.id,
-            fileName: doc.file_name,
-            fileType: doc.file_type,
-            mainCategory: doc.main_category,
-            subCategory: doc.sub_category,
-            signedUrl,
-          };
-        })
-      );
+      const accessibleDocs = (docs || [])
+        .filter((d: any) => d.share_enabled)
+        .map((doc: any) => ({
+          id: doc.id,
+          fileName: doc.file_name,
+          fileType: doc.file_type,
+          mainCategory: doc.main_category,
+          subCategory: doc.sub_category,
+        }));
 
       return new Response(
         JSON.stringify({
           verified: true,
           allowDownload: share.allow_download,
-          documents: documentsWithUrls,
+          accessToken: sessionData.session.access_token,
+          documents: accessibleDocs,
         }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // ─── Action: get-url ─────────────────────────────────────────────────────
+    // Generate a fresh signed URL for a single document on demand
+    if (action === "get-url") {
+      const { documentId } = await req.json().catch(() => ({})) as any;
+
+      if (!accessToken) {
+        return new Response(
+          JSON.stringify({ error: "Access token required" }),
+          { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      // Verify the access token belongs to the share recipient
+      const anonClient = createClient(supabaseUrl, Deno.env.get("SUPABASE_ANON_KEY")!, {
+        global: { headers: { Authorization: `Bearer ${accessToken}` } },
+      });
+      const { data: { user }, error: userErr } = await anonClient.auth.getUser();
+      if (userErr || !user || user.email?.toLowerCase() !== share.recipient_email.toLowerCase()) {
+        return new Response(
+          JSON.stringify({ error: "Unauthorized" }),
+          { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      // Verify the requested doc is in the share and has share_enabled
+      const docId = documentId;
+      if (!docId || !share.document_ids.includes(docId)) {
+        return new Response(
+          JSON.stringify({ error: "Document not found in share" }),
+          { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      const { data: doc } = await adminClient
+        .from("documents")
+        .select("file_path, share_enabled")
+        .eq("id", docId)
+        .single();
+
+      if (!doc?.share_enabled || !doc?.file_path) {
+        return new Response(
+          JSON.stringify({ error: "Document not accessible" }),
+          { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      // Generate a fresh 1-hour signed URL
+      const { data: urlData } = await adminClient.storage
+        .from("user-documents")
+        .createSignedUrl(doc.file_path, 3600);
+
+      return new Response(
+        JSON.stringify({ signedUrl: urlData?.signedUrl || null }),
         { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
