@@ -152,17 +152,47 @@ export default function Auth() {
     }
   };
 
-  const performGoogleSignUp = async () => {
+  // On custom domains (e.g. taxbebo.com) the Lovable auth-bridge (/~oauth) is not available.
+  // We must bypass it by getting the OAuth URL directly and redirecting manually.
+  const isCustomDomain = !window.location.hostname.includes('lovable.app') &&
+    !window.location.hostname.includes('lovableproject.com');
+
+  const handleGoogleOAuth = async () => {
     setIsLoading(true);
-    const { error } = await signInWithGoogle();
-    if (error) {
-      toast({
-        title: 'Google sign up failed',
-        description: 'Unable to sign up. Please try again.',
-        variant: 'destructive'
+    if (isCustomDomain) {
+      const { data, error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: `${window.location.origin}/auth`,
+          skipBrowserRedirect: true,
+        },
       });
-      setIsLoading(false);
+      if (error) {
+        toast({ title: 'Google sign in failed', description: error.message, variant: 'destructive' });
+        setIsLoading(false);
+        return;
+      }
+      if (data?.url) {
+        const oauthUrl = new URL(data.url);
+        const allowedHosts = ['accounts.google.com'];
+        if (!allowedHosts.some(h => oauthUrl.hostname === h || oauthUrl.hostname.endsWith('.' + h))) {
+          toast({ title: 'Security error', description: 'Invalid OAuth redirect.', variant: 'destructive' });
+          setIsLoading(false);
+          return;
+        }
+        window.location.href = data.url;
+      }
+    } else {
+      const { error } = await signInWithGoogle();
+      if (error) {
+        toast({ title: 'Google sign in failed', description: 'Unable to sign in. Please try again.', variant: 'destructive' });
+        setIsLoading(false);
+      }
     }
+  };
+
+  const performGoogleSignUp = async () => {
+    await handleGoogleOAuth();
   };
 
   const handleForgotPassword = async () => {
@@ -249,17 +279,8 @@ export default function Auth() {
       return;
     }
     
-    // For sign-in, proceed directly
-    setIsLoading(true);
-    const { error } = await signInWithGoogle();
-    if (error) {
-      toast({
-        title: 'Google sign in failed',
-        description: 'Unable to sign in. Please check your details and try again.',
-        variant: 'destructive'
-      });
-      setIsLoading(false);
-    }
+    // For sign-in, proceed directly (custom domain safe)
+    await handleGoogleOAuth();
   };
 
   const toggleMode = () => {
