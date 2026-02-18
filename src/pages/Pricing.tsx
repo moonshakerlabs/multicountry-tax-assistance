@@ -5,6 +5,7 @@ import { Switch } from '@/components/ui/switch';
 import { useAuth } from '@/hooks/useAuth';
 import { Check, X as XIcon, Star, ArrowLeft, Sparkles } from 'lucide-react';
 import './Pricing.css';
+import { APP_NAME } from '@/lib/appConfig';
 
 interface PlanFeature {
   text: string;
@@ -254,7 +255,7 @@ export default function Pricing() {
           <div className="pricing-logo">
             <Link to="/" className="pricing-logo-link">
               <div className="pricing-logo-icon" />
-              <span className="pricing-logo-text">WorTaF</span>
+              <span className="pricing-logo-text">{APP_NAME}</span>
             </Link>
           </div>
           <nav className="pricing-nav">
@@ -409,7 +410,7 @@ export default function Pricing() {
         <div className="pricing-footer-content">
           <div className="pricing-footer-logo">
             <div className="pricing-footer-logo-icon" />
-            <span className="pricing-footer-logo-text">WorTaF</span>
+            <span className="pricing-footer-logo-text">{APP_NAME}</span>
           </div>
           <nav className="pricing-footer-nav">
             <a href="#" className="pricing-footer-link">Privacy Policy</a>

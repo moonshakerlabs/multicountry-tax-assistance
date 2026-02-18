@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { CheckCircle, Lock, MessageSquare, ThumbsUp, ThumbsDown, ArrowLeft } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import './SharedPost.css';
+import { APP_NAME } from '@/lib/appConfig';
 
 interface Post {
   id: string;
@@ -75,7 +76,7 @@ export default function SharedPost() {
         <div className="shared-post-header-content">
           <Link to="/taxoverflow" className="shared-post-logo-link">
             <div className="shared-post-logo-icon" />
-            <span className="shared-post-logo-text">WorTaF</span>
+            <span className="shared-post-logo-text">{APP_NAME}</span>
           </Link>
           <span className="shared-post-divider">/</span>
           <span className="shared-post-breadcrumb">TaxOverFlow</span>

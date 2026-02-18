@@ -8,8 +8,8 @@ const corsHeaders = {
 };
 
 const APP_CONFIG = {
-  appName: "WorTaF",
-  emailFrom: "WorTaF <onboarding@resend.dev>",
+  appName: "TAXBEBO",
+  emailFrom: "TAXBEBO <onboarding@resend.dev>",
 };
 
 serve(async (req: Request) => {

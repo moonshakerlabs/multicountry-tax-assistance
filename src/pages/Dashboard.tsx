@@ -6,6 +6,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
+import { APP_NAME } from '@/lib/appConfig';
 import { User, FileText, LogOut, FolderOpen, Upload, ChevronRight, MessageSquare, Brain, Shield, Users, CheckCircle, XCircle, Settings, Activity, CreditCard, Briefcase, ArrowLeft, HeadphonesIcon, TicketIcon, Eye, RotateCcw, X, Trash2, AlertTriangle, UserX, UserPlus } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -1007,7 +1008,7 @@ export default function Dashboard() {
           <div className="dashboard-logo">
             <Link to="/" className="dashboard-logo-link">
               <div className="dashboard-logo-icon" />
-              <span className="dashboard-logo-text">WorTaF</span>
+              <span className="dashboard-logo-text">{APP_NAME}</span>
             </Link>
           </div>
           <div className="dashboard-header-actions">

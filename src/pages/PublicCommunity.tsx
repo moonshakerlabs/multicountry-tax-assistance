@@ -8,6 +8,7 @@ import { useToast } from '@/hooks/use-toast';
 import { MessageSquare, ThumbsUp, ThumbsDown, CheckCircle, Flag, Lock, Share2 } from 'lucide-react';
 import ReportModal from '@/components/community/ReportModal';
 import './PublicCommunity.css';
+import { APP_NAME } from '@/lib/appConfig';
 
 interface PublicPost {
   id: string;
@@ -166,7 +167,7 @@ export default function PublicCommunity() {
           <div className="public-community-header-left">
             <Link to="/" className="public-community-logo-link">
               <div className="public-community-logo-icon" />
-              <span className="public-community-logo-text">WorTaF</span>
+              <span className="public-community-logo-text">{APP_NAME}</span>
             </Link>
             <span className="public-community-divider">/</span>
             <h1 className="public-community-title">TaxOverFlow</h1>

@@ -95,9 +95,9 @@ serve(async (req: Request) => {
     }
 
     // ─── App Configuration ────────────────────────────────────────────────
-    // Once wortaf.com domain is verified in Resend, change emailFrom to:
-    // "WorTaF <noreply@wortaf.com>"
-    const EMAIL_FROM = "WorTaF <onboarding@resend.dev>";
+    // Once taxbebo.com domain is verified in Resend, change emailFrom to:
+    // "TAXBEBO <noreply@taxbebo.com>"
+    const EMAIL_FROM = "TAXBEBO <onboarding@resend.dev>";
     // ─────────────────────────────────────────────────────────────────────
 
     const resendKey = Deno.env.get("RESEND_API_KEY");
@@ -155,11 +155,11 @@ serve(async (req: Request) => {
         const emailResult = await resend.emails.send({
           from: EMAIL_FROM,
           to: [recipientEmail],
-          subject: `Documents shared with you via WorTaF`,
+          subject: `Documents shared with you via TAXBEBO`,
           html: `
             <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
               <h2 style="color: #1a1a2e;">Documents Shared With You</h2>
-              <p>Someone has shared <strong>${documentIds.length} document(s)</strong> with you via WorTaF.</p>
+              <p>Someone has shared <strong>${documentIds.length} document(s)</strong> with you via TAXBEBO.</p>
               <p><strong>Access expires:</strong> ${new Date(expiresAt).toLocaleDateString()}</p>
               <div style="margin: 24px 0;">
                 <a href="${shareLink}" style="background: #6366f1; color: white; padding: 12px 24px; border-radius: 6px; text-decoration: none; display: inline-block;">

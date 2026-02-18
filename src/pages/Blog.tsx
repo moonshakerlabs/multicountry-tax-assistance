@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, BookOpen } from 'lucide-react';
+import { APP_NAME } from '@/lib/appConfig';
 import './Blog.css';
 
 export default function Blog() {
@@ -12,9 +13,9 @@ export default function Blog() {
             <ArrowLeft className="blog-back-icon" />
             Back to Home
           </Link>
-          <div className="blog-logo">
+            <div className="blog-logo">
             <div className="blog-logo-icon" />
-            <span className="blog-logo-text">WorTaF</span>
+            <span className="blog-logo-text">{APP_NAME}</span>
           </div>
         </div>
       </header>

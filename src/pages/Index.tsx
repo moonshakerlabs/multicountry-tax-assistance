@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Shield, Globe, Share2 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
+import { APP_NAME, APP_TAGLINE } from '@/lib/appConfig';
 
 const features = [
   {
@@ -31,7 +32,7 @@ export default function Index() {
         <div className="container-wide flex h-16 items-center justify-between">
           <div className="flex items-center gap-2">
             <div className="h-8 w-8 rounded-lg bg-primary" />
-            <span className="text-lg font-semibold text-foreground">WorTaF</span>
+            <span className="text-lg font-semibold text-foreground">{APP_NAME}</span>
           </div>
           <nav>
             {user ? (
@@ -91,7 +92,7 @@ export default function Index() {
         <div className="container-wide flex flex-col items-center justify-between gap-4 sm:flex-row">
           <div className="flex items-center gap-2">
             <div className="h-6 w-6 rounded bg-primary" />
-            <span className="font-medium text-foreground">WorTaF</span>
+            <span className="font-medium text-foreground">{APP_NAME}</span>
           </div>
           <nav className="flex gap-6 text-sm text-muted-foreground">
             <a href="#" className="hover:text-foreground transition-colors">Privacy Policy</a>

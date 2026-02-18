@@ -6,6 +6,7 @@ import { Label } from '@/components/ui/label';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
 import { z } from 'zod';
+import { APP_NAME } from '@/lib/appConfig';
 
 const authSchema = z.object({
   email: z.string().email('Please enter a valid email address'),
@@ -120,7 +121,7 @@ export default function Login() {
         <div className="mb-8 text-center">
           <Link to="/" className="inline-flex items-center gap-2">
             <div className="h-10 w-10 rounded-lg bg-primary" />
-            <span className="text-xl font-semibold text-foreground">WorTaF</span>
+            <span className="text-xl font-semibold text-foreground">{APP_NAME}</span>
           </Link>
         </div>
 
