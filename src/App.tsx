@@ -23,6 +23,7 @@ import ResetPassword from "./pages/ResetPassword";
 import TwoFactorVerify from "./pages/TwoFactorVerify";
 import Support from "./pages/Support";
 import NotFound from "./pages/NotFound";
+import SharedPost from "./pages/SharedPost";
 
 const queryClient = new QueryClient();
 
@@ -89,6 +90,9 @@ const App = () => (
             {/* Public shared document route */}
             <Route path="/shared/:token" element={<SharedDocumentView />} />
             
+            {/* Public shared post route */}
+            <Route path="/taxoverflow/post/:postId" element={<SharedPost />} />
+
             {/* Catch-all */}
             <Route path="*" element={<NotFound />} />
           </Routes>

@@ -122,4 +122,6 @@
 }
 
 .post-report-btn { padding: 0.25rem; min-width: unset; height: auto; }
+.post-share-btn { padding: 0.25rem; min-width: unset; height: auto; }
+.post-share-btn:hover svg { color: hsl(var(--primary)); }
 .post-report-icon { width: 0.875rem; height: 0.875rem; color: hsl(var(--muted-foreground)); }

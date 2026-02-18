@@ -1,6 +1,7 @@
-import { ThumbsUp, ThumbsDown, MessageSquare, CheckCircle, Flag } from 'lucide-react';
+import { ThumbsUp, ThumbsDown, MessageSquare, CheckCircle, Flag, Share2 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { useToast } from '@/hooks/use-toast';
 import './PostCard.css';
 
 export interface PostData {
@@ -29,6 +30,24 @@ interface PostCardProps {
 
 export default function PostCard({ post, onClick, onVote, onReport, currentUserId }: PostCardProps) {
   const timeAgo = getTimeAgo(post.created_at);
+  const { toast } = useToast();
+
+  const handleShare = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    const shareUrl = `${window.location.origin}/taxoverflow/post/${post.id}`;
+    navigator.clipboard.writeText(shareUrl).then(() => {
+      toast({ title: 'Link copied!', description: 'Share this link — anyone can view the question.' });
+    }).catch(() => {
+      // Fallback
+      const el = document.createElement('input');
+      el.value = shareUrl;
+      document.body.appendChild(el);
+      el.select();
+      document.execCommand('copy');
+      document.body.removeChild(el);
+      toast({ title: 'Link copied!', description: 'Share this link — anyone can view the question.' });
+    });
+  };
 
   return (
     <div className="post-card" onClick={() => onClick(post.id)}>
@@ -82,6 +101,15 @@ export default function PostCard({ post, onClick, onVote, onReport, currentUserI
           </div>
           <div className="post-card-actions">
             <span className="post-author">by {post.author_email || 'Anonymous'}</span>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="post-share-btn"
+              onClick={handleShare}
+              title="Copy share link"
+            >
+              <Share2 className="post-report-icon" />
+            </Button>
             <Button
               variant="ghost"
               size="sm"

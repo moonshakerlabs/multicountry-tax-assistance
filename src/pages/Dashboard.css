@@ -469,3 +469,70 @@
   flex-wrap: wrap;
   align-items: center;
 }
+
+/* ── Create Employee Form ── */
+.admin-create-employee-form {
+  margin-bottom: 1.75rem;
+  padding: 1.5rem;
+  border-radius: 0.75rem;
+  background: hsl(var(--primary) / 0.03);
+  border: 1px solid hsl(var(--primary) / 0.15);
+}
+
+.admin-create-employee-title {
+  font-size: 0.9375rem;
+  font-weight: 700;
+  margin-bottom: 0.25rem;
+}
+
+.admin-create-employee-subtitle {
+  font-size: 0.8125rem;
+  color: hsl(var(--muted-foreground));
+  margin-bottom: 1.25rem;
+}
+
+.admin-employee-form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1rem;
+}
+
+.admin-form-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+}
+
+.admin-form-field-full {
+  grid-column: 1 / -1;
+}
+
+.admin-form-label {
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: hsl(var(--foreground));
+}
+
+.admin-form-optional {
+  font-size: 0.75rem;
+  font-weight: 400;
+  color: hsl(var(--muted-foreground));
+}
+
+.admin-form-actions {
+  display: flex;
+  gap: 0.75rem;
+  justify-content: flex-end;
+  margin-top: 1.25rem;
+  padding-top: 1rem;
+  border-top: 1px solid hsl(var(--border));
+}
+
+@media (max-width: 640px) {
+  .admin-employee-form-grid {
+    grid-template-columns: 1fr;
+  }
+  .admin-form-field-full {
+    grid-column: 1;
+  }
+}

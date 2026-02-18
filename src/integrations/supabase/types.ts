@@ -430,6 +430,66 @@ export type Database = {
           },
         ]
       }
+      employee_profiles: {
+        Row: {
+          address: string | null
+          created_at: string
+          created_by: string | null
+          email: string
+          employee_id: string
+          employment_status: string
+          first_name: string
+          id: string
+          joined_date: string
+          last_name: string
+          pan_number: string | null
+          phone_number: string
+          resigned_date: string | null
+          role: string
+          uan_number: string | null
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          address?: string | null
+          created_at?: string
+          created_by?: string | null
+          email: string
+          employee_id: string
+          employment_status?: string
+          first_name: string
+          id?: string
+          joined_date: string
+          last_name: string
+          pan_number?: string | null
+          phone_number: string
+          resigned_date?: string | null
+          role?: string
+          uan_number?: string | null
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          address?: string | null
+          created_at?: string
+          created_by?: string | null
+          email?: string
+          employee_id?: string
+          employment_status?: string
+          first_name?: string
+          id?: string
+          joined_date?: string
+          last_name?: string
+          pan_number?: string | null
+          phone_number?: string
+          resigned_date?: string | null
+          role?: string
+          uan_number?: string | null
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       google_drive_tokens: {
         Row: {
           access_token: string | null
