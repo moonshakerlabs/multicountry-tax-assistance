@@ -1,11 +1,11 @@
 import { useState, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
-import { MessageSquare, ThumbsUp, ThumbsDown, CheckCircle, Flag, ArrowLeft } from 'lucide-react';
+import { MessageSquare, ThumbsUp, ThumbsDown, CheckCircle, Flag, Lock } from 'lucide-react';
 import ReportModal from '@/components/community/ReportModal';
 import './PublicCommunity.css';
 
@@ -34,7 +34,6 @@ interface Answer {
 export default function PublicCommunity() {
   const { user, signOut } = useAuth();
   const { toast } = useToast();
-  const navigate = useNavigate();
   const [posts, setPosts] = useState<PublicPost[]>([]);
   const [loading, setLoading] = useState(true);
   const [expandedPost, setExpandedPost] = useState<string | null>(null);
@@ -45,9 +44,7 @@ export default function PublicCommunity() {
 
   useEffect(() => {
     fetchPosts();
-    if (user) {
-      fetchUserVotes();
-    }
+    if (user) fetchUserVotes();
   }, [user]);
 
   const fetchPosts = async () => {
@@ -66,7 +63,6 @@ export default function PublicCommunity() {
         .eq('is_correct', true)
         .in('post_id', postIds.length > 0 ? postIds : ['none']);
       const solvedSet = new Set(correctAnswers?.map((a) => a.post_id) || []);
-
       setPosts(data.map((p) => ({ ...p, tags: p.tags || [], has_correct_answer: solvedSet.has(p.id) })));
     }
     setLoading(false);
@@ -74,10 +70,7 @@ export default function PublicCommunity() {
 
   const fetchUserVotes = async () => {
     if (!user) return;
-    const { data } = await supabase
-      .from('community_votes')
-      .select('entity_id, vote_type')
-      .eq('user_id', user.id);
+    const { data } = await supabase.from('community_votes').select('entity_id, vote_type').eq('user_id', user.id);
     if (data) {
       const votes: Record<string, 'UP' | 'DOWN'> = {};
       data.forEach((v) => { votes[v.entity_id] = v.vote_type as 'UP' | 'DOWN'; });
@@ -93,9 +86,7 @@ export default function PublicCommunity() {
       .eq('status', 'ACTIVE')
       .order('is_correct', { ascending: false })
       .order('vote_count', { ascending: false });
-    if (data) {
-      setAnswers((prev) => ({ ...prev, [postId]: data }));
-    }
+    if (data) setAnswers((prev) => ({ ...prev, [postId]: data }));
   };
 
   const toggleExpand = (postId: string) => {
@@ -103,9 +94,7 @@ export default function PublicCommunity() {
       setExpandedPost(null);
     } else {
       setExpandedPost(postId);
-      if (!answers[postId]) {
-        fetchAnswers(postId);
-      }
+      if (!answers[postId]) fetchAnswers(postId);
     }
   };
 
@@ -114,52 +103,33 @@ export default function PublicCommunity() {
       toast({ title: 'Sign in required', description: 'Please sign in to vote.', variant: 'destructive' });
       return;
     }
-
     const currentVote = userVotes[entityId];
-    
     if (currentVote === voteType) {
-      // Remove vote
       await supabase.from('community_votes').delete().eq('entity_id', entityId).eq('user_id', user.id);
       const increment = voteType === 'UP' ? -1 : 1;
       if (entityType === 'post') {
         await supabase.from('community_posts').update({ vote_count: posts.find(p => p.id === entityId)!.vote_count + increment }).eq('id', entityId);
-      } else {
-        // update answer vote
-        const postId = Object.keys(answers).find(pid => answers[pid]?.some(a => a.id === entityId));
-        if (postId) {
-          const answer = answers[postId].find(a => a.id === entityId);
-          if (answer) {
-            await supabase.from('community_answers').update({ vote_count: answer.vote_count + increment }).eq('id', entityId);
-          }
-        }
       }
       setUserVotes((prev) => { const n = { ...prev }; delete n[entityId]; return n; });
     } else {
-      // Upsert vote
       let increment = voteType === 'UP' ? 1 : -1;
-      if (currentVote) increment *= 2; // switching from opposite vote
-      
+      if (currentVote) increment *= 2;
       if (currentVote) {
         await supabase.from('community_votes').update({ vote_type: voteType }).eq('entity_id', entityId).eq('user_id', user.id);
       } else {
         await supabase.from('community_votes').insert({ entity_id: entityId, entity_type: entityType, vote_type: voteType, user_id: user.id });
       }
-
       if (entityType === 'post') {
         await supabase.from('community_posts').update({ vote_count: posts.find(p => p.id === entityId)!.vote_count + increment }).eq('id', entityId);
       } else {
         const postId = Object.keys(answers).find(pid => answers[pid]?.some(a => a.id === entityId));
         if (postId) {
           const answer = answers[postId].find(a => a.id === entityId);
-          if (answer) {
-            await supabase.from('community_answers').update({ vote_count: answer.vote_count + increment }).eq('id', entityId);
-          }
+          if (answer) await supabase.from('community_answers').update({ vote_count: answer.vote_count + increment }).eq('id', entityId);
         }
       }
       setUserVotes((prev) => ({ ...prev, [entityId]: voteType }));
     }
-
-    // Refresh
     fetchPosts();
     if (expandedPost) fetchAnswers(expandedPost);
     fetchUserVotes();
@@ -174,6 +144,13 @@ export default function PublicCommunity() {
     const days = Math.floor(hrs / 24);
     if (days < 30) return `${days}d ago`;
     return `${Math.floor(days / 30)}mo ago`;
+  };
+
+  // For guests: show first ~120 chars clearly, blur the rest
+  const getDescriptionParts = (desc: string) => {
+    const cutoff = 120;
+    if (desc.length <= cutoff) return { visible: desc, blurred: '' };
+    return { visible: desc.substring(0, cutoff), blurred: desc.substring(cutoff) };
   };
 
   return (
@@ -191,27 +168,15 @@ export default function PublicCommunity() {
           <div className="public-community-header-right">
             {user ? (
               <>
-                <Button asChild variant="ghost" size="sm">
-                  <Link to="/dashboard">Dashboard</Link>
-                </Button>
-                <Button asChild variant="ghost" size="sm">
-                  <Link to="/profile">Profile</Link>
-                </Button>
-                <Button asChild variant="ghost" size="sm">
-                  <Link to="/pricing">Upgrade</Link>
-                </Button>
-                <Button variant="ghost" size="sm" onClick={() => signOut()}>
-                  Sign out
-                </Button>
+                <Button asChild variant="ghost" size="sm"><Link to="/dashboard">Dashboard</Link></Button>
+                <Button asChild variant="ghost" size="sm"><Link to="/profile">Profile</Link></Button>
+                <Button asChild variant="ghost" size="sm"><Link to="/pricing">Upgrade</Link></Button>
+                <Button variant="ghost" size="sm" onClick={() => signOut()}>Sign out</Button>
               </>
             ) : (
               <>
-                <Button asChild variant="outline" size="sm">
-                  <Link to="/auth?mode=signin">Sign In</Link>
-                </Button>
-                <Button asChild size="sm">
-                  <Link to="/auth?mode=signup">Join Now</Link>
-                </Button>
+                <Button asChild variant="outline" size="sm"><Link to="/auth?mode=signin">Sign In</Link></Button>
+                <Button asChild size="sm"><Link to="/auth?mode=signup">Join Now</Link></Button>
               </>
             )}
           </div>
@@ -222,7 +187,8 @@ export default function PublicCommunity() {
         <div className="public-community-intro">
           <h2 className="public-community-intro-title">What taxpayers are discussing</h2>
           <p className="public-community-intro-text">
-            Browse real tax questions from people managing cross-border finances. Sign up to ask questions, vote, and contribute answers.
+            Browse real tax questions from people managing cross-border finances.{' '}
+            {!user && <><Link to="/auth?mode=signup" className="public-community-join-link">Join free</Link> to ask questions, vote, and contribute answers.</>}
           </p>
         </div>
 
@@ -230,85 +196,95 @@ export default function PublicCommunity() {
           {loading ? (
             <div className="public-community-empty">Loading questions...</div>
           ) : posts.length === 0 ? (
-            <div className="public-community-empty">No questions posted yet. Be the first!</div>
+            <div className="public-community-empty">No approved questions yet. Be the first to join!</div>
           ) : (
-            posts.map((post) => (
-              <div key={post.id} className="public-post-card">
-                <div className="public-post-votes">
-                  <button
-                    className={`public-vote-btn ${userVotes[post.id] === 'UP' ? 'public-vote-active-up' : ''}`}
-                    onClick={() => handleVote(post.id, 'post', 'UP')}
-                    title="Upvote"
-                  >
-                    <ThumbsUp className="public-post-vote-icon" />
-                  </button>
-                  <span className="public-post-vote-count">{post.vote_count}</span>
-                  <button
-                    className={`public-vote-btn ${userVotes[post.id] === 'DOWN' ? 'public-vote-active-down' : ''}`}
-                    onClick={() => handleVote(post.id, 'post', 'DOWN')}
-                    title="Downvote"
-                  >
-                    <ThumbsDown className="public-post-vote-icon" />
-                  </button>
-                </div>
-                <div className="public-post-body">
-                  <div className="public-post-meta">
-                    <Badge variant="outline" className="public-post-country">{post.country}</Badge>
-                    {post.has_correct_answer && (
-                      <Badge className="public-post-solved">
-                        <CheckCircle className="public-post-solved-icon" />
-                        Solved
-                      </Badge>
-                    )}
-                    <span className="public-post-time">{getTimeAgo(post.created_at)}</span>
-                  </div>
-                  <h3
-                    className="public-post-title public-post-title-clickable"
-                    onClick={() => toggleExpand(post.id)}
-                  >
-                    {post.title}
-                  </h3>
-                  <p className="public-post-excerpt">
-                    {post.description.length > 180 ? post.description.substring(0, 180) + '…' : post.description}
-                  </p>
-                  <div className="public-post-footer">
-                    <span className="public-post-stat" onClick={() => toggleExpand(post.id)} style={{ cursor: 'pointer' }}>
-                      <MessageSquare className="public-post-stat-icon" />
-                      {post.answer_count} answers
-                    </span>
-                    {user && (
-                      <button className="public-report-btn" onClick={() => setReportTarget({ id: post.id, type: 'POST' })}>
-                        <Flag className="public-report-icon" />
-                      </button>
-                    )}
-                    {post.tags?.map((tag) => (
-                      <Badge key={tag} variant="secondary" className="public-post-tag">{tag}</Badge>
-                    ))}
+            posts.map((post) => {
+              const { visible, blurred } = getDescriptionParts(post.description);
+              const isExpanded = expandedPost === post.id;
+              const showGuestBlur = !user;
+
+              return (
+                <div key={post.id} className="public-post-card">
+                  {/* Vote column */}
+                  <div className="public-post-votes">
+                    <button
+                      className={`public-vote-btn ${userVotes[post.id] === 'UP' ? 'public-vote-active-up' : ''}`}
+                      onClick={() => handleVote(post.id, 'post', 'UP')}
+                      title="Upvote"
+                    >
+                      <ThumbsUp className="public-post-vote-icon" />
+                    </button>
+                    <span className="public-post-vote-count">{post.vote_count}</span>
+                    <button
+                      className={`public-vote-btn ${userVotes[post.id] === 'DOWN' ? 'public-vote-active-down' : ''}`}
+                      onClick={() => handleVote(post.id, 'post', 'DOWN')}
+                      title="Downvote"
+                    >
+                      <ThumbsDown className="public-post-vote-icon" />
+                    </button>
                   </div>
 
-                  {/* Answers section */}
-                  {expandedPost === post.id && (
-                    <div className="public-answers-section">
-                      <h4 className="public-answers-heading">{post.answer_count} Answers</h4>
-                      {!user ? (
-                        <div className="public-answers-blur-wrapper">
-                          <div className="public-answers-blurred">
-                            <div className="public-answer-placeholder">
-                              <p>This is a sample answer that discusses the tax implications of cross-border income and provides detailed guidance on compliance requirements...</p>
-                            </div>
-                            <div className="public-answer-placeholder">
-                              <p>Another insightful answer covering the specific regulations and filing requirements for multi-country taxation scenarios...</p>
-                            </div>
-                          </div>
-                          <div className="public-answers-login-overlay">
-                            <p>Sign in to view answers</p>
-                            <Button asChild size="sm">
-                              <Link to="/auth?mode=signin">Sign In</Link>
-                            </Button>
-                          </div>
-                        </div>
-                      ) : (
+                  {/* Post body */}
+                  <div className="public-post-body">
+                    <div className="public-post-meta">
+                      <Badge variant="outline" className="public-post-country">{post.country}</Badge>
+                      {post.has_correct_answer && (
+                        <Badge className="public-post-solved">
+                          <CheckCircle className="public-post-solved-icon" />
+                          Solved
+                        </Badge>
+                      )}
+                      <span className="public-post-time">{getTimeAgo(post.created_at)}</span>
+                    </div>
+
+                    {/* Bold highlighted title */}
+                    <h3 className="public-post-title public-post-title-clickable" onClick={() => toggleExpand(post.id)}>
+                      {post.title}
+                    </h3>
+
+                    {/* Description: partial blur for guests */}
+                    <div className="public-post-description-wrapper">
+                      <span className="public-post-description-visible">{visible}</span>
+                      {blurred && showGuestBlur ? (
+                        <span className="public-post-description-blurred">{blurred}</span>
+                      ) : blurred ? (
+                        <span>{blurred}</span>
+                      ) : null}
+                    </div>
+
+                    {/* Guest CTA inline if description is blurred */}
+                    {showGuestBlur && blurred && (
+                      <div className="public-post-guest-cta">
+                        <Lock className="public-post-guest-cta-icon" />
+                        <span>Join the forum to view the full post and answers or answer this question</span>
+                        <Button asChild size="sm" className="public-post-guest-cta-btn">
+                          <Link to="/auth?mode=signup">Join Free</Link>
+                        </Button>
+                      </div>
+                    )}
+
+                    <div className="public-post-footer">
+                      <span className="public-post-stat" onClick={() => user ? toggleExpand(post.id) : null} style={{ cursor: user ? 'pointer' : 'default' }}>
+                        <MessageSquare className="public-post-stat-icon" />
+                        {post.answer_count} answers
+                      </span>
+                      {user && (
+                        <button className="public-report-btn" onClick={() => setReportTarget({ id: post.id, type: 'POST' })}>
+                          <Flag className="public-report-icon" />
+                        </button>
+                      )}
+                      {post.tags?.map((tag) => (
+                        <Badge key={tag} variant="secondary" className="public-post-tag">{tag}</Badge>
+                      ))}
+                    </div>
+
+                    {/* Expanded answers — only for signed-in users */}
+                    {isExpanded && user && (
+                      <div className="public-answers-section">
+                        <h4 className="public-answers-heading">{post.answer_count} Answers</h4>
                         <div className="public-answers-list">
+                          {answers[post.id] === undefined && <p className="public-community-empty">Loading answers...</p>}
+                          {answers[post.id]?.length === 0 && <p className="public-community-empty">No answers yet. Be the first!</p>}
                           {answers[post.id]?.map((answer) => (
                             <div key={answer.id} className={`public-answer-card ${answer.is_correct ? 'public-answer-correct' : ''}`}>
                               {answer.is_correct && (
@@ -320,17 +296,11 @@ export default function PublicCommunity() {
                               <p className="public-answer-content">{answer.content}</p>
                               <div className="public-answer-footer">
                                 <div className="public-answer-votes">
-                                  <button
-                                    className={`public-vote-btn-sm ${userVotes[answer.id] === 'UP' ? 'public-vote-active-up' : ''}`}
-                                    onClick={() => handleVote(answer.id, 'answer', 'UP')}
-                                  >
+                                  <button className={`public-vote-btn-sm ${userVotes[answer.id] === 'UP' ? 'public-vote-active-up' : ''}`} onClick={() => handleVote(answer.id, 'answer', 'UP')}>
                                     <ThumbsUp className="public-vote-icon-sm" />
                                   </button>
                                   <span>{answer.vote_count}</span>
-                                  <button
-                                    className={`public-vote-btn-sm ${userVotes[answer.id] === 'DOWN' ? 'public-vote-active-down' : ''}`}
-                                    onClick={() => handleVote(answer.id, 'answer', 'DOWN')}
-                                  >
+                                  <button className={`public-vote-btn-sm ${userVotes[answer.id] === 'DOWN' ? 'public-vote-active-down' : ''}`} onClick={() => handleVote(answer.id, 'answer', 'DOWN')}>
                                     <ThumbsDown className="public-vote-icon-sm" />
                                   </button>
                                 </div>
@@ -340,26 +310,46 @@ export default function PublicCommunity() {
                                 </button>
                               </div>
                             </div>
-                          )) || <p className="public-community-empty">Loading answers...</p>}
-                          {answers[post.id]?.length === 0 && (
-                            <p className="public-community-empty">No answers yet.</p>
-                          )}
+                          ))}
                         </div>
-                      )}
-                    </div>
-                  )}
+                      </div>
+                    )}
+
+                    {/* If guest clicks on answers stat, show blur CTA */}
+                    {isExpanded && !user && (
+                      <div className="public-answers-section">
+                        <h4 className="public-answers-heading">{post.answer_count} Answers</h4>
+                        <div className="public-answers-blur-wrapper">
+                          <div className="public-answers-blurred">
+                            <div className="public-answer-placeholder"><p>This answer discusses the tax implications of cross-border income and provides detailed guidance on compliance requirements for multi-country filing...</p></div>
+                            <div className="public-answer-placeholder"><p>Another expert answer covering specific regulations and filing requirements for international taxation scenarios and double tax treaties...</p></div>
+                          </div>
+                          <div className="public-answers-login-overlay">
+                            <Lock className="public-answers-lock-icon" />
+                            <p>Join the forum to view answers or answer this question</p>
+                            <div className="public-answers-overlay-actions">
+                              <Button asChild size="sm"><Link to="/auth?mode=signup">Join Free</Link></Button>
+                              <Button asChild size="sm" variant="outline"><Link to="/auth?mode=signin">Sign In</Link></Button>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 </div>
-              </div>
-            ))
+              );
+            })
           )}
         </div>
 
         {!user && (
           <div className="public-community-cta">
-            <p>Want to ask questions and contribute answers?</p>
-            <Button asChild size="lg">
-              <Link to="/auth?mode=signup">Join TaxOverFlow</Link>
-            </Button>
+            <h3 className="public-community-cta-title">Ready to join the conversation?</h3>
+            <p>Ask tax questions, share expertise, and get answers from the community.</p>
+            <div className="public-community-cta-actions">
+              <Button asChild size="lg"><Link to="/auth?mode=signup">Join TaxOverFlow Free</Link></Button>
+              <Button asChild size="lg" variant="outline"><Link to="/auth?mode=signin">Sign In</Link></Button>
+            </div>
           </div>
         )}
       </main>
@@ -371,12 +361,7 @@ export default function PublicCommunity() {
           onClose={() => setReportTarget(null)}
           onSubmit={async (reason) => {
             setReportSubmitting(true);
-            await supabase.from('community_reports').insert({
-              entity_id: reportTarget.id,
-              entity_type: reportTarget.type,
-              reason,
-              user_id: user.id,
-            });
+            await supabase.from('community_reports').insert({ entity_id: reportTarget.id, entity_type: reportTarget.type, reason, user_id: user.id });
             setReportSubmitting(false);
             setReportTarget(null);
             toast({ title: 'Report submitted', description: 'Thank you for helping keep the community safe.' });
