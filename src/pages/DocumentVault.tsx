@@ -376,7 +376,7 @@ export default function DocumentVault() {
                 {isDE ? 'Dokument hochladen' : 'Upload Document'}
               </Button>
 
-              {!selectionMode && shareableCount > 0 && (
+              {!selectionMode && hasDocuments && (
                 <>
                   <Button onClick={handleShareAll} variant="outline" className="vault-share-btn">
                     <Share2 className="vault-btn-icon" />
