@@ -97,8 +97,9 @@ export default function Auth() {
 
   const validateForm = () => {
     const emailValid = validateEmail();
-    const passwordValid = !isGoogleAccount && validatePassword();
-    return emailValid && (isGoogleAccount || passwordValid);
+    // In signup mode, always validate password regardless of isGoogleAccount state
+    const passwordValid = (mode === 'signup' || !isGoogleAccount) ? validatePassword() : true;
+    return emailValid && passwordValid;
   };
 
   const handleEmailBlur = async () => {
@@ -182,7 +183,8 @@ export default function Auth() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (isGoogleAccount) {
+    // Only redirect to Google if in sign-in mode AND the account was detected as Google
+    if (mode === 'signin' && isGoogleAccount) {
       handleGoogleSignIn();
       return;
     }
