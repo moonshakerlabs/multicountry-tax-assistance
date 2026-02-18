@@ -450,6 +450,11 @@
   color: hsl(45 93% 47%);
 }
 
+.admin-status-review {
+  background-color: hsl(270 70% 60% / 0.15);
+  color: hsl(270 70% 50%);
+}
+
 .admin-create-user {
   margin-bottom: 1.5rem;
   padding: 1rem;
