@@ -371,7 +371,7 @@ export default function DocumentActions({
                 className="doc-edit-field"
                 style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}
               >
-                <label className="doc-edit-label">{isDE ? "Teilen erlauben" : "Share Enabled"}</label>
+                <label className="doc-edit-label">{shareEnabled ? (isDE ? "Freigabe aktiviert" : "Sharing Enabled") : (isDE ? "Freigabe deaktiviert" : "Sharing Disabled")}</label>
                 <button
                   type="button"
                   onClick={() => setShareEnabled(!shareEnabled)}

@@ -4,7 +4,7 @@ import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
-import { X, Send, Link2, Loader2 } from 'lucide-react';
+import { X, Send, Link2, Loader2, Plus, Trash2 } from 'lucide-react';
 import './ShareModal.css';
 
 interface ShareModalProps {
@@ -37,36 +37,78 @@ const FAMILY_RELATIONS = [
   { value: 'Other', labelEn: 'Other', labelDe: 'Andere' },
 ];
 
+interface RecipientEntry {
+  email: string;
+  type: string;
+  caCountry: string;
+  familyRelation: string;
+}
+
+const emptyRecipient = (): RecipientEntry => ({
+  email: '',
+  type: '',
+  caCountry: '',
+  familyRelation: '',
+});
+
 export default function ShareModal({ documentIds, isDE, onClose, onShareComplete }: ShareModalProps) {
   const { user } = useAuth();
   const { toast } = useToast();
 
-  const [recipientType, setRecipientType] = useState('');
-  const [recipientEmail, setRecipientEmail] = useState('');
+  const [recipients, setRecipients] = useState<RecipientEntry[]>([emptyRecipient()]);
   const [allowDownload, setAllowDownload] = useState(false);
   const [expiresAt, setExpiresAt] = useState('');
-  const [caCountry, setCaCountry] = useState('');
-  const [familyRelation, setFamilyRelation] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [shareLink, setShareLink] = useState('');
+  const [shareLinks, setShareLinks] = useState<Array<{ email: string; link: string; status: string }>>([]);
+
+  const updateRecipient = (index: number, field: keyof RecipientEntry, value: string) => {
+    setRecipients(prev => {
+      const next = [...prev];
+      next[index] = { ...next[index], [field]: value };
+      // Reset metadata fields when type changes
+      if (field === 'type') {
+        next[index].caCountry = '';
+        next[index].familyRelation = '';
+      }
+      return next;
+    });
+  };
+
+  const addRecipient = () => {
+    setRecipients(prev => [...prev, emptyRecipient()]);
+  };
+
+  const removeRecipient = (index: number) => {
+    setRecipients(prev => prev.filter((_, i) => i !== index));
+  };
 
   const handleSubmit = async () => {
-    if (!recipientType || !recipientEmail || !expiresAt) {
-      toast({
-        title: isDE ? 'Fehler' : 'Error',
-        description: isDE ? 'Bitte alle Pflichtfelder ausfüllen.' : 'Please fill in all required fields.',
-        variant: 'destructive',
-      });
-      return;
+    // Validate
+    for (const r of recipients) {
+      if (!r.type || !r.email || !expiresAt) {
+        toast({
+          title: isDE ? 'Fehler' : 'Error',
+          description: isDE ? 'Bitte alle Pflichtfelder ausfüllen.' : 'Please fill in all required fields for every recipient.',
+          variant: 'destructive',
+        });
+        return;
+      }
+      if (!r.email.includes('@')) {
+        toast({
+          title: isDE ? 'Fehler' : 'Error',
+          description: isDE ? `Ungültige E-Mail: ${r.email}` : `Invalid email: ${r.email}`,
+          variant: 'destructive',
+        });
+        return;
+      }
     }
 
-    const recipientMetadata: Record<string, string> = {};
-    if (recipientType === 'ca' && caCountry) {
-      recipientMetadata.country = caCountry;
-    }
-    if (recipientType === 'family' && familyRelation) {
-      recipientMetadata.relationship = familyRelation;
-    }
+    const recipientsPayload = recipients.map(r => {
+      const metadata: Record<string, string> = {};
+      if (r.type === 'ca' && r.caCountry) metadata.country = r.caCountry;
+      if (r.type === 'family' && r.familyRelation) metadata.relationship = r.familyRelation;
+      return { email: r.email.trim(), type: r.type, metadata };
+    });
 
     setIsSubmitting(true);
     try {
@@ -76,9 +118,7 @@ export default function ShareModal({ documentIds, isDE, onClose, onShareComplete
       const response = await supabase.functions.invoke('send-share-email', {
         body: {
           documentIds,
-          recipientEmail,
-          recipientType,
-          recipientMetadata,
+          recipients: recipientsPayload,
           allowDownload,
           expiresAt: new Date(expiresAt + 'T23:59:59').toISOString(),
         },
@@ -87,16 +127,25 @@ export default function ShareModal({ documentIds, isDE, onClose, onShareComplete
       if (response.error) throw new Error(response.error.message);
 
       const result = response.data;
-      if (result.status === 'SUCCESS') {
-        setShareLink(result.shareLink);
-        toast({
-          title: isDE ? 'Freigabe erstellt' : 'Share created',
-          description: isDE ? 'E-Mail wurde gesendet.' : 'Email has been sent.',
-        });
-        onShareComplete();
-      } else {
-        throw new Error('Email delivery failed');
-      }
+      const links = (result.results || []).map((r: any) => ({
+        email: r.email,
+        link: r.shareLink,
+        status: r.status,
+      }));
+      setShareLinks(links);
+
+      const successCount = links.filter((r: any) => r.status === 'SUCCESS').length;
+      const failCount = links.length - successCount;
+
+      toast({
+        title: isDE ? 'Dokumente geteilt' : 'Documents mailed',
+        description: isDE
+          ? `${successCount} E-Mail(s) gesendet${failCount > 0 ? `, ${failCount} fehlgeschlagen` : ''}.`
+          : `${successCount} email(s) sent successfully${failCount > 0 ? `, ${failCount} failed` : ''}.`,
+        variant: failCount > 0 && successCount === 0 ? 'destructive' : 'default',
+      });
+
+      if (successCount > 0) onShareComplete();
     } catch (error: any) {
       console.error('Share error:', error);
       toast({
@@ -109,8 +158,8 @@ export default function ShareModal({ documentIds, isDE, onClose, onShareComplete
     }
   };
 
-  const copyLink = () => {
-    navigator.clipboard.writeText(shareLink);
+  const copyLink = (link: string) => {
+    navigator.clipboard.writeText(link);
     toast({
       title: isDE ? 'Kopiert' : 'Copied',
       description: isDE ? 'Link in die Zwischenablage kopiert.' : 'Link copied to clipboard.',
@@ -127,7 +176,7 @@ export default function ShareModal({ documentIds, isDE, onClose, onShareComplete
       <div className="share-modal" onClick={(e) => e.stopPropagation()}>
         <div className="share-modal-header">
           <h2 className="share-modal-title">
-            {isDE ? 'Dokumente teilen' : 'Share Documents'}
+            {isDE ? 'Dokumente per E-Mail senden' : 'Mail Documents to Recipient(s)'}
           </h2>
           <span className="share-modal-count">
             {documentIds.length} {isDE ? 'Dokument(e)' : 'document(s)'}
@@ -137,17 +186,30 @@ export default function ShareModal({ documentIds, isDE, onClose, onShareComplete
           </button>
         </div>
 
-        {shareLink ? (
+        {shareLinks.length > 0 ? (
           <div className="share-modal-success">
             <div className="share-modal-success-icon">✅</div>
             <p className="share-modal-success-text">
-              {isDE ? 'Freigabelink erstellt und E-Mail gesendet!' : 'Share link created and email sent!'}
+              {isDE ? 'Dokumente erfolgreich geteilt!' : 'Documents mailed successfully!'}
             </p>
-            <div className="share-modal-link-box">
-              <Input value={shareLink} readOnly className="share-modal-link-input" />
-              <Button onClick={copyLink} size="sm" variant="outline">
-                <Link2 className="h-4 w-4" />
-              </Button>
+            <div className="share-results-list">
+              {shareLinks.map((r, i) => (
+                <div key={i} className={`share-result-item ${r.status === 'SUCCESS' ? 'share-result-success' : 'share-result-failed'}`}>
+                  <div className="share-result-email">
+                    <span className={`share-result-status-dot ${r.status === 'SUCCESS' ? 'dot-success' : 'dot-failed'}`} />
+                    <span>{r.email}</span>
+                    <span className="share-result-status-label">{r.status === 'SUCCESS' ? (isDE ? 'Gesendet' : 'Sent') : (isDE ? 'Fehlgeschlagen' : 'Failed')}</span>
+                  </div>
+                  {r.status === 'SUCCESS' && r.link && (
+                    <div className="share-modal-link-box">
+                      <Input value={r.link} readOnly className="share-modal-link-input" />
+                      <Button onClick={() => copyLink(r.link)} size="sm" variant="outline">
+                        <Link2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              ))}
             </div>
             <Button onClick={onClose} className="share-modal-done-btn">
               {isDE ? 'Fertig' : 'Done'}
@@ -155,77 +217,103 @@ export default function ShareModal({ documentIds, isDE, onClose, onShareComplete
           </div>
         ) : (
           <div className="share-modal-form">
-            {/* Recipient Type */}
-            <div className="share-field">
-              <label className="share-label">
-                {isDE ? 'Empfängertyp' : 'Recipient Type'} *
-              </label>
-              <select
-                value={recipientType}
-                onChange={(e) => setRecipientType(e.target.value)}
-                className="share-select"
-              >
-                <option value="">{isDE ? 'Auswählen...' : 'Select...'}</option>
-                {RECIPIENT_TYPES.map((rt) => (
-                  <option key={rt.value} value={rt.value}>
-                    {isDE ? rt.labelDe : rt.labelEn}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {/* CA Country */}
-            {recipientType === 'ca' && (
-              <div className="share-field">
-                <label className="share-label">
-                  {isDE ? 'Land' : 'Country'}
-                </label>
-                <select
-                  value={caCountry}
-                  onChange={(e) => setCaCountry(e.target.value)}
-                  className="share-select"
-                >
-                  <option value="">{isDE ? 'Auswählen...' : 'Select...'}</option>
-                  {CA_COUNTRIES.map((c) => (
-                    <option key={c.value} value={c.value}>{c.label}</option>
-                  ))}
-                </select>
+            {/* Recipients */}
+            <div className="share-recipients-section">
+              <div className="share-recipients-header">
+                <label className="share-label">{isDE ? 'Empfänger' : 'Recipients'} *</label>
+                <button className="share-add-recipient-btn" onClick={addRecipient} type="button">
+                  <Plus className="h-3 w-3" />
+                  {isDE ? 'Weiterer Empfänger' : 'Add Recipient'}
+                </button>
               </div>
-            )}
 
-            {/* Family Relationship */}
-            {recipientType === 'family' && (
-              <div className="share-field">
-                <label className="share-label">
-                  {isDE ? 'Beziehung' : 'Relationship'}
-                </label>
-                <select
-                  value={familyRelation}
-                  onChange={(e) => setFamilyRelation(e.target.value)}
-                  className="share-select"
-                >
-                  <option value="">{isDE ? 'Auswählen...' : 'Select...'}</option>
-                  {FAMILY_RELATIONS.map((r) => (
-                    <option key={r.value} value={r.value}>
-                      {isDE ? r.labelDe : r.labelEn}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            )}
+              {recipients.map((r, index) => (
+                <div key={index} className="share-recipient-card">
+                  {recipients.length > 1 && (
+                    <div className="share-recipient-card-header">
+                      <span className="share-recipient-number">
+                        {isDE ? `Empfänger ${index + 1}` : `Recipient ${index + 1}`}
+                      </span>
+                      <button
+                        className="share-remove-recipient-btn"
+                        onClick={() => removeRecipient(index)}
+                        type="button"
+                      >
+                        <Trash2 className="h-3 w-3" />
+                      </button>
+                    </div>
+                  )}
 
-            {/* Recipient Email */}
-            <div className="share-field">
-              <label className="share-label">
-                {isDE ? 'E-Mail-Adresse' : 'Recipient Email'} *
-              </label>
-              <Input
-                type="email"
-                value={recipientEmail}
-                onChange={(e) => setRecipientEmail(e.target.value)}
-                placeholder={isDE ? 'empfaenger@beispiel.de' : 'recipient@example.com'}
-                className="share-input"
-              />
+                  {/* Email */}
+                  <div className="share-field">
+                    <label className="share-label-sm">
+                      {isDE ? 'E-Mail-Adresse' : 'Email Address'} *
+                    </label>
+                    <Input
+                      type="email"
+                      value={r.email}
+                      onChange={(e) => updateRecipient(index, 'email', e.target.value)}
+                      placeholder={isDE ? 'empfaenger@beispiel.de' : 'recipient@example.com'}
+                      className="share-input"
+                    />
+                  </div>
+
+                  {/* Relationship / Type */}
+                  <div className="share-field">
+                    <label className="share-label-sm">
+                      {isDE ? 'Beziehung' : 'Relationship'} *
+                    </label>
+                    <select
+                      value={r.type}
+                      onChange={(e) => updateRecipient(index, 'type', e.target.value)}
+                      className="share-select"
+                    >
+                      <option value="">{isDE ? 'Auswählen...' : 'Select...'}</option>
+                      {RECIPIENT_TYPES.map((rt) => (
+                        <option key={rt.value} value={rt.value}>
+                          {isDE ? rt.labelDe : rt.labelEn}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* CA Country */}
+                  {r.type === 'ca' && (
+                    <div className="share-field">
+                      <label className="share-label-sm">{isDE ? 'Land' : 'Country'}</label>
+                      <select
+                        value={r.caCountry}
+                        onChange={(e) => updateRecipient(index, 'caCountry', e.target.value)}
+                        className="share-select"
+                      >
+                        <option value="">{isDE ? 'Auswählen...' : 'Select...'}</option>
+                        {CA_COUNTRIES.map((c) => (
+                          <option key={c.value} value={c.value}>{c.label}</option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+
+                  {/* Family Relationship */}
+                  {r.type === 'family' && (
+                    <div className="share-field">
+                      <label className="share-label-sm">{isDE ? 'Verhältnis' : 'Relation'}</label>
+                      <select
+                        value={r.familyRelation}
+                        onChange={(e) => updateRecipient(index, 'familyRelation', e.target.value)}
+                        className="share-select"
+                      >
+                        <option value="">{isDE ? 'Auswählen...' : 'Select...'}</option>
+                        {FAMILY_RELATIONS.map((rel) => (
+                          <option key={rel.value} value={rel.value}>
+                            {isDE ? rel.labelDe : rel.labelEn}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+                </div>
+              ))}
             </div>
 
             {/* Allow Download */}
@@ -264,12 +352,12 @@ export default function ShareModal({ documentIds, isDE, onClose, onShareComplete
               {isSubmitting ? (
                 <>
                   <Loader2 className="h-4 w-4 animate-spin" />
-                  {isDE ? 'Wird erstellt...' : 'Creating...'}
+                  {isDE ? 'Wird gesendet...' : 'Sending...'}
                 </>
               ) : (
                 <>
                   <Send className="h-4 w-4" />
-                  {isDE ? 'Freigabelink erstellen' : 'Generate Share Link'}
+                  {isDE ? 'Dokumente per E-Mail senden' : 'Mail Documents to Recipient(s)'}
                 </>
               )}
             </Button>

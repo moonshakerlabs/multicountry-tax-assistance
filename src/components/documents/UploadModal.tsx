@@ -348,6 +348,7 @@ export default function UploadModal({ userProfile, onClose, onUploadComplete }: 
               sub_category: subCategory,
               file_name: result.file_name || effectiveName,
               file_path: `gdrive://${result.file_id}`,
+              share_enabled: true,
             });
           } else {
             // SaaS storage upload
@@ -372,6 +373,7 @@ export default function UploadModal({ userProfile, onClose, onUploadComplete }: 
                 sub_category: subCategory,
                 file_name: effectiveName,
                 file_path: filePath,
+                share_enabled: true,
               });
             
             if (dbError) {

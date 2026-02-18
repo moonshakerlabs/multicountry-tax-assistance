@@ -42,10 +42,23 @@ serve(async (req: Request) => {
     }
 
     const body = await req.json();
-    const { documentIds, recipientEmail, recipientMetadata, allowDownload, expiresAt } = body;
-    const recipientType = String(body.recipientType || "").toLowerCase();
+    // Support multiple recipients: recipients[] array OR single recipientEmail (backwards compat)
+    const { documentIds, allowDownload, expiresAt } = body;
 
-    if (!documentIds?.length || !recipientEmail || !recipientType || !expiresAt) {
+    // Normalise recipients into an array
+    let recipients: Array<{ email: string; type: string; metadata?: Record<string, string> }> = [];
+    if (Array.isArray(body.recipients) && body.recipients.length > 0) {
+      recipients = body.recipients;
+    } else if (body.recipientEmail) {
+      // Backwards compatibility
+      recipients = [{
+        email: body.recipientEmail,
+        type: String(body.recipientType || "other").toLowerCase(),
+        metadata: body.recipientMetadata || {},
+      }];
+    }
+
+    if (!documentIds?.length || recipients.length === 0 || !expiresAt) {
       return new Response(JSON.stringify({ error: "Missing required fields" }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -81,90 +94,123 @@ serve(async (req: Request) => {
       });
     }
 
-    // Generate secure token
-    const tokenBytes = new Uint8Array(32);
-    crypto.getRandomValues(tokenBytes);
-    const token = Array.from(tokenBytes)
-      .map((b) => b.toString(16).padStart(2, "0"))
-      .join("");
-
-    // Insert share record
-    const { data: share, error: shareError } = await adminClient
-      .from("document_shares")
-      .insert({
-        user_id: user.id,
-        document_ids: documentIds,
-        recipient_email: recipientEmail,
-        recipient_type: recipientType,
-        recipient_metadata: recipientMetadata || {},
-        allow_download: allowDownload || false,
-        expires_at: expiresAt,
-        token,
-        share_type: documentIds.length === 1 ? "single" : "multiple",
-        status: "PENDING",
-      })
-      .select()
-      .single();
-
-    if (shareError) throw shareError;
-
-    // Send email via Resend
     const resendKey = Deno.env.get("RESEND_API_KEY");
     if (!resendKey) {
-      // Update status to FAILED
-      await adminClient.from("document_shares").update({ status: "FAILED" }).eq("id", share.id);
       throw new Error("RESEND_API_KEY not configured");
     }
 
     const resend = new Resend(resendKey);
     const appUrl = req.headers.get("origin") || "https://multicountry-tax-assistance.lovable.app";
-    const shareLink = `${appUrl}/shared/${token}`;
 
-    const emailResult = await resend.emails.send({
-      from: "WorTaF <onboarding@resend.dev>",
-      to: [recipientEmail],
-      subject: `Documents shared with you via WorTaF`,
-      html: `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
-          <h2 style="color: #1a1a2e;">Documents Shared With You</h2>
-          <p>Someone has shared <strong>${documentIds.length} document(s)</strong> with you via WorTaF.</p>
-          <p><strong>Access expires:</strong> ${new Date(expiresAt).toLocaleDateString()}</p>
-          <div style="margin: 24px 0;">
-            <a href="${shareLink}" style="background: #6366f1; color: white; padding: 12px 24px; border-radius: 6px; text-decoration: none; display: inline-block;">
-              View Documents
-            </a>
-          </div>
-          <p style="color: #666; font-size: 14px;">
-            🔒 You will need to verify your email with a one-time code before accessing the documents.
-          </p>
-          <hr style="border: none; border-top: 1px solid #eee; margin: 24px 0;" />
-          <p style="color: #999; font-size: 12px;">
-            If you didn't expect this email, you can safely ignore it.
-          </p>
-        </div>
-      `,
-    });
+    // Process each recipient independently
+    const results: Array<{ email: string; shareId: string; shareLink: string; status: string }> = [];
 
-    // Update share status
-    const newStatus = emailResult?.id ? "SUCCESS" : "FAILED";
-    await adminClient.from("document_shares").update({ status: newStatus }).eq("id", share.id);
+    for (const recipient of recipients) {
+      const recipientEmail = recipient.email;
+      const recipientType = String(recipient.type || "other").toLowerCase();
+      const recipientMetadata = recipient.metadata || {};
 
-    // Create audit log entry
-    await adminClient.from("share_audit_log").insert({
-      share_id: share.id,
-      user_id: user.id,
-      recipient_email: recipientEmail,
-      recipient_type: recipientType,
-      recipient_metadata: recipientMetadata || {},
-      share_type: share.share_type,
-      email_status: newStatus,
-      access_expires_at: expiresAt,
-    });
+      // Generate a unique secure token per recipient
+      const tokenBytes = new Uint8Array(32);
+      crypto.getRandomValues(tokenBytes);
+      const token = Array.from(tokenBytes)
+        .map((b) => b.toString(16).padStart(2, "0"))
+        .join("");
 
-    return new Response(JSON.stringify({ success: true, shareId: share.id, status: newStatus, shareLink }), {
-      status: 200,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+      // Insert share record
+      const { data: share, error: shareError } = await adminClient
+        .from("document_shares")
+        .insert({
+          user_id: user.id,
+          document_ids: documentIds,
+          recipient_email: recipientEmail,
+          recipient_type: recipientType,
+          recipient_metadata: recipientMetadata,
+          allow_download: allowDownload || false,
+          expires_at: expiresAt,
+          token,
+          share_type: documentIds.length === 1 ? "single" : "multiple",
+          status: "PENDING",
+        })
+        .select()
+        .single();
+
+      if (shareError) {
+        console.error(`Error creating share for ${recipientEmail}:`, shareError);
+        results.push({ email: recipientEmail, shareId: "", shareLink: "", status: "FAILED" });
+        continue;
+      }
+
+      const shareLink = `${appUrl}/shared/${token}`;
+
+      // Send email via Resend
+      let emailStatus = "FAILED";
+      try {
+        const emailResult = await resend.emails.send({
+          from: "WorTaF <onboarding@resend.dev>",
+          to: [recipientEmail],
+          subject: `Documents shared with you via WorTaF`,
+          html: `
+            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+              <h2 style="color: #1a1a2e;">Documents Shared With You</h2>
+              <p>Someone has shared <strong>${documentIds.length} document(s)</strong> with you via WorTaF.</p>
+              <p><strong>Access expires:</strong> ${new Date(expiresAt).toLocaleDateString()}</p>
+              <div style="margin: 24px 0;">
+                <a href="${shareLink}" style="background: #6366f1; color: white; padding: 12px 24px; border-radius: 6px; text-decoration: none; display: inline-block;">
+                  View Documents
+                </a>
+              </div>
+              <p style="color: #666; font-size: 14px;">
+                🔒 You will need to verify your email with a one-time code before accessing the documents.
+              </p>
+              <hr style="border: none; border-top: 1px solid #eee; margin: 24px 0;" />
+              <p style="color: #999; font-size: 12px;">
+                If you didn't expect this email, you can safely ignore it.
+              </p>
+            </div>
+          `,
+        });
+        emailStatus = emailResult?.id ? "SUCCESS" : "FAILED";
+      } catch (emailErr) {
+        console.error(`Email send error for ${recipientEmail}:`, emailErr);
+        emailStatus = "FAILED";
+      }
+
+      // Update share status
+      await adminClient.from("document_shares").update({ status: emailStatus }).eq("id", share.id);
+
+      // Create audit log entry
+      await adminClient.from("share_audit_log").insert({
+        share_id: share.id,
+        user_id: user.id,
+        recipient_email: recipientEmail,
+        recipient_type: recipientType,
+        recipient_metadata: recipientMetadata,
+        share_type: share.share_type,
+        email_status: emailStatus,
+        access_expires_at: expiresAt,
+      });
+
+      results.push({ email: recipientEmail, shareId: share.id, shareLink, status: emailStatus });
+    }
+
+    const allFailed = results.every(r => r.status === "FAILED");
+    const anySuccess = results.some(r => r.status === "SUCCESS");
+
+    return new Response(
+      JSON.stringify({
+        success: anySuccess,
+        results,
+        // For backwards compatibility return single-recipient fields if only one recipient
+        shareId: results[0]?.shareId,
+        status: results[0]?.status,
+        shareLink: results[0]?.shareLink,
+      }),
+      {
+        status: allFailed ? 500 : 200,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      }
+    );
   } catch (error: any) {
     console.error("Error in send-share-email:", error);
     return new Response(JSON.stringify({ error: error.message }), {

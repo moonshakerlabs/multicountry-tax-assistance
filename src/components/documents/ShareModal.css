@@ -170,3 +170,128 @@
   width: 100%;
   margin-top: 8px;
 }
+
+/* Recipients */
+.share-recipients-section {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.share-recipients-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.share-add-recipient-btn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  font-weight: 500;
+  color: hsl(var(--primary));
+  background: none;
+  border: 1px dashed hsl(var(--primary));
+  border-radius: 6px;
+  padding: 4px 10px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.share-add-recipient-btn:hover {
+  background: hsl(var(--primary) / 0.08);
+}
+
+.share-recipient-card {
+  border: 1px solid hsl(var(--border));
+  border-radius: 8px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  background: hsl(var(--muted) / 0.3);
+}
+
+.share-recipient-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.share-recipient-number {
+  font-size: 12px;
+  font-weight: 600;
+  color: hsl(var(--muted-foreground));
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.share-remove-recipient-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: hsl(var(--destructive));
+  padding: 2px;
+  display: flex;
+  align-items: center;
+}
+
+.share-label-sm {
+  font-size: 13px;
+  font-weight: 500;
+  color: hsl(var(--foreground));
+}
+
+/* Results */
+.share-results-list {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.share-result-item {
+  border: 1px solid hsl(var(--border));
+  border-radius: 8px;
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.share-result-success {
+  border-color: hsl(142 76% 36% / 0.4);
+  background: hsl(142 76% 36% / 0.05);
+}
+
+.share-result-failed {
+  border-color: hsl(var(--destructive) / 0.4);
+  background: hsl(var(--destructive) / 0.05);
+}
+
+.share-result-email {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  color: hsl(var(--foreground));
+}
+
+.share-result-status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.dot-success { background: hsl(142 76% 36%); }
+.dot-failed { background: hsl(var(--destructive)); }
+
+.share-result-status-label {
+  margin-left: auto;
+  font-size: 12px;
+  color: hsl(var(--muted-foreground));
+}
+
