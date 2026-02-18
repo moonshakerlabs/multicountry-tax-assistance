@@ -29,6 +29,9 @@ serve(async (req) => {
       global: { headers: { Authorization: authHeader } },
     });
 
+    // Admin client (needed for paywall check and storage access)
+    const adminSupabase = createClient(supabaseUrl, serviceRoleKey);
+
     // Auth — test env bypass
     const isTestEnv = supabaseUrl.includes("jucqqowgqhxpqplzlyze");
     let userId: string;
@@ -81,8 +84,6 @@ serve(async (req) => {
     if (!aiApiKey) throw new Error("AI API key not configured. Please contact support.");
     const aiGatewayUrl = Deno.env.get("AI_GATEWAY_URL") || "https://ai.gateway.lovable.dev/v1/chat/completions";
 
-    // Admin client for storage access
-    const adminSupabase = createClient(supabaseUrl, serviceRoleKey);
 
     // Auto-detect country from user profile
     let userCountry = body.country || null;
