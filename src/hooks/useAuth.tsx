@@ -250,7 +250,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [scheduleTimers, clearTimers]); // scheduleTimers/clearTimers are stable useCallback with no changing deps
 
   const signUp = async (email: string, password: string) => {
-    const { error } = await supabase.auth.signUp({ email, password, options: { emailRedirectTo: `${window.location.origin}/` } });
+    const { error } = await supabase.auth.signUp({ email, password, options: { emailRedirectTo: 'https://taxbebo.com/' } });
     return { error: error as Error | null };
   };
 
@@ -270,7 +270,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const resetPassword = async (email: string) => {
-    const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo: `${window.location.origin}/reset-password` });
+    const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo: 'https://taxbebo.com/reset-password' });
     return { error: error as Error | null };
   };
 

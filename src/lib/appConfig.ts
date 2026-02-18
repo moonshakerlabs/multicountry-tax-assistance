@@ -19,11 +19,11 @@ export const APP_CONFIG = {
   /** Application name shown in emails */
   appName: APP_NAME,
 
-  /** Email sender (must match a verified domain in Resend, or use onboarding@resend.dev for testing) */
+  /** Email sender — once taxbebo.com is verified in Resend, switch to: `${APP_NAME} <noreply@taxbebo.com>` */
   emailFrom: `${APP_NAME} <onboarding@resend.dev>`,
 
   /** Published app URL */
-  appUrl: 'https://multicountry-tax-assistance.lovable.app',
+  appUrl: 'https://taxbebo.com',
 } as const;
 
 export const SUPPORT_TICKET_CATEGORIES = [
