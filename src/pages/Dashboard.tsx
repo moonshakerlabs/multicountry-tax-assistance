@@ -1,12 +1,12 @@
 import { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
-import { User, FileText, LogOut, FolderOpen, Upload, ChevronRight, MessageSquare, Brain, Shield, Users, CheckCircle, XCircle, Settings, Activity, CreditCard, Briefcase, ArrowLeft } from 'lucide-react';
+import { User, FileText, LogOut, FolderOpen, Upload, ChevronRight, MessageSquare, Brain, Shield, Users, CheckCircle, XCircle, Settings, Activity, CreditCard, Briefcase, ArrowLeft, HeadphonesIcon, TicketIcon } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Input } from '@/components/ui/input';
@@ -77,11 +77,14 @@ interface CustomerDetail {
 export default function Dashboard() {
   const { profile, user, signOut, isAnyAdmin, isSuperAdmin, userRoles, loading: authLoading } = useAuth();
   const { toast } = useToast();
+  const navigate = useNavigate();
   const [documentSummary, setDocumentSummary] = useState<DocumentSummary[]>([]);
   const [totalDocuments, setTotalDocuments] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   const [adminMode, setAdminMode] = useState(false);
   const [adminTab, setAdminTab] = useState('moderation');
+  // Selected summary card filter
+  const [selectedSummaryCard, setSelectedSummaryCard] = useState<{ country: string; tax_year: string } | null>(null);
 
   // Admin panel state
   const [pendingPosts, setPendingPosts] = useState<PendingPost[]>([]);
@@ -93,7 +96,7 @@ export default function Dashboard() {
 
   // Permissions state
   const [rolePermissions, setRolePermissions] = useState<RolePermission[]>([]);
-  const MODULES = ['employees', 'customers', 'subscriptions', 'payments', 'posts', 'moderation', 'activity_logs'];
+  const MODULES = ['employees', 'customers', 'subscriptions', 'payments', 'posts', 'moderation', 'activity_logs', 'support'];
 
   // Determine which roles current user can edit permissions for
   const getEditableRoles = () => {
@@ -326,6 +329,170 @@ export default function Dashboard() {
     }
   };
 
+  // ─── Admin Support Tab Component ─────────────────────────────────────
+  function AdminSupportTab() {
+    const [tickets, setAdminTickets] = useState<any[]>([]);
+    const [selectedTicket, setSelectedAdminTicket] = useState<any | null>(null);
+    const [adminReplies, setAdminReplies] = useState<any[]>([]);
+    const [loadingTickets, setLoadingTickets] = useState(true);
+    const [adminReplyContent, setAdminReplyContent] = useState('');
+    const [submittingAdminReply, setSubmittingAdminReply] = useState(false);
+
+    const getPriorityClass = (priority: string) => priority === 'HIGH' ? 'admin-status-suspended' : 'admin-status-pending';
+
+    const getEffectivePriority = (ticket: any) => {
+      const hours = (Date.now() - new Date(ticket.created_at).getTime()) / (1000 * 60 * 60);
+      if (hours > 24 && ticket.status === 'OPEN' && !ticket.last_reply_at) return 'HIGH';
+      return ticket.priority;
+    };
+
+    useEffect(() => {
+      (async () => {
+        setLoadingTickets(true);
+        const { data } = await supabase.from('support_tickets').select('*').order('created_at', { ascending: false });
+        setAdminTickets(data || []);
+        setLoadingTickets(false);
+      })();
+    }, []);
+
+    const openAdminTicket = async (ticket: any) => {
+      setSelectedAdminTicket(ticket);
+      const { data } = await supabase.from('support_ticket_replies').select('*').eq('ticket_id', ticket.id).order('created_at', { ascending: true });
+      setAdminReplies(data || []);
+    };
+
+    const sendAdminReply = async (e: React.FormEvent) => {
+      e.preventDefault();
+      if (!selectedTicket || !adminReplyContent.trim() || !user) return;
+      setSubmittingAdminReply(true);
+      try {
+        await supabase.from('support_ticket_replies').insert({
+          ticket_id: selectedTicket.id,
+          user_id: user.id,
+          sender_type: 'employee',
+          sender_email: profile?.email || '',
+          content: adminReplyContent.trim(),
+        });
+        await supabase.from('support_tickets').update({ status: 'IN_PROGRESS' }).eq('id', selectedTicket.id);
+        setAdminReplyContent('');
+        const { data } = await supabase.from('support_ticket_replies').select('*').eq('ticket_id', selectedTicket.id).order('created_at', { ascending: true });
+        setAdminReplies(data || []);
+        const { data: updatedTicket } = await supabase.from('support_tickets').select('*').eq('id', selectedTicket.id).single();
+        setSelectedAdminTicket(updatedTicket);
+        toast({ title: 'Reply sent to customer!' });
+      } catch (err: any) {
+        toast({ title: 'Error', description: err.message, variant: 'destructive' });
+      } finally {
+        setSubmittingAdminReply(false);
+      }
+    };
+
+    if (selectedTicket) {
+      return (
+        <div className="admin-section">
+          <Button variant="ghost" size="sm" className="mb-4" onClick={() => setSelectedAdminTicket(null)}>
+            <ArrowLeft className="h-4 w-4 mr-1" /> Back to tickets
+          </Button>
+          <h2 className="admin-section-title"><TicketIcon className="h-5 w-5" /> {selectedTicket.ticket_number}</h2>
+          <div className="rounded-lg border p-4 mb-4 space-y-2 text-sm">
+            <div className="grid grid-cols-2 gap-3">
+              <div><span className="text-muted-foreground">Customer:</span> {selectedTicket.email}</div>
+              <div><span className="text-muted-foreground">User ID:</span> <span className="font-mono">{selectedTicket.meaningful_user_id}</span></div>
+              <div><span className="text-muted-foreground">Category:</span> {selectedTicket.category}</div>
+              <div><span className="text-muted-foreground">Status:</span> {selectedTicket.status}</div>
+              <div><span className="text-muted-foreground">Priority:</span> <span className={`admin-status-badge ${getPriorityClass(getEffectivePriority(selectedTicket))}`}>{getEffectivePriority(selectedTicket)}</span></div>
+              <div><span className="text-muted-foreground">Date:</span> {format(new Date(selectedTicket.created_at), 'MMM d, yyyy HH:mm')}</div>
+            </div>
+            <div className="pt-2 border-t"><strong>Subject:</strong> {selectedTicket.subject}</div>
+          </div>
+          <div className="space-y-3 mb-4">
+            <div className="rounded-lg border bg-card p-4">
+              <div className="flex justify-between text-sm mb-2">
+                <span className="font-semibold">{selectedTicket.email}</span>
+                <span className="text-muted-foreground">{format(new Date(selectedTicket.created_at), 'MMM d, HH:mm')}</span>
+              </div>
+              <p className="text-sm whitespace-pre-wrap">{selectedTicket.content}</p>
+            </div>
+            {adminReplies.map((r: any) => (
+              <div key={r.id} className={`rounded-lg border p-4 ${r.sender_type === 'employee' ? 'bg-primary/5 border-primary/20' : 'bg-card'}`}>
+                <div className="flex justify-between text-sm mb-2">
+                  <span className="font-semibold">{r.sender_type === 'employee' ? '🛡️ Support Team' : r.sender_email}</span>
+                  <span className="text-muted-foreground">{format(new Date(r.created_at), 'MMM d, HH:mm')}</span>
+                </div>
+                <p className="text-sm whitespace-pre-wrap">{r.content}</p>
+              </div>
+            ))}
+          </div>
+          {selectedTicket.status !== 'CLOSED' && (
+            <form onSubmit={sendAdminReply} className="space-y-3">
+              <textarea
+                value={adminReplyContent}
+                onChange={e => setAdminReplyContent(e.target.value)}
+                placeholder="Write your reply to the customer..."
+                rows={4}
+                className="w-full p-3 border border-border rounded-lg bg-background text-sm resize-y outline-none focus:border-primary"
+                required
+              />
+              <Button type="submit" disabled={submittingAdminReply || !adminReplyContent.trim()}>
+                {submittingAdminReply ? 'Sending...' : 'Send Reply to Customer'}
+              </Button>
+            </form>
+          )}
+        </div>
+      );
+    }
+
+    return (
+      <div className="admin-section">
+        <h2 className="admin-section-title"><TicketIcon className="h-5 w-5" /> Support Tickets</h2>
+        {loadingTickets ? (
+          <p className="text-muted-foreground">Loading tickets...</p>
+        ) : tickets.length === 0 ? (
+          <p className="text-muted-foreground">No support tickets yet.</p>
+        ) : (
+          <div className="admin-table-wrapper">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Ticket #</TableHead>
+                  <TableHead>User ID</TableHead>
+                  <TableHead>Customer</TableHead>
+                  <TableHead>Subject</TableHead>
+                  <TableHead>Priority</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Date</TableHead>
+                  <TableHead>Action</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {tickets.map((t: any) => {
+                  const priority = getEffectivePriority(t);
+                  return (
+                    <TableRow key={t.id}>
+                      <TableCell className="font-mono text-xs text-primary">{t.ticket_number}</TableCell>
+                      <TableCell className="font-mono text-xs">{t.meaningful_user_id}</TableCell>
+                      <TableCell className="max-w-[150px] truncate text-sm">{t.email}</TableCell>
+                      <TableCell className="max-w-[200px] truncate">{t.subject}</TableCell>
+                      <TableCell><span className={`admin-status-badge ${getPriorityClass(priority)}`}>{priority}</span></TableCell>
+                      <TableCell>
+                        <span className={`admin-status-badge ${t.status === 'OPEN' ? 'admin-status-pending' : t.status === 'IN_PROGRESS' ? 'admin-status-active' : 'admin-status-suspended'}`}>
+                          {t.status.replace('_', ' ')}
+                        </span>
+                      </TableCell>
+                      <TableCell className="text-sm text-muted-foreground whitespace-nowrap">{format(new Date(t.created_at), 'MMM d, yyyy')}</TableCell>
+                      <TableCell><Button size="sm" variant="outline" onClick={() => openAdminTicket(t)}>Open</Button></TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          </div>
+        )}
+      </div>
+    );
+  }
+  // ─────────────────────────────────────────────────────────────────────
+
   return (
     <div className="dashboard-container">
       {/* Header */}
@@ -354,6 +521,9 @@ export default function Dashboard() {
             <Button asChild variant="ghost" size="sm"><Link to="/community">TaxOverFlow</Link></Button>
             <Button asChild variant="ghost" size="sm">
               <Link to="/ai-tools"><Brain className="dashboard-action-icon" />AI Tools</Link>
+            </Button>
+            <Button asChild variant="ghost" size="sm">
+              <Link to="/support"><HeadphonesIcon className="dashboard-action-icon" />Support</Link>
             </Button>
             <Button variant="ghost" size="sm" onClick={signOut}>
               <LogOut className="dashboard-action-icon" />Sign out
@@ -387,6 +557,9 @@ export default function Dashboard() {
                   </TabsTrigger>
                   <TabsTrigger value="customers" className="flex items-center gap-1">
                     <Users className="h-3.5 w-3.5" /> Customers
+                  </TabsTrigger>
+                  <TabsTrigger value="support" className="flex items-center gap-1">
+                    <TicketIcon className="h-3.5 w-3.5" /> Support Tickets
                   </TabsTrigger>
                   <TabsTrigger value="permissions" className="flex items-center gap-1">
                     <Settings className="h-3.5 w-3.5" /> Permissions
@@ -637,6 +810,11 @@ export default function Dashboard() {
                   </div>
                 </TabsContent>
 
+                {/* ─── SUPPORT TICKETS TAB ─── */}
+                <TabsContent value="support">
+                  <AdminSupportTab />
+                </TabsContent>
+
                 {/* ─── PERMISSIONS TAB ─── */}
                 <TabsContent value="permissions">
                   <div className="admin-section">
@@ -668,18 +846,28 @@ export default function Dashboard() {
                                   const perm = rolePermissions.find(p => p.role === role && p.module === mod);
                                   return (
                                     <TableRow key={mod}>
-                                      <TableCell className="capitalize font-medium">{mod.replace('_', ' ')}</TableCell>
-                                      <TableCell className="text-center">
-                                        <Checkbox
-                                          checked={perm?.can_read ?? false}
-                                          onCheckedChange={(val) => handlePermissionChange(role, mod, 'can_read', !!val)}
-                                        />
+                                      <TableCell className="capitalize font-medium">{mod.replace(/_/g, ' ')}</TableCell>
+                                      <TableCell className="text-center" style={{ position: 'relative', zIndex: 1 }}>
+                                        <div
+                                          style={{ display: 'flex', justifyContent: 'center', cursor: 'pointer' }}
+                                          onClick={() => handlePermissionChange(role, mod, 'can_read', !(perm?.can_read ?? false))}
+                                        >
+                                          <Checkbox
+                                            checked={perm?.can_read ?? false}
+                                            onCheckedChange={(val) => handlePermissionChange(role, mod, 'can_read', !!val)}
+                                          />
+                                        </div>
                                       </TableCell>
-                                      <TableCell className="text-center">
-                                        <Checkbox
-                                          checked={perm?.can_write ?? false}
-                                          onCheckedChange={(val) => handlePermissionChange(role, mod, 'can_write', !!val)}
-                                        />
+                                      <TableCell className="text-center" style={{ position: 'relative', zIndex: 1 }}>
+                                        <div
+                                          style={{ display: 'flex', justifyContent: 'center', cursor: 'pointer' }}
+                                          onClick={() => handlePermissionChange(role, mod, 'can_write', !(perm?.can_write ?? false))}
+                                        >
+                                          <Checkbox
+                                            checked={perm?.can_write ?? false}
+                                            onCheckedChange={(val) => handlePermissionChange(role, mod, 'can_write', !!val)}
+                                          />
+                                        </div>
                                       </TableCell>
                                     </TableRow>
                                   );
@@ -817,27 +1005,24 @@ export default function Dashboard() {
                   </div>
                   <ChevronRight className="dashboard-action-arrow" />
                 </Link>
-
-                <Link to="/profile" className="dashboard-action-card">
-                  <div className="dashboard-action-icon-wrapper">
-                    <User className="dashboard-card-icon" />
-                  </div>
-                  <div className="dashboard-action-content">
-                    <h3 className="dashboard-action-title">Edit Profile</h3>
-                    <p className="dashboard-action-description">
-                      Update your personal information and preferences.
-                    </p>
-                  </div>
-                  <ChevronRight className="dashboard-action-arrow" />
-                </Link>
               </div>
 
               <div className="dashboard-summary-section">
                 <div className="dashboard-summary-header">
-                  <h2 className="dashboard-summary-title">
-                    <FileText className="dashboard-summary-icon" />
-                    Document Summary
-                  </h2>
+                  <div className="flex items-center gap-2">
+                    <h2 className="dashboard-summary-title">
+                      <FileText className="dashboard-summary-icon" />
+                      Document Summary
+                    </h2>
+                    {selectedSummaryCard && (
+                      <button
+                        onClick={() => setSelectedSummaryCard(null)}
+                        className="flex items-center gap-1 text-sm text-primary hover:underline"
+                      >
+                        <ArrowLeft className="h-3.5 w-3.5" /> All
+                      </button>
+                    )}
+                  </div>
                   {totalDocuments > 0 && (
                     <span className="dashboard-summary-count">
                       {totalDocuments} document{totalDocuments !== 1 ? 's' : ''} total
@@ -861,19 +1046,36 @@ export default function Dashboard() {
                       </Link>
                     </Button>
                   </div>
+                ) : selectedSummaryCard ? (
+                  /* ── Filtered view: show only documents for selected card ── */
+                  <div>
+                    <p className="text-sm text-muted-foreground mb-4">
+                      Showing documents for <strong>{selectedSummaryCard.tax_year} · {getCountryLabel(selectedSummaryCard.country)}</strong>
+                    </p>
+                    <Button
+                      asChild
+                      variant="default"
+                    >
+                      <Link to={`/vault?country=${encodeURIComponent(selectedSummaryCard.country)}&year=${encodeURIComponent(selectedSummaryCard.tax_year)}`}>
+                        <FolderOpen className="dashboard-btn-icon" />
+                        Open in Document Vault
+                      </Link>
+                    </Button>
+                  </div>
                 ) : (
                   <div className="dashboard-summary-grid">
                     {documentSummary.map((item, index) => (
-                      <Link
+                      <div
                         key={index}
-                        to="/vault"
                         className="dashboard-summary-card"
+                        onClick={() => setSelectedSummaryCard({ country: item.country, tax_year: item.tax_year })}
+                        style={{ cursor: 'pointer' }}
                       >
                         <div className="dashboard-summary-card-header">
+                          <span className="dashboard-summary-year">{item.tax_year}</span>
                           <span className="dashboard-summary-country">
                             {getCountryLabel(item.country)}
                           </span>
-                          <span className="dashboard-summary-year">{item.tax_year}</span>
                         </div>
                         <div className="dashboard-summary-card-body">
                           <span className="dashboard-summary-doc-count">{item.count}</span>
@@ -881,7 +1083,7 @@ export default function Dashboard() {
                             document{item.count !== 1 ? 's' : ''}
                           </span>
                         </div>
-                      </Link>
+                      </div>
                     ))}
                   </div>
                 )}

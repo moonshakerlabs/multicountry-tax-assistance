@@ -21,6 +21,7 @@ import Blog from "./pages/Blog";
 import TermsAndConditions from "./pages/TermsAndConditions";
 import ResetPassword from "./pages/ResetPassword";
 import TwoFactorVerify from "./pages/TwoFactorVerify";
+import Support from "./pages/Support";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -70,6 +71,11 @@ const App = () => (
             <Route path="/ai-tools" element={
               <ProtectedRoute>
                 <AITools />
+              </ProtectedRoute>
+            } />
+            <Route path="/support" element={
+              <ProtectedRoute>
+                <Support />
               </ProtectedRoute>
             } />
             

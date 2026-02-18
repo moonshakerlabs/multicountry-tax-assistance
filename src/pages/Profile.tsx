@@ -6,6 +6,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useStoragePreference } from '@/hooks/useStoragePreference';
 import { supabase } from '@/integrations/supabase/client';
 import { ArrowLeft, ChevronDown, Check, X, Cloud, HardDrive, Unlink, Loader2, User, Settings } from 'lucide-react';
+import { Switch } from '@/components/ui/switch';
 import { 
   ALL_COUNTRIES, 
   getLanguagesForCountries, 
@@ -38,6 +39,7 @@ export default function Profile() {
   const [primaryTaxResidency, setPrimaryTaxResidency] = useState('GERMANY');
   const [otherTaxCountries, setOtherTaxCountries] = useState<string[]>([]);
   const [preferredLanguage, setPreferredLanguage] = useState('EN');
+  const [indiaTaxYearType, setIndiaTaxYearType] = useState<'tax_year' | 'calendar_year'>('tax_year');
   const [isLoading, setIsLoading] = useState(false);
   const [showCountryDropdown, setShowCountryDropdown] = useState(false);
   const [isDisconnecting, setIsDisconnecting] = useState(false);
@@ -78,6 +80,7 @@ export default function Profile() {
           setPrimaryTaxResidency(userProfile.primary_tax_residency || 'GERMANY');
           setOtherTaxCountries(userProfile.other_tax_countries || []);
           setPreferredLanguage(userProfile.preferred_language || 'EN');
+          setIndiaTaxYearType((userProfile as any).india_tax_year_type || 'tax_year');
         }
       }
     }
@@ -128,7 +131,7 @@ export default function Profile() {
 
       const { error: userProfileError } = await supabase
         .from('user_profile')
-        .upsert({ user_id: user.id, primary_tax_residency: primaryTaxResidency, other_tax_countries: otherTaxCountries, preferred_language: preferredLanguage }, { onConflict: 'user_id' });
+        .upsert({ user_id: user.id, primary_tax_residency: primaryTaxResidency, other_tax_countries: otherTaxCountries, preferred_language: preferredLanguage, india_tax_year_type: indiaTaxYearType } as any, { onConflict: 'user_id' });
       if (userProfileError) throw userProfileError;
 
       await refreshProfile();
@@ -264,6 +267,27 @@ export default function Profile() {
                   </div>
                 )}
               </div>
+
+              {/* India Tax Year Type toggle */}
+              {(primaryTaxResidency === 'INDIA' || otherTaxCountries.includes('INDIA')) && (
+                <div className="profile-field">
+                  <label className="profile-label">India Tax Year Calculation</label>
+                  <span className="profile-hint">Do you wish to organise calculations as per Indian tax year or calendar year?</span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginTop: '0.5rem' }}>
+                    <span style={{ fontSize: '0.875rem', color: indiaTaxYearType === 'tax_year' ? 'hsl(var(--primary))' : 'hsl(var(--muted-foreground))', fontWeight: indiaTaxYearType === 'tax_year' ? 600 : 400 }}>
+                      Indian Tax Year (Apr–Mar)
+                    </span>
+                    <Switch
+                      checked={indiaTaxYearType === 'calendar_year'}
+                      onCheckedChange={(v) => setIndiaTaxYearType(v ? 'calendar_year' : 'tax_year')}
+                      disabled={isLoading}
+                    />
+                    <span style={{ fontSize: '0.875rem', color: indiaTaxYearType === 'calendar_year' ? 'hsl(var(--primary))' : 'hsl(var(--muted-foreground))', fontWeight: indiaTaxYearType === 'calendar_year' ? 600 : 400 }}>
+                      Calendar Year (Jan–Dec)
+                    </span>
+                  </div>
+                </div>
+              )}
 
               <div className="profile-section-divider" />
               <h3 className="profile-section-title">Preferences</h3>

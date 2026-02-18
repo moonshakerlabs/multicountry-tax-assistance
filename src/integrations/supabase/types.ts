@@ -422,6 +422,7 @@ export type Database = {
           first_name: string | null
           id: string
           last_name: string | null
+          meaningful_user_id: string | null
           preferred_language: string
           role: Database["public"]["Enums"]["app_role"]
           updated_at: string
@@ -432,6 +433,7 @@ export type Database = {
           first_name?: string | null
           id: string
           last_name?: string | null
+          meaningful_user_id?: string | null
           preferred_language?: string
           role?: Database["public"]["Enums"]["app_role"]
           updated_at?: string
@@ -442,6 +444,7 @@ export type Database = {
           first_name?: string | null
           id?: string
           last_name?: string | null
+          meaningful_user_id?: string | null
           preferred_language?: string
           role?: Database["public"]["Enums"]["app_role"]
           updated_at?: string
@@ -567,6 +570,92 @@ export type Database = {
         }
         Relationships: []
       }
+      support_ticket_replies: {
+        Row: {
+          content: string
+          created_at: string
+          id: string
+          sender_email: string
+          sender_type: string
+          ticket_id: string
+          user_id: string | null
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          id?: string
+          sender_email: string
+          sender_type: string
+          ticket_id: string
+          user_id?: string | null
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          id?: string
+          sender_email?: string
+          sender_type?: string
+          ticket_id?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "support_ticket_replies_ticket_id_fkey"
+            columns: ["ticket_id"]
+            isOneToOne: false
+            referencedRelation: "support_tickets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      support_tickets: {
+        Row: {
+          category: string
+          content: string
+          created_at: string
+          email: string
+          id: string
+          last_reply_at: string | null
+          meaningful_user_id: string | null
+          priority: string
+          status: string
+          subject: string
+          ticket_number: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          category: string
+          content: string
+          created_at?: string
+          email: string
+          id?: string
+          last_reply_at?: string | null
+          meaningful_user_id?: string | null
+          priority?: string
+          status?: string
+          subject: string
+          ticket_number: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          category?: string
+          content?: string
+          created_at?: string
+          email?: string
+          id?: string
+          last_reply_at?: string | null
+          meaningful_user_id?: string | null
+          priority?: string
+          status?: string
+          subject?: string
+          ticket_number?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       user_country_preferences: {
         Row: {
           country: string
@@ -628,6 +717,7 @@ export type Database = {
           gdpr_consent_given: boolean | null
           google_drive_connected: boolean | null
           google_drive_folder_id: string | null
+          india_tax_year_type: string | null
           other_tax_countries: string[] | null
           preferred_language: string
           primary_tax_residency: string
@@ -641,6 +731,7 @@ export type Database = {
           gdpr_consent_given?: boolean | null
           google_drive_connected?: boolean | null
           google_drive_folder_id?: string | null
+          india_tax_year_type?: string | null
           other_tax_countries?: string[] | null
           preferred_language?: string
           primary_tax_residency?: string
@@ -654,6 +745,7 @@ export type Database = {
           gdpr_consent_given?: boolean | null
           google_drive_connected?: boolean | null
           google_drive_folder_id?: string | null
+          india_tax_year_type?: string | null
           other_tax_countries?: string[] | null
           preferred_language?: string
           primary_tax_residency?: string
@@ -785,6 +877,8 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      generate_meaningful_user_id: { Args: never; Returns: string }
+      generate_ticket_number: { Args: never; Returns: string }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
