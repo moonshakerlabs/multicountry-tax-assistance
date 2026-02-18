@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, Plus, BookOpen, X } from 'lucide-react';
+import { ArrowLeft, Plus, BookOpen, X, CheckCircle2 } from 'lucide-react';
 import './CommunityHeader.css';
 
 const COMMUNITY_GUIDELINES = [
@@ -46,6 +46,22 @@ interface CommunityHeaderProps {
 
 export default function CommunityHeader({ onAskQuestion, canPost }: CommunityHeaderProps) {
   const [showGuidelines, setShowGuidelines] = useState(false);
+  const [hasAcceptedGuidelines, setHasAcceptedGuidelines] = useState(false);
+  const [acceptChecked, setAcceptChecked] = useState(false);
+
+  const handleGuidelinesAccept = () => {
+    setHasAcceptedGuidelines(true);
+    setShowGuidelines(false);
+  };
+
+  const handleAskQuestion = () => {
+    if (!hasAcceptedGuidelines) {
+      // Show guidelines first
+      setShowGuidelines(true);
+    } else {
+      onAskQuestion();
+    }
+  };
 
   return (
     <>
@@ -69,10 +85,17 @@ export default function CommunityHeader({ onAskQuestion, canPost }: CommunityHea
             <Button variant="ghost" size="sm" onClick={() => setShowGuidelines(true)}>
               <BookOpen className="community-plus-icon" />
               Community Guidelines
+              {hasAcceptedGuidelines && <CheckCircle2 className="h-3.5 w-3.5 ml-1 text-green-500" />}
             </Button>
-            <Button onClick={onAskQuestion} disabled={!canPost} size="sm">
+            <Button
+              onClick={handleAskQuestion}
+              disabled={!canPost}
+              size="sm"
+              title={!hasAcceptedGuidelines ? 'Please read and accept Community Guidelines first' : undefined}
+            >
               <Plus className="community-plus-icon" />
               Ask Question
+              {!hasAcceptedGuidelines && <span className="ml-1 text-xs opacity-70">(Guidelines required)</span>}
             </Button>
           </div>
         </div>
@@ -92,8 +115,8 @@ export default function CommunityHeader({ onAskQuestion, canPost }: CommunityHea
               </button>
             </div>
             <p className="community-guidelines-intro">
-              TaxOverFlow is a community built on trust, respect, and shared knowledge. 
-              By participating, you agree to follow these guidelines.
+              TaxOverFlow is a community built on trust, respect, and shared knowledge.
+              By participating, you agree to follow these guidelines. Please read them carefully — you must accept before posting a question.
             </p>
             <div className="community-guidelines-list">
               {COMMUNITY_GUIDELINES.map((g, i) => (
@@ -106,8 +129,28 @@ export default function CommunityHeader({ onAskQuestion, canPost }: CommunityHea
                 </div>
               ))}
             </div>
-            <div className="community-guidelines-footer">
-              <Button onClick={() => setShowGuidelines(false)}>I Understand</Button>
+            <div className="community-guidelines-footer" style={{ flexDirection: 'column', alignItems: 'stretch', gap: '0.75rem' }}>
+              <label className="community-guidelines-accept-row">
+                <input
+                  type="checkbox"
+                  checked={acceptChecked}
+                  onChange={e => setAcceptChecked(e.target.checked)}
+                  className="community-guidelines-checkbox"
+                />
+                <span className="community-guidelines-accept-label">
+                  I have read and agree to follow the Community Guidelines
+                </span>
+              </label>
+              <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
+                <Button variant="ghost" onClick={() => setShowGuidelines(false)}>Close</Button>
+                <Button
+                  onClick={handleGuidelinesAccept}
+                  disabled={!acceptChecked}
+                >
+                  <CheckCircle2 className="h-4 w-4 mr-1" />
+                  Accept & Continue
+                </Button>
+              </div>
             </div>
           </div>
         </div>
@@ -115,4 +158,3 @@ export default function CommunityHeader({ onAskQuestion, canPost }: CommunityHea
     </>
   );
 }
-

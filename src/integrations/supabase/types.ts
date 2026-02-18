@@ -47,6 +47,54 @@ export type Database = {
         }
         Relationships: []
       }
+      archived_users: {
+        Row: {
+          created_at: string
+          deletion_complete_at: string | null
+          deletion_requested_at: string
+          email: string
+          first_name: string | null
+          google_drive_connected: boolean | null
+          id: string
+          last_name: string | null
+          meaningful_user_id: string | null
+          original_user_id: string
+          reason: string | null
+          status: string
+          storage_preference: string | null
+        }
+        Insert: {
+          created_at?: string
+          deletion_complete_at?: string | null
+          deletion_requested_at?: string
+          email: string
+          first_name?: string | null
+          google_drive_connected?: boolean | null
+          id?: string
+          last_name?: string | null
+          meaningful_user_id?: string | null
+          original_user_id: string
+          reason?: string | null
+          status?: string
+          storage_preference?: string | null
+        }
+        Update: {
+          created_at?: string
+          deletion_complete_at?: string | null
+          deletion_requested_at?: string
+          email?: string
+          first_name?: string | null
+          google_drive_connected?: boolean | null
+          id?: string
+          last_name?: string | null
+          meaningful_user_id?: string | null
+          original_user_id?: string
+          reason?: string | null
+          status?: string
+          storage_preference?: string | null
+        }
+        Relationships: []
+      }
       categories: {
         Row: {
           country: string

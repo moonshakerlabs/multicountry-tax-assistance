@@ -176,3 +176,29 @@
   flex-shrink: 0;
 }
 
+.community-guidelines-accept-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.625rem;
+  cursor: pointer;
+  padding: 0.75rem;
+  border: 1px solid hsl(var(--border));
+  border-radius: 0.5rem;
+  background: hsl(var(--muted) / 0.3);
+}
+
+.community-guidelines-checkbox {
+  width: 1rem;
+  height: 1rem;
+  margin-top: 0.125rem;
+  cursor: pointer;
+  accent-color: hsl(var(--primary));
+  flex-shrink: 0;
+}
+
+.community-guidelines-accept-label {
+  font-size: 0.875rem;
+  color: hsl(var(--foreground));
+  line-height: 1.4;
+}
+

@@ -6,7 +6,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
-import { User, FileText, LogOut, FolderOpen, Upload, ChevronRight, MessageSquare, Brain, Shield, Users, CheckCircle, XCircle, Settings, Activity, CreditCard, Briefcase, ArrowLeft, HeadphonesIcon, TicketIcon, Eye, RotateCcw, X } from 'lucide-react';
+import { User, FileText, LogOut, FolderOpen, Upload, ChevronRight, MessageSquare, Brain, Shield, Users, CheckCircle, XCircle, Settings, Activity, CreditCard, Briefcase, ArrowLeft, HeadphonesIcon, TicketIcon, Eye, RotateCcw, X, Trash2, AlertTriangle, UserX } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Input } from '@/components/ui/input';
@@ -93,6 +93,10 @@ export default function Dashboard() {
   const [newAdminEmail, setNewAdminEmail] = useState('');
   const [newAdminRole, setNewAdminRole] = useState<string>('user_admin');
   const [creatingAdmin, setCreatingAdmin] = useState(false);
+
+  // Delete user state (super admin only)
+  const [deleteUserTarget, setDeleteUserTarget] = useState<CustomerDetail | null>(null);
+  const [deletingUser, setDeletingUser] = useState(false);
 
   // Permissions state
   const [rolePermissions, setRolePermissions] = useState<RolePermission[]>([]);
@@ -337,6 +341,40 @@ export default function Dashboard() {
     }
   };
 
+  const handleDeleteUserAccount = async (customer: CustomerDetail) => {
+    if (!isSuperAdmin) return;
+    setDeletingUser(true);
+    try {
+      // Get user profile data for archiving
+      const { data: storageData } = await supabase
+        .from('user_profile')
+        .select('storage_preference, google_drive_connected')
+        .eq('user_id', customer.id)
+        .maybeSingle();
+
+      // Archive the user
+      await supabase.from('archived_users').insert({
+        original_user_id: customer.id,
+        email: customer.email,
+        first_name: customer.first_name,
+        last_name: customer.last_name,
+        storage_preference: storageData?.storage_preference,
+        google_drive_connected: storageData?.google_drive_connected ?? false,
+        status: 'PENDING_DELETION',
+        reason: 'admin_initiated',
+      } as any);
+
+      toast({ title: 'Account deletion initiated', description: `${customer.email}'s account has been queued for deletion.` });
+      logActivity('delete_user_account', 'user', customer.id, { email: customer.email });
+      setDeleteUserTarget(null);
+      fetchAdminData();
+    } catch (error: any) {
+      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+    } finally {
+      setDeletingUser(false);
+    }
+  };
+
   const getCountryLabel = (code: string) => {
     const labels: Record<string, string> = { 'GERMANY': 'Germany', 'INDIA': 'India' };
     return labels[code] || code;
@@ -422,7 +460,7 @@ export default function Dashboard() {
               size="sm"
               className="bg-green-600 hover:bg-green-700 text-white"
               onClick={() => doAction('approve')}
-              disabled={actioning || selectedPost.status === 'ACTIVE'}
+              disabled={actioning}
             >
               <CheckCircle className="h-4 w-4 mr-1" /> Approve
             </Button>
@@ -438,7 +476,7 @@ export default function Dashboard() {
               size="sm"
               className="bg-red-600 hover:bg-red-700 text-white"
               onClick={() => doAction('reject')}
-              disabled={actioning || selectedPost.status === 'REJECTED'}
+              disabled={actioning}
             >
               <X className="h-4 w-4 mr-1" /> Reject
             </Button>
@@ -905,6 +943,28 @@ export default function Dashboard() {
                                 <div><span className="text-muted-foreground">Start:</span> {format(new Date(selectedCustomer.subscription.subscription_start_date), 'MMM d, yyyy')}</div>
                                 <div><span className="text-muted-foreground">End:</span> {selectedCustomer.subscription.subscription_end_date ? format(new Date(selectedCustomer.subscription.subscription_end_date), 'MMM d, yyyy') : '—'}</div>
                               </div>
+                            </div>
+                          )}
+                          {isSuperAdmin && (
+                            <div className="border-t pt-4 mt-4">
+                              <h4 className="font-semibold text-sm text-destructive mb-2">Danger Zone</h4>
+                              {deleteUserTarget?.id === selectedCustomer.id ? (
+                                <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-4 space-y-3">
+                                  <p className="text-sm text-destructive font-medium">
+                                    Are you sure you want to delete this account? This will queue the account for permanent deletion within 30 days.
+                                  </p>
+                                  <div className="flex gap-2">
+                                    <Button size="sm" variant="destructive" disabled={deletingUser} onClick={() => handleDeleteUserAccount(selectedCustomer)}>
+                                      {deletingUser ? 'Processing...' : 'Yes, Delete Account'}
+                                    </Button>
+                                    <Button size="sm" variant="outline" onClick={() => setDeleteUserTarget(null)}>Cancel</Button>
+                                  </div>
+                                </div>
+                              ) : (
+                                <Button size="sm" variant="destructive" onClick={() => setDeleteUserTarget(selectedCustomer)}>
+                                  <UserX className="h-4 w-4 mr-1" /> Delete Customer Account
+                                </Button>
+                              )}
                             </div>
                           )}
                         </div>
