@@ -515,7 +515,60 @@
 }
 
 .vault-share-enabled-badge {
+  color: hsl(142 76% 36%);
+  font-weight: 500;
+}
+
+.vault-share-disabled-badge {
+  color: hsl(var(--muted-foreground));
+  font-weight: 400;
+}
+
+/* Folder-level share toggle */
+.vault-category-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.vault-folder-share-toggle {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: none;
+  border: 1px solid hsl(var(--border));
+  border-radius: 6px;
+  padding: 3px 8px;
+  cursor: pointer;
+  font-size: 11px;
+  color: hsl(var(--muted-foreground));
+  transition: all 0.2s;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.vault-folder-share-toggle:hover {
+  border-color: hsl(var(--primary));
   color: hsl(var(--primary));
+}
+
+.vault-folder-share-on {
+  border-color: hsl(142 76% 36% / 0.5);
+  color: hsl(142 76% 36%);
+  background: hsl(142 76% 36% / 0.08);
+}
+
+.vault-folder-toggle-icon {
+  width: 14px;
+  height: 14px;
+}
+
+.vault-folder-toggle-on {
+  color: hsl(142 76% 36%);
+}
+
+.vault-folder-toggle-label {
+  font-size: 11px;
   font-weight: 500;
 }
 

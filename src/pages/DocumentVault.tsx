@@ -19,7 +19,9 @@ import {
   Share2,
   CheckSquare,
   Square,
-  XCircle
+  XCircle,
+  ToggleLeft,
+  ToggleRight
 } from 'lucide-react';
 import UploadModal from '@/components/documents/UploadModal';
 import DocumentActions from '@/components/documents/DocumentActions';
@@ -286,6 +288,29 @@ export default function DocumentVault() {
     });
   };
 
+  // Toggle share_enabled for all documents in a folder (category)
+  const handleToggleFolderSharing = async (docs: Document[], enable: boolean) => {
+    if (!user) return;
+    const ids = docs.map(d => d.id);
+    try {
+      const { error } = await supabase
+        .from('documents')
+        .update({ share_enabled: enable })
+        .eq('user_id', user.id)
+        .in('id', ids);
+      if (error) throw error;
+      await refreshDocuments();
+      toast({
+        title: enable ? (isDE ? 'Freigabe aktiviert' : 'Sharing Enabled') : (isDE ? 'Freigabe deaktiviert' : 'Sharing Disabled'),
+        description: isDE
+          ? `${ids.length} Dokument(e) in diesem Ordner aktualisiert.`
+          : `${ids.length} document(s) in this folder updated.`,
+      });
+    } catch (err: any) {
+      toast({ title: isDE ? 'Fehler' : 'Error', description: err.message, variant: 'destructive' });
+    }
+  };
+
   // Share selected documents
   const handleShareSelectedDocs = () => {
     if (selectedIds.size === 0) {
@@ -545,6 +570,9 @@ export default function DocumentVault() {
                                   const folderSelectedCount = docs.filter(d => selectedIds.has(d.id)).length;
                                   const allFolderSelected = folderShareableCount > 0 && folderSelectedCount === folderShareableCount;
 
+                                  const allFolderEnabled = docs.every(d => d.share_enabled);
+                                  const anyFolderEnabled = docs.some(d => d.share_enabled);
+
                                   return (
                                     <div key={catKey} className="vault-category-group">
                                       <div className="vault-category-row">
@@ -576,13 +604,34 @@ export default function DocumentVault() {
                                           <span className="vault-group-title">{category.replace(/_/g, ' ')}</span>
                                           <span className="vault-group-count">
                                             {docs.length}
-                                            {folderShareableCount > 0 && (
-                                              <span className="vault-share-badge">
-                                                {' '}· {folderShareableCount} {isDE ? 'teilbar' : 'shareable'}
-                                              </span>
-                                            )}
+                                            {' '}· {folderShareableCount}/{docs.length} {isDE ? 'freigegeben' : 'sharing enabled'}
                                           </span>
                                         </button>
+                                        {/* Folder-level sharing toggle (not in selection mode) */}
+                                        {!selectionMode && (
+                                          <button
+                                            className={`vault-folder-share-toggle ${allFolderEnabled ? 'vault-folder-share-on' : ''}`}
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              handleToggleFolderSharing(docs, !allFolderEnabled);
+                                            }}
+                                            title={allFolderEnabled
+                                              ? (isDE ? 'Freigabe für Ordner deaktivieren' : 'Disable sharing for folder')
+                                              : (isDE ? 'Freigabe für Ordner aktivieren' : 'Enable sharing for folder')}
+                                          >
+                                            {allFolderEnabled
+                                              ? <ToggleRight className="vault-folder-toggle-icon vault-folder-toggle-on" />
+                                              : <ToggleLeft className="vault-folder-toggle-icon" />
+                                            }
+                                            <span className="vault-folder-toggle-label">
+                                              {allFolderEnabled
+                                                ? (isDE ? 'Freigabe aktiviert' : 'Sharing Enabled')
+                                                : anyFolderEnabled
+                                                ? (isDE ? 'Teilweise freigegeben' : 'Partial')
+                                                : (isDE ? 'Freigabe deaktiviert' : 'Sharing Disabled')}
+                                            </span>
+                                          </button>
+                                        )}
                                       </div>
                                       
                                       {expandedCategories.has(catKey) && (
@@ -615,9 +664,13 @@ export default function DocumentVault() {
                                                   </span>
                                                   <span className="vault-document-meta">
                                                     {doc.sub_category?.replace(/_/g, ' ') || doc.custom_sub_category}
-                                                    {doc.share_enabled && (
+                                                    {doc.share_enabled ? (
                                                       <span className="vault-share-enabled-badge">
-                                                        {' '}· {isDE ? 'Freigabe aktiv' : 'Sharing on'}
+                                                        {' '}· {isDE ? 'Freigabe aktiviert' : 'Sharing Enabled'}
+                                                      </span>
+                                                    ) : (
+                                                      <span className="vault-share-disabled-badge">
+                                                        {' '}· {isDE ? 'Freigabe deaktiviert' : 'Sharing Disabled'}
                                                       </span>
                                                     )}
                                                   </span>
