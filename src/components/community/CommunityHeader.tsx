@@ -42,21 +42,34 @@ const COMMUNITY_GUIDELINES = [
 interface CommunityHeaderProps {
   onAskQuestion: () => void;
   canPost: boolean;
+  guidelinesAccepted: boolean;
+  onGuidelinesAccepted: (accepted: boolean) => void;
 }
 
-export default function CommunityHeader({ onAskQuestion, canPost }: CommunityHeaderProps) {
+export default function CommunityHeader({ onAskQuestion, canPost, guidelinesAccepted, onGuidelinesAccepted }: CommunityHeaderProps) {
   const [showGuidelines, setShowGuidelines] = useState(false);
-  const [hasAcceptedGuidelines, setHasAcceptedGuidelines] = useState(false);
-  const [acceptChecked, setAcceptChecked] = useState(false);
+  const [acceptChecked, setAcceptChecked] = useState(guidelinesAccepted);
 
   const handleGuidelinesAccept = () => {
-    setHasAcceptedGuidelines(true);
+    onGuidelinesAccepted(true);
     setShowGuidelines(false);
   };
 
+  const handleCheckboxChange = (checked: boolean) => {
+    setAcceptChecked(checked);
+    if (!checked) {
+      onGuidelinesAccepted(false);
+    }
+  };
+
+  const handleOpenGuidelines = () => {
+    setAcceptChecked(guidelinesAccepted);
+    setShowGuidelines(true);
+  };
+
   const handleAskQuestion = () => {
-    if (!hasAcceptedGuidelines) {
-      // Show guidelines first
+    if (!guidelinesAccepted) {
+      setAcceptChecked(false);
       setShowGuidelines(true);
     } else {
       onAskQuestion();
@@ -82,20 +95,20 @@ export default function CommunityHeader({ onAskQuestion, canPost }: CommunityHea
             <Button asChild variant="ghost" size="sm">
               <Link to="/profile">Profile</Link>
             </Button>
-            <Button variant="ghost" size="sm" onClick={() => setShowGuidelines(true)}>
+            <Button variant="ghost" size="sm" onClick={handleOpenGuidelines}>
               <BookOpen className="community-plus-icon" />
               Community Guidelines
-              {hasAcceptedGuidelines && <CheckCircle2 className="h-3.5 w-3.5 ml-1 text-green-500" />}
+              {guidelinesAccepted && <CheckCircle2 className="h-3.5 w-3.5 ml-1 text-green-500" />}
             </Button>
             <Button
               onClick={handleAskQuestion}
-              disabled={!canPost}
+              disabled={!canPost || !guidelinesAccepted}
               size="sm"
-              title={!hasAcceptedGuidelines ? 'Please read and accept Community Guidelines first' : undefined}
+              title={!guidelinesAccepted ? 'Please read and accept Community Guidelines first' : undefined}
             >
               <Plus className="community-plus-icon" />
               Ask Question
-              {!hasAcceptedGuidelines && <span className="ml-1 text-xs opacity-70">(Guidelines required)</span>}
+              {!guidelinesAccepted && <span className="ml-1 text-xs opacity-70">(Guidelines required)</span>}
             </Button>
           </div>
         </div>
@@ -116,7 +129,7 @@ export default function CommunityHeader({ onAskQuestion, canPost }: CommunityHea
             </div>
             <p className="community-guidelines-intro">
               TaxOverFlow is a community built on trust, respect, and shared knowledge.
-              By participating, you agree to follow these guidelines. Please read them carefully — you must accept before posting a question.
+              By participating, you agree to follow these guidelines. Please read them carefully — you must accept before posting a question or answering.
             </p>
             <div className="community-guidelines-list">
               {COMMUNITY_GUIDELINES.map((g, i) => (
@@ -134,7 +147,7 @@ export default function CommunityHeader({ onAskQuestion, canPost }: CommunityHea
                 <input
                   type="checkbox"
                   checked={acceptChecked}
-                  onChange={e => setAcceptChecked(e.target.checked)}
+                  onChange={e => handleCheckboxChange(e.target.checked)}
                   className="community-guidelines-checkbox"
                 />
                 <span className="community-guidelines-accept-label">
@@ -143,10 +156,7 @@ export default function CommunityHeader({ onAskQuestion, canPost }: CommunityHea
               </label>
               <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
                 <Button variant="ghost" onClick={() => setShowGuidelines(false)}>Close</Button>
-                <Button
-                  onClick={handleGuidelinesAccept}
-                  disabled={!acceptChecked}
-                >
+                <Button onClick={handleGuidelinesAccept} disabled={!acceptChecked}>
                   <CheckCircle2 className="h-4 w-4 mr-1" />
                   Accept & Continue
                 </Button>

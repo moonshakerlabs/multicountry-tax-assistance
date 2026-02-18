@@ -25,6 +25,7 @@ export default function Community() {
   const [submittingPost, setSubmittingPost] = useState(false);
   const [postCount, setPostCount] = useState(0);
   const [filterCountry, setFilterCountry] = useState<string>('all');
+  const [guidelinesAccepted, setGuidelinesAccepted] = useState(false);
 
   // Report state
   const [reportTarget, setReportTarget] = useState<{ entityId: string; entityType: 'POST' | 'ANSWER' } | null>(null);
@@ -208,12 +209,18 @@ export default function Community() {
   if (selectedPostId) {
     return (
       <div className="community-container">
-        <CommunityHeader onAskQuestion={() => setShowAskModal(true)} canPost={canPost} />
+        <CommunityHeader
+          onAskQuestion={() => setShowAskModal(true)}
+          canPost={canPost}
+          guidelinesAccepted={guidelinesAccepted}
+          onGuidelinesAccepted={setGuidelinesAccepted}
+        />
         <PostDetail
           postId={selectedPostId}
           onBack={() => { setSelectedPostId(null); fetchPosts(); }}
           onVotePost={handleVotePost}
           onReport={handleReport}
+          guidelinesAccepted={guidelinesAccepted}
         />
         <ReportModal
           isOpen={!!reportTarget}
@@ -228,7 +235,12 @@ export default function Community() {
 
   return (
     <div className="community-container">
-      <CommunityHeader onAskQuestion={() => setShowAskModal(true)} canPost={canPost} />
+      <CommunityHeader
+        onAskQuestion={() => setShowAskModal(true)}
+        canPost={canPost}
+        guidelinesAccepted={guidelinesAccepted}
+        onGuidelinesAccepted={setGuidelinesAccepted}
+      />
 
       <main className="community-main">
         <div className="community-content">
