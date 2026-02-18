@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
-import { MessageSquare, ThumbsUp, ThumbsDown, CheckCircle, Flag, Lock } from 'lucide-react';
+import { MessageSquare, ThumbsUp, ThumbsDown, CheckCircle, Flag, Lock, Share2 } from 'lucide-react';
 import ReportModal from '@/components/community/ReportModal';
 import './PublicCommunity.css';
 
@@ -34,6 +34,12 @@ interface Answer {
 export default function PublicCommunity() {
   const { user, signOut } = useAuth();
   const { toast } = useToast();
+
+  const handleSharePost = (postId: string) => {
+    const shareUrl = `${window.location.origin}/taxoverflow/post/${postId}`;
+    navigator.clipboard.writeText(shareUrl).catch(() => {});
+    toast({ title: 'Link copied!', description: 'Anyone can view the question with this link.' });
+  };
   const [posts, setPosts] = useState<PublicPost[]>([]);
   const [loading, setLoading] = useState(true);
   const [expandedPost, setExpandedPost] = useState<string | null>(null);
@@ -264,6 +270,9 @@ export default function PublicCommunity() {
                         <MessageSquare className="public-post-stat-icon" />
                         {post.answer_count} answers
                       </span>
+                      <button className="public-report-btn" onClick={() => handleSharePost(post.id)} title="Copy share link">
+                        <Share2 className="public-report-icon" />
+                      </button>
                       {user && (
                         <button className="public-report-btn" onClick={() => setReportTarget({ id: post.id, type: 'POST' })}>
                           <Flag className="public-report-icon" />

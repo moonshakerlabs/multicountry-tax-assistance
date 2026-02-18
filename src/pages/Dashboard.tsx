@@ -6,7 +6,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
-import { User, FileText, LogOut, FolderOpen, Upload, ChevronRight, MessageSquare, Brain, Shield, Users, CheckCircle, XCircle, Settings, Activity, CreditCard, Briefcase, ArrowLeft, HeadphonesIcon, TicketIcon, Eye, RotateCcw, X, Trash2, AlertTriangle, UserX } from 'lucide-react';
+import { User, FileText, LogOut, FolderOpen, Upload, ChevronRight, MessageSquare, Brain, Shield, Users, CheckCircle, XCircle, Settings, Activity, CreditCard, Briefcase, ArrowLeft, HeadphonesIcon, TicketIcon, Eye, RotateCcw, X, Trash2, AlertTriangle, UserX, UserPlus } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Input } from '@/components/ui/input';
@@ -759,6 +759,246 @@ export default function Dashboard() {
   }
   // ─────────────────────────────────────────────────────────────────────
 
+  // ─── Employees Tab Component ──────────────────────────────────────────
+  function EmployeesTab({ employees, loadingAdmin, isSuperAdmin, currentUserId, onRoleChange, onRefresh, createdBy }: {
+    employees: UserProfile[];
+    loadingAdmin: boolean;
+    isSuperAdmin: boolean;
+    currentUserId?: string;
+    onRoleChange: (userId: string, newRole: string) => Promise<void>;
+    onRefresh: () => void;
+    createdBy?: string;
+  }) {
+    const { toast: empToast } = useToast();
+    const [showCreateForm, setShowCreateForm] = useState(false);
+    const [saving, setSaving] = useState(false);
+    const [form, setForm] = useState({
+      first_name: '',
+      last_name: '',
+      employee_id: '',
+      email: '',
+      phone_number: '',
+      role: 'user_admin',
+      joined_date: '',
+      resigned_date: '',
+      employment_status: 'ACTIVE',
+      address: '',
+      pan_number: '',
+      uan_number: '',
+    });
+
+    const handleFormChange = (field: string, value: string) => {
+      setForm(prev => ({ ...prev, [field]: value }));
+    };
+
+    const isFormValid = () =>
+      form.first_name.trim() && form.last_name.trim() && form.employee_id.trim() &&
+      form.email.trim() && form.phone_number.trim() && form.joined_date;
+
+    const handleCreateEmployee = async (e: React.FormEvent) => {
+      e.preventDefault();
+      if (!isFormValid()) return;
+      setSaving(true);
+      try {
+        // Check if email exists in profiles
+        const { data: targetUser } = await supabase.from('profiles').select('id').eq('email', form.email.trim()).maybeSingle();
+
+        // Insert employee profile
+        const insertData: any = {
+          email: form.email.trim(),
+          first_name: form.first_name.trim(),
+          last_name: form.last_name.trim(),
+          employee_id: form.employee_id.trim(),
+          phone_number: form.phone_number.trim(),
+          role: form.role,
+          joined_date: form.joined_date,
+          employment_status: form.employment_status,
+          created_by: createdBy,
+        };
+        if (form.resigned_date) insertData.resigned_date = form.resigned_date;
+        if (form.address) insertData.address = form.address.trim();
+        if (form.pan_number) insertData.pan_number = form.pan_number.trim();
+        if (form.uan_number) insertData.uan_number = form.uan_number.trim();
+        if (targetUser) insertData.user_id = targetUser.id;
+
+        const { error: empErr } = await supabase.from('employee_profiles' as any).insert(insertData);
+        if (empErr) throw empErr;
+
+        // If user exists, also assign the role
+        if (targetUser) {
+          await supabase.from('user_roles').delete().eq('user_id', targetUser.id);
+          await supabase.from('user_roles').insert({ user_id: targetUser.id, role: form.role as any });
+          await supabase.from('profiles').update({ role: form.role as any, first_name: form.first_name.trim(), last_name: form.last_name.trim() }).eq('id', targetUser.id);
+        }
+
+        empToast({ title: 'Employee added!', description: targetUser ? 'Employee profile created and role assigned.' : 'Employee profile created. They can complete their profile after signing up.' });
+        setShowCreateForm(false);
+        setForm({ first_name: '', last_name: '', employee_id: '', email: '', phone_number: '', role: 'user_admin', joined_date: '', resigned_date: '', employment_status: 'ACTIVE', address: '', pan_number: '', uan_number: '' });
+        onRefresh();
+      } catch (err: any) {
+        empToast({ title: 'Error', description: err.message, variant: 'destructive' });
+      } finally {
+        setSaving(false);
+      }
+    };
+
+    return (
+      <div className="admin-section">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="admin-section-title mb-0">
+            <Briefcase className="h-5 w-5" /> Employee Management
+          </h2>
+          {isSuperAdmin && (
+            <Button size="sm" onClick={() => setShowCreateForm(!showCreateForm)} variant={showCreateForm ? 'outline' : 'default'}>
+              <UserPlus className="h-4 w-4 mr-1" />
+              {showCreateForm ? 'Cancel' : 'Add Employee'}
+            </Button>
+          )}
+        </div>
+
+        {/* Create Employee Form */}
+        {isSuperAdmin && showCreateForm && (
+          <form onSubmit={handleCreateEmployee} className="admin-create-employee-form">
+            <h3 className="admin-create-employee-title">New Employee / Admin Details</h3>
+            <p className="admin-create-employee-subtitle">
+              Fields marked <span className="text-destructive">*</span> are mandatory. Other details can be filled by the employee later.
+            </p>
+
+            <div className="admin-employee-form-grid">
+              {/* Mandatory fields */}
+              <div className="admin-form-field">
+                <label className="admin-form-label">First Name <span className="text-destructive">*</span></label>
+                <Input value={form.first_name} onChange={e => handleFormChange('first_name', e.target.value)} placeholder="e.g. Priya" required />
+              </div>
+              <div className="admin-form-field">
+                <label className="admin-form-label">Last Name <span className="text-destructive">*</span></label>
+                <Input value={form.last_name} onChange={e => handleFormChange('last_name', e.target.value)} placeholder="e.g. Sharma" required />
+              </div>
+              <div className="admin-form-field">
+                <label className="admin-form-label">Employee ID <span className="text-destructive">*</span></label>
+                <Input value={form.employee_id} onChange={e => handleFormChange('employee_id', e.target.value)} placeholder="e.g. EMP-2024-001" required />
+              </div>
+              <div className="admin-form-field">
+                <label className="admin-form-label">Email Address <span className="text-destructive">*</span></label>
+                <Input type="email" value={form.email} onChange={e => handleFormChange('email', e.target.value)} placeholder="employee@company.com" required />
+              </div>
+              <div className="admin-form-field">
+                <label className="admin-form-label">Phone Number <span className="text-destructive">*</span></label>
+                <Input type="tel" value={form.phone_number} onChange={e => handleFormChange('phone_number', e.target.value)} placeholder="+49 123 456789" required />
+              </div>
+              <div className="admin-form-field">
+                <label className="admin-form-label">Role <span className="text-destructive">*</span></label>
+                <Select value={form.role} onValueChange={v => handleFormChange('role', v)}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="employee_admin">Employee Admin</SelectItem>
+                    <SelectItem value="user_admin">User Admin</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="admin-form-field">
+                <label className="admin-form-label">Joined Date <span className="text-destructive">*</span></label>
+                <Input type="date" value={form.joined_date} onChange={e => handleFormChange('joined_date', e.target.value)} required />
+              </div>
+              <div className="admin-form-field">
+                <label className="admin-form-label">Employment Status <span className="text-destructive">*</span></label>
+                <Select value={form.employment_status} onValueChange={v => handleFormChange('employment_status', v)}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="ACTIVE">Active</SelectItem>
+                    <SelectItem value="ON_LEAVE">On Leave</SelectItem>
+                    <SelectItem value="RESIGNED">Resigned</SelectItem>
+                    <SelectItem value="TERMINATED">Terminated</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Optional fields */}
+              <div className="admin-form-field">
+                <label className="admin-form-label">Resigned Date <span className="admin-form-optional">(optional)</span></label>
+                <Input type="date" value={form.resigned_date} onChange={e => handleFormChange('resigned_date', e.target.value)} />
+              </div>
+              <div className="admin-form-field">
+                <label className="admin-form-label">PAN Number <span className="admin-form-optional">(optional)</span></label>
+                <Input value={form.pan_number} onChange={e => handleFormChange('pan_number', e.target.value)} placeholder="ABCDE1234F" />
+              </div>
+              <div className="admin-form-field">
+                <label className="admin-form-label">UAN Number <span className="admin-form-optional">(optional)</span></label>
+                <Input value={form.uan_number} onChange={e => handleFormChange('uan_number', e.target.value)} placeholder="100XXXXXXXXX" />
+              </div>
+              <div className="admin-form-field admin-form-field-full">
+                <label className="admin-form-label">Address <span className="admin-form-optional">(optional)</span></label>
+                <Input value={form.address} onChange={e => handleFormChange('address', e.target.value)} placeholder="Street, City, Country" />
+              </div>
+            </div>
+
+            <div className="admin-form-actions">
+              <Button type="button" variant="outline" onClick={() => setShowCreateForm(false)}>Cancel</Button>
+              <Button type="submit" disabled={saving || !isFormValid()}>
+                {saving ? 'Creating...' : 'Create Employee Profile'}
+              </Button>
+            </div>
+          </form>
+        )}
+
+        {/* Employee List */}
+        {loadingAdmin ? (
+          <p className="text-muted-foreground">Loading employees...</p>
+        ) : employees.length === 0 ? (
+          <p className="text-muted-foreground">No employees found.</p>
+        ) : (
+          <div className="admin-table-wrapper">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Name</TableHead>
+                  <TableHead>Email</TableHead>
+                  <TableHead>Role</TableHead>
+                  <TableHead>Joined</TableHead>
+                  {isSuperAdmin && <TableHead>Change Role</TableHead>}
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {employees.map(u => (
+                  <TableRow key={u.id}>
+                    <TableCell className="font-medium">
+                      {u.first_name && u.last_name ? `${u.first_name} ${u.last_name}` : <span className="text-muted-foreground">Not set</span>}
+                    </TableCell>
+                    <TableCell>{u.email}</TableCell>
+                    <TableCell>
+                      <span className={`dashboard-role-badge ${getRoleBadgeClass(u.role)}`}>{getRoleLabel(u.role)}</span>
+                    </TableCell>
+                    <TableCell className="text-muted-foreground text-sm">
+                      {format(new Date(u.created_at), 'MMM d, yyyy')}
+                    </TableCell>
+                    {isSuperAdmin && (
+                      <TableCell>
+                        <Select
+                          value={u.role}
+                          onValueChange={(val) => onRoleChange(u.id, val)}
+                          disabled={u.id === currentUserId}
+                        >
+                          <SelectTrigger className="w-40"><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="user">Customer</SelectItem>
+                            <SelectItem value="user_admin">User Admin</SelectItem>
+                            <SelectItem value="employee_admin">Employee Admin</SelectItem>
+                            <SelectItem value="super_admin">Super Admin</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </TableCell>
+                    )}
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        )}
+      </div>
+    );
+  }
+  // ─────────────────────────────────────────────────────────────────────
+
   return (
     <div className="dashboard-container">
       {/* Header */}
@@ -852,93 +1092,15 @@ export default function Dashboard() {
 
                 {/* ─── EMPLOYEES TAB ─── */}
                 <TabsContent value="employees">
-                  <div className="admin-section">
-                    <h2 className="admin-section-title">
-                      <Briefcase className="h-5 w-5" /> Employee Management
-                    </h2>
-
-                    {isSuperAdmin && (
-                      <div className="admin-create-user">
-                        <h3 className="text-sm font-semibold mb-2">Assign Admin Role</h3>
-                        <div className="admin-create-form">
-                          <Input
-                            placeholder="User email (must be registered)"
-                            value={newAdminEmail}
-                            onChange={e => setNewAdminEmail(e.target.value)}
-                            className="flex-1"
-                          />
-                          <Select value={newAdminRole} onValueChange={setNewAdminRole}>
-                            <SelectTrigger className="w-40">
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="super_admin">Super Admin</SelectItem>
-                              <SelectItem value="employee_admin">Employee Admin</SelectItem>
-                              <SelectItem value="user_admin">User Admin</SelectItem>
-                            </SelectContent>
-                          </Select>
-                          <Button onClick={handleCreateAdmin} disabled={creatingAdmin || !newAdminEmail.trim()}>
-                            {creatingAdmin ? 'Assigning...' : 'Assign Role'}
-                          </Button>
-                        </div>
-                      </div>
-                    )}
-
-                    {loadingAdmin ? (
-                      <p className="text-muted-foreground">Loading employees...</p>
-                    ) : employees.length === 0 ? (
-                      <p className="text-muted-foreground">No employees found.</p>
-                    ) : (
-                      <div className="admin-table-wrapper">
-                        <Table>
-                          <TableHeader>
-                            <TableRow>
-                              <TableHead>Name</TableHead>
-                              <TableHead>Email</TableHead>
-                              <TableHead>Role</TableHead>
-                              <TableHead>Joined</TableHead>
-                              {isSuperAdmin && <TableHead>Change Role</TableHead>}
-                            </TableRow>
-                          </TableHeader>
-                          <TableBody>
-                            {employees.map(u => (
-                              <TableRow key={u.id}>
-                                <TableCell className="font-medium">
-                                  {u.first_name && u.last_name ? `${u.first_name} ${u.last_name}` : <span className="text-muted-foreground">Not set</span>}
-                                </TableCell>
-                                <TableCell>{u.email}</TableCell>
-                                <TableCell>
-                                  <span className={`dashboard-role-badge ${getRoleBadgeClass(u.role)}`}>{getRoleLabel(u.role)}</span>
-                                </TableCell>
-                                <TableCell className="text-muted-foreground text-sm">
-                                  {format(new Date(u.created_at), 'MMM d, yyyy')}
-                                </TableCell>
-                                {isSuperAdmin && (
-                                  <TableCell>
-                                    <Select
-                                      value={u.role}
-                                      onValueChange={(val) => handleRoleChange(u.id, val)}
-                                      disabled={u.id === user?.id}
-                                    >
-                                      <SelectTrigger className="w-40">
-                                        <SelectValue />
-                                      </SelectTrigger>
-                                      <SelectContent>
-                                        <SelectItem value="user">Customer</SelectItem>
-                                        <SelectItem value="user_admin">User Admin</SelectItem>
-                                        <SelectItem value="employee_admin">Employee Admin</SelectItem>
-                                        <SelectItem value="super_admin">Super Admin</SelectItem>
-                                      </SelectContent>
-                                    </Select>
-                                  </TableCell>
-                                )}
-                              </TableRow>
-                            ))}
-                          </TableBody>
-                        </Table>
-                      </div>
-                    )}
-                  </div>
+                  <EmployeesTab
+                    employees={employees}
+                    loadingAdmin={loadingAdmin}
+                    isSuperAdmin={isSuperAdmin}
+                    currentUserId={user?.id}
+                    onRoleChange={handleRoleChange}
+                    onRefresh={fetchAdminData}
+                    createdBy={user?.id}
+                  />
                 </TabsContent>
 
                 {/* ─── CUSTOMERS TAB ─── */}
