@@ -5,7 +5,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
 import { useStoragePreference } from '@/hooks/useStoragePreference';
 import { supabase } from '@/integrations/supabase/client';
-import { ArrowLeft, ChevronDown, Check, X, Cloud, HardDrive, Unlink, Loader2, User, Settings } from 'lucide-react';
+import { ArrowLeft, ChevronDown, Check, X, Cloud, HardDrive, Unlink, Loader2, User, Settings, Trash2, AlertTriangle } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { 
   ALL_COUNTRIES, 
@@ -18,10 +18,10 @@ import GoogleDriveSetupModal from '@/components/documents/GoogleDriveSetupModal'
 import SecuritySettings from '@/components/profile/SecuritySettings';
 
 
-type Tab = 'preferences' | 'settings';
+type Tab = 'preferences' | 'settings' | 'danger';
 
 export default function Profile() {
-  const { user, profile, refreshProfile } = useAuth();
+  const { user, profile, refreshProfile, signOut, userRoles, isSuperAdmin } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -43,6 +43,9 @@ export default function Profile() {
   const [isLoading, setIsLoading] = useState(false);
   const [showCountryDropdown, setShowCountryDropdown] = useState(false);
   const [isDisconnecting, setIsDisconnecting] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deleteConfirmText, setDeleteConfirmText] = useState('');
+  const [isDeletingAccount, setIsDeletingAccount] = useState(false);
   const [showGoogleDriveSetup, setShowGoogleDriveSetup] = useState(false);
   const [pendingOAuthCode, setPendingOAuthCode] = useState<string | null>(null);
 
@@ -147,6 +150,55 @@ export default function Profile() {
   const getLanguageLabel = (lang: Language): string =>
     lang.nameNative !== lang.nameEn ? `${lang.nameNative} (${lang.nameEn})` : lang.nameEn;
 
+  // Roles that cannot delete their own accounts
+  const isAdminRole = userRoles.some(r => ['employee_admin', 'user_admin'].includes(r)) && !isSuperAdmin;
+
+  const handleRequestAccountDeletion = async () => {
+    if (!user || !profile) return;
+    if (deleteConfirmText !== 'DELETE') {
+      toast({ title: 'Confirmation required', description: 'Please type DELETE to confirm.', variant: 'destructive' });
+      return;
+    }
+    setIsDeletingAccount(true);
+    try {
+      const { data: storageData } = await supabase
+        .from('user_profile')
+        .select('storage_preference, google_drive_connected')
+        .eq('user_id', user.id)
+        .maybeSingle();
+
+      // Archive user data
+      const { error: archiveError } = await supabase
+        .from('archived_users')
+        .insert({
+          original_user_id: user.id,
+          email: profile.email,
+          meaningful_user_id: (profile as any).meaningful_user_id,
+          first_name: profile.first_name,
+          last_name: profile.last_name,
+          storage_preference: storageData?.storage_preference,
+          google_drive_connected: storageData?.google_drive_connected ?? false,
+          status: 'PENDING_DELETION',
+        } as any);
+
+      if (archiveError) throw archiveError;
+
+      toast({
+        title: 'Account deletion requested',
+        description: 'Your account will be deleted within 30 days. You have 30 days to download your documents.',
+        duration: 8000,
+      });
+      setShowDeleteConfirm(false);
+      setDeleteConfirmText('');
+      // Sign out after requesting deletion
+      setTimeout(() => signOut(), 2000);
+    } catch (error: any) {
+      toast({ title: 'Error', description: error.message || 'Failed to request account deletion.', variant: 'destructive' });
+    } finally {
+      setIsDeletingAccount(false);
+    }
+  };
+
   
 
   return (
@@ -183,6 +235,16 @@ export default function Profile() {
             <Settings className="h-4 w-4" />
             Settings
           </button>
+          {!isAdminRole && (
+            <button
+              className={`profile-tab ${activeTab === 'danger' ? 'profile-tab-active' : ''}`}
+              onClick={() => setActiveTab('danger')}
+              style={{ color: activeTab === 'danger' ? 'hsl(var(--destructive))' : undefined }}
+            >
+              <Trash2 className="h-4 w-4" />
+              Delete Account
+            </button>
+          )}
         </div>
 
         {/* ── User Preferences Tab ── */}
@@ -366,6 +428,72 @@ export default function Profile() {
         {/* ── Settings Tab ── */}
         {activeTab === 'settings' && (
           <SecuritySettings />
+        )}
+
+        {/* ── Delete Account Tab ── */}
+        {activeTab === 'danger' && !isAdminRole && (
+          <div className="profile-card" style={{ border: '1px solid hsl(var(--destructive) / 0.3)' }}>
+            <div className="profile-form">
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                <AlertTriangle className="h-6 w-6" style={{ color: 'hsl(var(--destructive))' }} />
+                <div>
+                  <h3 className="profile-section-title" style={{ color: 'hsl(var(--destructive))', marginBottom: 0 }}>Delete Account</h3>
+                  <p className="profile-hint">This action is irreversible. Please read carefully before proceeding.</p>
+                </div>
+              </div>
+
+              <div style={{ background: 'hsl(var(--destructive) / 0.06)', border: '1px solid hsl(var(--destructive) / 0.2)', borderRadius: '0.5rem', padding: '1rem' }}>
+                <ul className="profile-hint" style={{ listStyle: 'disc', paddingLeft: '1.25rem', display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                  <li>Account deletion takes up to <strong>30 days</strong> to complete.</li>
+                  <li>You have <strong>30 days</strong> to download your documents before they become inaccessible.</li>
+                  <li>If you have chosen <strong>Google Drive</strong> as your storage, no action is needed — the link between this platform and your drive will be severed, and your files in Google Drive will remain untouched.</li>
+                  <li>Documents stored in the <strong>platform's vault</strong> will no longer be accessible after 30 days.</li>
+                  <li>All your personal information will be permanently deleted at the end of the 30-day period.</li>
+                </ul>
+              </div>
+
+              {!showDeleteConfirm ? (
+                <Button
+                  variant="destructive"
+                  onClick={() => setShowDeleteConfirm(true)}
+                  className="w-fit"
+                >
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  Request Account Deletion
+                </Button>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', padding: '1rem', border: '1px solid hsl(var(--destructive) / 0.3)', borderRadius: '0.5rem', background: 'hsl(var(--destructive) / 0.04)' }}>
+                  <p className="profile-label" style={{ color: 'hsl(var(--destructive))' }}>
+                    Type <strong>DELETE</strong> to confirm you understand this action cannot be undone:
+                  </p>
+                  <input
+                    type="text"
+                    className="profile-input"
+                    placeholder="Type DELETE here"
+                    value={deleteConfirmText}
+                    onChange={e => setDeleteConfirmText(e.target.value)}
+                    style={{ borderColor: 'hsl(var(--destructive) / 0.5)' }}
+                  />
+                  <div style={{ display: 'flex', gap: '0.75rem' }}>
+                    <Button
+                      variant="destructive"
+                      disabled={deleteConfirmText !== 'DELETE' || isDeletingAccount}
+                      onClick={handleRequestAccountDeletion}
+                    >
+                      {isDeletingAccount ? 'Processing...' : 'Confirm Deletion'}
+                    </Button>
+                    <Button
+                      variant="outline"
+                      onClick={() => { setShowDeleteConfirm(false); setDeleteConfirmText(''); }}
+                      disabled={isDeletingAccount}
+                    >
+                      Cancel
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
         )}
       </main>
 
