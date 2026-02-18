@@ -1,8 +1,11 @@
 import { createContext, useContext, useEffect, useRef, useState, ReactNode, useCallback } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
 
 const INACTIVITY_TIMEOUT_MS = 30 * 60 * 1000; // 30 minutes
+const WARNING_BEFORE_MS = 2 * 60 * 1000;       // warn 2 minutes before logout
+const WARNING_TOAST_ID = 'inactivity-warning';
 const ACTIVITY_EVENTS = ['mousedown', 'mousemove', 'keydown', 'scroll', 'touchstart', 'click', 'pointerdown'];
 const LAST_ACTIVE_KEY = 'taxapp_last_active';
 
@@ -45,6 +48,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   const inactivityTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const warningTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const userRef = useRef<User | null>(null);
 
   // Keep userRef in sync for use inside event listeners
@@ -102,31 +106,44 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   // ─── Inactivity logout ───────────────────────────────────────────────────
   const performSignOut = useCallback(async () => {
-    // Clear inactivity tracking
     localStorage.removeItem(LAST_ACTIVE_KEY);
-    if (inactivityTimer.current) {
-      clearTimeout(inactivityTimer.current);
-      inactivityTimer.current = null;
-    }
-    // Sign out only this tab's session (other tabs keep their own session state)
+    if (inactivityTimer.current) { clearTimeout(inactivityTimer.current); inactivityTimer.current = null; }
+    if (warningTimer.current) { clearTimeout(warningTimer.current); warningTimer.current = null; }
+    toast.dismiss(WARNING_TOAST_ID);
     await supabase.auth.signOut({ scope: 'local' });
     setProfile(null);
     setUserRoles([]);
   }, []);
 
   const resetInactivityTimer = useCallback(() => {
-    // Only run if user is logged in
     if (!userRef.current) return;
 
-    // Stamp last activity time (used to check on tab focus / page load)
     localStorage.setItem(LAST_ACTIVE_KEY, Date.now().toString());
 
-    if (inactivityTimer.current) {
-      clearTimeout(inactivityTimer.current);
-    }
+    // Clear existing timers and dismiss any open warning
+    if (inactivityTimer.current) clearTimeout(inactivityTimer.current);
+    if (warningTimer.current) clearTimeout(warningTimer.current);
+    toast.dismiss(WARNING_TOAST_ID);
+
+    // Warning toast fires 2 minutes before logout
+    warningTimer.current = setTimeout(() => {
+      if (!userRef.current) return;
+      toast.warning('You will be logged out soon', {
+        id: WARNING_TOAST_ID,
+        description: 'You\'ve been inactive for 28 minutes. You\'ll be automatically signed out in 2 minutes.',
+        duration: WARNING_BEFORE_MS,
+        action: {
+          label: 'Stay logged in',
+          onClick: () => resetInactivityTimer(),
+        },
+      });
+    }, INACTIVITY_TIMEOUT_MS - WARNING_BEFORE_MS);
+
+    // Logout fires after full timeout
     inactivityTimer.current = setTimeout(() => {
-      // Only sign out if user is still logged in
       if (userRef.current) {
+        toast.dismiss(WARNING_TOAST_ID);
+        toast.info('You have been signed out due to inactivity.');
         console.info('[Auth] Inactivity timeout — signing out');
         performSignOut();
       }
@@ -145,10 +162,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     ACTIVITY_EVENTS.forEach(event =>
       window.removeEventListener(event, resetInactivityTimer)
     );
-    if (inactivityTimer.current) {
-      clearTimeout(inactivityTimer.current);
-      inactivityTimer.current = null;
-    }
+    if (inactivityTimer.current) { clearTimeout(inactivityTimer.current); inactivityTimer.current = null; }
+    if (warningTimer.current) { clearTimeout(warningTimer.current); warningTimer.current = null; }
+    toast.dismiss(WARNING_TOAST_ID);
   }, [resetInactivityTimer]);
 
   // Check inactivity when the tab regains focus (user was away in another tab)
