@@ -137,7 +137,7 @@ export default function Auth() {
       } else {
         toast({
           title: 'Account created',
-          description: 'Please check your email to verify your account before signing in.',
+          description: 'Welcome! Your account is ready. Signing you in...',
         });
       }
     } catch {
