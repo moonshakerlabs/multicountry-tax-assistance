@@ -1,6 +1,10 @@
-import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
+import { createContext, useContext, useEffect, useRef, useState, ReactNode, useCallback } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
+
+const INACTIVITY_TIMEOUT_MS = 30 * 60 * 1000; // 30 minutes
+const ACTIVITY_EVENTS = ['mousedown', 'mousemove', 'keydown', 'scroll', 'touchstart', 'click', 'pointerdown'];
+const LAST_ACTIVE_KEY = 'taxapp_last_active';
 
 type AppRole = 'user' | 'admin' | 'super_admin' | 'employee_admin' | 'user_admin';
 
@@ -39,6 +43,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [userRoles, setUserRoles] = useState<AppRole[]>([]);
   const [loading, setLoading] = useState(true);
+
+  const inactivityTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const userRef = useRef<User | null>(null);
+
+  // Keep userRef in sync for use inside event listeners
+  useEffect(() => {
+    userRef.current = user;
+  }, [user]);
 
   const fetchProfile = async (userId: string) => {
     try {
@@ -88,11 +100,73 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  // ─── Inactivity logout ───────────────────────────────────────────────────
+  const performSignOut = useCallback(async () => {
+    // Clear inactivity tracking
+    localStorage.removeItem(LAST_ACTIVE_KEY);
+    if (inactivityTimer.current) {
+      clearTimeout(inactivityTimer.current);
+      inactivityTimer.current = null;
+    }
+    // Sign out only this tab's session (other tabs keep their own session state)
+    await supabase.auth.signOut({ scope: 'local' });
+    setProfile(null);
+    setUserRoles([]);
+  }, []);
+
+  const resetInactivityTimer = useCallback(() => {
+    // Only run if user is logged in
+    if (!userRef.current) return;
+
+    // Stamp last activity time (used to check on tab focus / page load)
+    localStorage.setItem(LAST_ACTIVE_KEY, Date.now().toString());
+
+    if (inactivityTimer.current) {
+      clearTimeout(inactivityTimer.current);
+    }
+    inactivityTimer.current = setTimeout(() => {
+      // Only sign out if user is still logged in
+      if (userRef.current) {
+        console.info('[Auth] Inactivity timeout — signing out');
+        performSignOut();
+      }
+    }, INACTIVITY_TIMEOUT_MS);
+  }, [performSignOut]);
+
+  const startActivityTracking = useCallback(() => {
+    ACTIVITY_EVENTS.forEach(event =>
+      window.addEventListener(event, resetInactivityTimer, { passive: true })
+    );
+    // Start the timer on first call
+    resetInactivityTimer();
+  }, [resetInactivityTimer]);
+
+  const stopActivityTracking = useCallback(() => {
+    ACTIVITY_EVENTS.forEach(event =>
+      window.removeEventListener(event, resetInactivityTimer)
+    );
+    if (inactivityTimer.current) {
+      clearTimeout(inactivityTimer.current);
+      inactivityTimer.current = null;
+    }
+  }, [resetInactivityTimer]);
+
+  // Check inactivity when the tab regains focus (user was away in another tab)
+  const handleVisibilityChange = useCallback(() => {
+    if (document.visibilityState === 'visible' && userRef.current) {
+      const lastActive = parseInt(localStorage.getItem(LAST_ACTIVE_KEY) || '0', 10);
+      if (lastActive && Date.now() - lastActive > INACTIVITY_TIMEOUT_MS) {
+        console.info('[Auth] Tab refocused after inactivity — signing out');
+        performSignOut();
+      } else {
+        resetInactivityTimer();
+      }
+    }
+  }, [performSignOut, resetInactivityTimer]);
+
+  // ─── Auth initialization ─────────────────────────────────────────────────
   useEffect(() => {
     let isMounted = true;
-
-    // Listener for ONGOING auth changes (does NOT control loading)
-    // Track whether initial load is complete
     let initialLoadDone = false;
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
@@ -100,13 +174,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (!isMounted) return;
         setSession(session);
         setUser(session?.user ?? null);
-        
+
         if (session?.user) {
-          // If initial load already done, we need to re-fetch profile
-          // Set loading true to prevent premature redirect while fetching
-          if (initialLoadDone) {
-            setLoading(true);
-          }
+          if (initialLoadDone) setLoading(true);
           setTimeout(() => {
             Promise.all([
               fetchProfile(session.user.id),
@@ -118,19 +188,32 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               setLoading(false);
             });
           }, 0);
+
+          // Start inactivity tracking when user is authenticated
+          startActivityTracking();
         } else {
           setProfile(null);
           setUserRoles([]);
-          if (initialLoadDone) {
-            setLoading(false);
-          }
+          if (initialLoadDone) setLoading(false);
+          // Stop inactivity tracking when signed out
+          stopActivityTracking();
+          localStorage.removeItem(LAST_ACTIVE_KEY);
         }
       }
     );
 
-    // INITIAL load — fetch profile BEFORE setting loading to false
+    // INITIAL load — check inactivity from a previous session before restoring
     const initializeAuth = async () => {
       try {
+        // Check if user was inactive before this page load
+        const lastActive = parseInt(localStorage.getItem(LAST_ACTIVE_KEY) || '0', 10);
+        if (lastActive && Date.now() - lastActive > INACTIVITY_TIMEOUT_MS) {
+          console.info('[Auth] Session expired due to inactivity — clearing');
+          localStorage.removeItem(LAST_ACTIVE_KEY);
+          await supabase.auth.signOut({ scope: 'local' });
+          return;
+        }
+
         const { data: { session } } = await supabase.auth.getSession();
         if (!isMounted) return;
 
@@ -145,6 +228,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           if (!isMounted) return;
           setProfile(profileData);
           setUserRoles(roles);
+          // Stamp activity on page load for existing sessions
+          localStorage.setItem(LAST_ACTIVE_KEY, Date.now().toString());
         }
       } catch (error) {
         console.error('Error initializing auth:', error);
@@ -158,32 +243,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     initializeAuth();
 
+    // Visibility change handler for cross-tab inactivity detection
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
     return () => {
       isMounted = false;
       subscription.unsubscribe();
+      stopActivityTracking();
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
-  }, []);
+  }, [startActivityTracking, stopActivityTracking, handleVisibilityChange]);
 
+  // ─── Auth methods ────────────────────────────────────────────────────────
   const signUp = async (email: string, password: string) => {
     const redirectUrl = `${window.location.origin}/`;
-    
     const { error } = await supabase.auth.signUp({
       email,
       password,
-      options: {
-        emailRedirectTo: redirectUrl
-      }
+      options: { emailRedirectTo: redirectUrl }
     });
-    
     return { error: error as Error | null };
   };
 
   const signIn = async (email: string, password: string) => {
-    const { error } = await supabase.auth.signInWithPassword({
-      email,
-      password
-    });
-    
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
     return { error: error as Error | null };
   };
 
@@ -207,9 +290,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const signOut = async () => {
-    await supabase.auth.signOut();
-    setProfile(null);
-    setUserRoles([]);
+    await performSignOut();
   };
 
   const isAnyAdmin = userRoles.some(r => ['super_admin', 'employee_admin', 'user_admin'].includes(r));
