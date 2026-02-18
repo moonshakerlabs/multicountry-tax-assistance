@@ -146,8 +146,9 @@ serve(async (req: Request) => {
       // Send email via Resend
       let emailStatus = "FAILED";
       try {
+        const fromAddress = "WorTaF <noreply@wortaf.com>";
         const emailResult = await resend.emails.send({
-          from: "WorTaF <onboarding@resend.dev>",
+          from: fromAddress,
           to: [recipientEmail],
           subject: `Documents shared with you via WorTaF`,
           html: `
@@ -170,9 +171,15 @@ serve(async (req: Request) => {
             </div>
           `,
         });
-        emailStatus = emailResult?.id ? "SUCCESS" : "FAILED";
-      } catch (emailErr) {
-        console.error(`Email send error for ${recipientEmail}:`, emailErr);
+        if (emailResult?.id) {
+          emailStatus = "SUCCESS";
+          console.log(`Email sent successfully to ${recipientEmail}, id: ${emailResult.id}`);
+        } else {
+          console.error(`Email send failed for ${recipientEmail} - no ID in response:`, JSON.stringify(emailResult));
+          emailStatus = "FAILED";
+        }
+      } catch (emailErr: any) {
+        console.error(`Email send error for ${recipientEmail}:`, emailErr?.message || emailErr, JSON.stringify(emailErr));
         emailStatus = "FAILED";
       }
 
