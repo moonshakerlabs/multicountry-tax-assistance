@@ -4,10 +4,10 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
 const INACTIVITY_TIMEOUT_MS = 30 * 60 * 1000; // 30 minutes
-const WARNING_BEFORE_MS = 2 * 60 * 1000;       // warn 2 minutes before logout
+const WARNING_BEFORE_MS = 2 * 60 * 1000;       // warn 2 min before
 const WARNING_TOAST_ID = 'inactivity-warning';
-const ACTIVITY_EVENTS = ['mousedown', 'mousemove', 'keydown', 'scroll', 'touchstart', 'click', 'pointerdown'];
 const LAST_ACTIVE_KEY = 'taxapp_last_active';
+const ACTIVITY_EVENTS = ['mousedown', 'mousemove', 'keydown', 'scroll', 'touchstart', 'click', 'pointerdown'] as const;
 
 type AppRole = 'user' | 'admin' | 'super_admin' | 'employee_admin' | 'user_admin';
 
@@ -47,14 +47,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [userRoles, setUserRoles] = useState<AppRole[]>([]);
   const [loading, setLoading] = useState(true);
 
+  // Stable refs so inactivity callbacks never need to be re-created
   const inactivityTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const warningTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const userRef = useRef<User | null>(null);
-
-  // Keep userRef in sync for use inside event listeners
-  useEffect(() => {
-    userRef.current = user;
-  }, [user]);
+  const isLoggedIn = useRef(false); // mirrors whether user is set, used inside closures
 
   const fetchProfile = async (userId: string) => {
     try {
@@ -63,16 +59,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         .select('*')
         .eq('id', userId)
         .maybeSingle();
-
-      if (error) {
-        console.error('Error fetching profile:', error);
-        return null;
-      }
+      if (error) { console.error('Error fetching profile:', error); return null; }
       return data as Profile | null;
-    } catch (error) {
-      console.error('Error fetching profile:', error);
-      return null;
-    }
+    } catch (e) { console.error('Error fetching profile:', e); return null; }
   };
 
   const fetchUserRoles = async (userId: string) => {
@@ -81,150 +70,119 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         .from('user_roles')
         .select('role')
         .eq('user_id', userId);
-
-      if (error) {
-        console.error('Error fetching user roles:', error);
-        return ['user' as AppRole];
-      }
+      if (error) { console.error('Error fetching user roles:', error); return ['user' as AppRole]; }
       return (data?.map(r => r.role as AppRole)) || ['user' as AppRole];
-    } catch (error) {
-      console.error('Error fetching user roles:', error);
-      return ['user' as AppRole];
-    }
+    } catch (e) { console.error('Error fetching user roles:', e); return ['user' as AppRole]; }
   };
 
   const refreshProfile = async () => {
-    if (user) {
-      const [profileData, roles] = await Promise.all([
-        fetchProfile(user.id),
-        fetchUserRoles(user.id),
-      ]);
-      setProfile(profileData);
-      setUserRoles(roles);
-    }
+    if (!isLoggedIn.current) return;
+    const currentUser = (await supabase.auth.getUser()).data.user;
+    if (!currentUser) return;
+    const [profileData, roles] = await Promise.all([fetchProfile(currentUser.id), fetchUserRoles(currentUser.id)]);
+    setProfile(profileData);
+    setUserRoles(roles);
   };
 
-  // ─── Inactivity logout ───────────────────────────────────────────────────
-  const performSignOut = useCallback(async () => {
-    localStorage.removeItem(LAST_ACTIVE_KEY);
+  // ── Inactivity helpers (defined once, stable refs) ────────────────────────
+  const clearTimers = useCallback(() => {
     if (inactivityTimer.current) { clearTimeout(inactivityTimer.current); inactivityTimer.current = null; }
     if (warningTimer.current) { clearTimeout(warningTimer.current); warningTimer.current = null; }
     toast.dismiss(WARNING_TOAST_ID);
-    await supabase.auth.signOut({ scope: 'local' });
-    setProfile(null);
-    setUserRoles([]);
   }, []);
 
-  const resetInactivityTimer = useCallback(() => {
-    if (!userRef.current) return;
+  const scheduleTimers = useCallback(() => {
+    if (!isLoggedIn.current) return;
 
+    clearTimers();
     localStorage.setItem(LAST_ACTIVE_KEY, Date.now().toString());
 
-    // Clear existing timers and dismiss any open warning
-    if (inactivityTimer.current) clearTimeout(inactivityTimer.current);
-    if (warningTimer.current) clearTimeout(warningTimer.current);
-    toast.dismiss(WARNING_TOAST_ID);
-
-    // Warning toast fires 2 minutes before logout
+    // Warning toast at 28 min
     warningTimer.current = setTimeout(() => {
-      if (!userRef.current) return;
+      if (!isLoggedIn.current) return;
       toast.warning('You will be logged out soon', {
         id: WARNING_TOAST_ID,
-        description: 'You\'ve been inactive for 28 minutes. You\'ll be automatically signed out in 2 minutes.',
+        description: "You've been inactive for 28 minutes. You'll be signed out in 2 minutes.",
         duration: WARNING_BEFORE_MS,
         action: {
           label: 'Stay logged in',
-          onClick: () => resetInactivityTimer(),
+          onClick: () => scheduleTimers(),
         },
       });
     }, INACTIVITY_TIMEOUT_MS - WARNING_BEFORE_MS);
 
-    // Logout fires after full timeout
+    // Logout at 30 min
     inactivityTimer.current = setTimeout(() => {
-      if (userRef.current) {
-        toast.dismiss(WARNING_TOAST_ID);
-        toast.info('You have been signed out due to inactivity.');
-        console.info('[Auth] Inactivity timeout — signing out');
-        performSignOut();
-      }
+      if (!isLoggedIn.current) return;
+      toast.dismiss(WARNING_TOAST_ID);
+      toast.info('You have been signed out due to inactivity.');
+      supabase.auth.signOut({ scope: 'local' });
+      // state update will happen via onAuthStateChange
     }, INACTIVITY_TIMEOUT_MS);
-  }, [performSignOut]);
+  }, [clearTimers]);
 
-  const startActivityTracking = useCallback(() => {
-    ACTIVITY_EVENTS.forEach(event =>
-      window.addEventListener(event, resetInactivityTimer, { passive: true })
-    );
-    // Start the timer on first call
-    resetInactivityTimer();
-  }, [resetInactivityTimer]);
+  // ── Auth methods ──────────────────────────────────────────────────────────
+  const signOut = useCallback(async () => {
+    clearTimers();
+    localStorage.removeItem(LAST_ACTIVE_KEY);
+    await supabase.auth.signOut({ scope: 'local' });
+    // state cleared via onAuthStateChange
+  }, [clearTimers]);
 
-  const stopActivityTracking = useCallback(() => {
-    ACTIVITY_EVENTS.forEach(event =>
-      window.removeEventListener(event, resetInactivityTimer)
-    );
-    if (inactivityTimer.current) { clearTimeout(inactivityTimer.current); inactivityTimer.current = null; }
-    if (warningTimer.current) { clearTimeout(warningTimer.current); warningTimer.current = null; }
-    toast.dismiss(WARNING_TOAST_ID);
-  }, [resetInactivityTimer]);
-
-  // Check inactivity when the tab regains focus (user was away in another tab)
-  const handleVisibilityChange = useCallback(() => {
-    if (document.visibilityState === 'visible' && userRef.current) {
-      const lastActive = parseInt(localStorage.getItem(LAST_ACTIVE_KEY) || '0', 10);
-      if (lastActive && Date.now() - lastActive > INACTIVITY_TIMEOUT_MS) {
-        console.info('[Auth] Tab refocused after inactivity — signing out');
-        performSignOut();
-      } else {
-        resetInactivityTimer();
-      }
-    }
-  }, [performSignOut, resetInactivityTimer]);
-
-  // ─── Auth initialization ─────────────────────────────────────────────────
+  // ── Single auth effect — stable deps only ─────────────────────────────────
   useEffect(() => {
     let isMounted = true;
     let initialLoadDone = false;
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (event, session) => {
-        if (!isMounted) return;
-        setSession(session);
-        setUser(session?.user ?? null);
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (!isMounted) return;
+      setSession(session);
+      setUser(session?.user ?? null);
+      isLoggedIn.current = !!session?.user;
 
-        if (session?.user) {
-          if (initialLoadDone) setLoading(true);
-          setTimeout(() => {
-            Promise.all([
-              fetchProfile(session.user.id),
-              fetchUserRoles(session.user.id),
-            ]).then(([profileData, roles]) => {
-              if (!isMounted) return;
-              setProfile(profileData);
-              setUserRoles(roles);
-              setLoading(false);
-            });
-          }, 0);
+      if (session?.user) {
+        if (initialLoadDone) setLoading(true);
+        setTimeout(() => {
+          Promise.all([fetchProfile(session.user.id), fetchUserRoles(session.user.id)]).then(([p, r]) => {
+            if (!isMounted) return;
+            setProfile(p);
+            setUserRoles(r);
+            setLoading(false);
+          });
+        }, 0);
+        scheduleTimers();
+        ACTIVITY_EVENTS.forEach(e => window.addEventListener(e, scheduleTimers, { passive: true }));
+      } else {
+        setProfile(null);
+        setUserRoles([]);
+        if (initialLoadDone) setLoading(false);
+        clearTimers();
+        localStorage.removeItem(LAST_ACTIVE_KEY);
+        ACTIVITY_EVENTS.forEach(e => window.removeEventListener(e, scheduleTimers));
+      }
+    });
 
-          // Start inactivity tracking when user is authenticated
-          startActivityTracking();
+    // Tab visibility: check inactivity when user switches back
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible' && isLoggedIn.current) {
+        const last = parseInt(localStorage.getItem(LAST_ACTIVE_KEY) || '0', 10);
+        if (last && Date.now() - last > INACTIVITY_TIMEOUT_MS) {
+          toast.dismiss(WARNING_TOAST_ID);
+          toast.info('You have been signed out due to inactivity.');
+          supabase.auth.signOut({ scope: 'local' });
         } else {
-          setProfile(null);
-          setUserRoles([]);
-          if (initialLoadDone) setLoading(false);
-          // Stop inactivity tracking when signed out
-          stopActivityTracking();
-          localStorage.removeItem(LAST_ACTIVE_KEY);
+          scheduleTimers();
         }
       }
-    );
+    };
+    document.addEventListener('visibilitychange', handleVisibility);
 
-    // INITIAL load — check inactivity from a previous session before restoring
-    const initializeAuth = async () => {
+    // Initial load
+    const init = async () => {
       try {
-        // Check if user was inactive before this page load
-        const lastActive = parseInt(localStorage.getItem(LAST_ACTIVE_KEY) || '0', 10);
-        if (lastActive && Date.now() - lastActive > INACTIVITY_TIMEOUT_MS) {
-          console.info('[Auth] Session expired due to inactivity — clearing');
+        // Check inactivity from a prior session
+        const last = parseInt(localStorage.getItem(LAST_ACTIVE_KEY) || '0', 10);
+        if (last && Date.now() - last > INACTIVITY_TIMEOUT_MS) {
           localStorage.removeItem(LAST_ACTIVE_KEY);
           await supabase.auth.signOut({ scope: 'local' });
           return;
@@ -232,23 +190,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
         const { data: { session } } = await supabase.auth.getSession();
         if (!isMounted) return;
-
         setSession(session);
         setUser(session?.user ?? null);
+        isLoggedIn.current = !!session?.user;
 
         if (session?.user) {
-          const [profileData, roles] = await Promise.all([
-            fetchProfile(session.user.id),
-            fetchUserRoles(session.user.id),
-          ]);
+          const [p, r] = await Promise.all([fetchProfile(session.user.id), fetchUserRoles(session.user.id)]);
           if (!isMounted) return;
-          setProfile(profileData);
-          setUserRoles(roles);
-          // Stamp activity on page load for existing sessions
+          setProfile(p);
+          setUserRoles(r);
           localStorage.setItem(LAST_ACTIVE_KEY, Date.now().toString());
         }
-      } catch (error) {
-        console.error('Error initializing auth:', error);
+      } catch (e) {
+        console.error('Error initializing auth:', e);
       } finally {
         if (isMounted) {
           initialLoadDone = true;
@@ -257,27 +211,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     };
 
-    initializeAuth();
-
-    // Visibility change handler for cross-tab inactivity detection
-    document.addEventListener('visibilitychange', handleVisibilityChange);
+    init();
 
     return () => {
       isMounted = false;
       subscription.unsubscribe();
-      stopActivityTracking();
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      clearTimers();
+      ACTIVITY_EVENTS.forEach(e => window.removeEventListener(e, scheduleTimers));
+      document.removeEventListener('visibilitychange', handleVisibility);
     };
-  }, [startActivityTracking, stopActivityTracking, handleVisibilityChange]);
+  }, [scheduleTimers, clearTimers]); // scheduleTimers/clearTimers are stable useCallback with no changing deps
 
-  // ─── Auth methods ────────────────────────────────────────────────────────
   const signUp = async (email: string, password: string) => {
-    const redirectUrl = `${window.location.origin}/`;
-    const { error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: { emailRedirectTo: redirectUrl }
-    });
+    const { error } = await supabase.auth.signUp({ email, password, options: { emailRedirectTo: `${window.location.origin}/` } });
     return { error: error as Error | null };
   };
 
@@ -289,9 +235,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signInWithGoogle = async () => {
     try {
       const { lovable } = await import('@/integrations/lovable/index');
-      const result = await lovable.auth.signInWithOAuth('google', {
-        redirect_uri: window.location.origin,
-      });
+      const result = await lovable.auth.signInWithOAuth('google', { redirect_uri: window.location.origin });
       return { error: result.error ? (result.error as Error) : null };
     } catch (err) {
       return { error: err as Error };
@@ -299,35 +243,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const resetPassword = async (email: string) => {
-    const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/reset-password`,
-    });
+    const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo: `${window.location.origin}/reset-password` });
     return { error: error as Error | null };
-  };
-
-  const signOut = async () => {
-    await performSignOut();
   };
 
   const isAnyAdmin = userRoles.some(r => ['super_admin', 'employee_admin', 'user_admin'].includes(r));
   const isSuperAdmin = userRoles.includes('super_admin');
 
   return (
-    <AuthContext.Provider value={{
-      user,
-      session,
-      profile,
-      loading,
-      userRoles,
-      isAnyAdmin,
-      isSuperAdmin,
-      signUp,
-      signIn,
-      signInWithGoogle,
-      resetPassword,
-      signOut,
-      refreshProfile
-    }}>
+    <AuthContext.Provider value={{ user, session, profile, loading, userRoles, isAnyAdmin, isSuperAdmin, signUp, signIn, signInWithGoogle, resetPassword, signOut, refreshProfile }}>
       {children}
     </AuthContext.Provider>
   );
