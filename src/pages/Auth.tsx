@@ -54,7 +54,8 @@ export default function Auth() {
   // Redirect if already authenticated
   useEffect(() => {
     if (user && profile) {
-      navigate('/dashboard', { replace: true });
+      const twoFaVerified = sessionStorage.getItem('2fa_verified') === 'true';
+      navigate(twoFaVerified ? '/dashboard' : '/2fa-verify', { replace: true });
     }
   }, [user, profile, navigate]);
 

@@ -3,7 +3,8 @@ import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
-const INACTIVITY_TIMEOUT_MS = 30 * 60 * 1000; // 30 minutes
+// Default 30 min — overridden per-user from DB on login
+let INACTIVITY_TIMEOUT_MS = 30 * 60 * 1000;
 const WARNING_BEFORE_MS = 2 * 60 * 1000;       // warn 2 min before
 const WARNING_TOAST_ID = 'inactivity-warning';
 const LAST_ACTIVE_KEY = 'taxapp_last_active';
@@ -75,6 +76,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } catch (e) { console.error('Error fetching user roles:', e); return ['user' as AppRole]; }
   };
 
+  // Load user's custom session timeout from security settings
+  const loadUserTimeout = async (userId: string) => {
+    try {
+      const { data } = await supabase
+        .from('user_security_settings')
+        .select('session_timeout_minutes')
+        .eq('user_id', userId)
+        .maybeSingle();
+      if (data?.session_timeout_minutes) {
+        INACTIVITY_TIMEOUT_MS = data.session_timeout_minutes * 60 * 1000;
+      }
+    } catch (e) { /* use default */ }
+  };
+
   const refreshProfile = async () => {
     if (!isLoggedIn.current) return;
     const currentUser = (await supabase.auth.getUser()).data.user;
@@ -97,27 +112,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     clearTimers();
     localStorage.setItem(LAST_ACTIVE_KEY, Date.now().toString());
 
-    // Warning toast at 28 min
+    // Warning toast (2 min before timeout)
+    const warningMs = INACTIVITY_TIMEOUT_MS - WARNING_BEFORE_MS;
     warningTimer.current = setTimeout(() => {
       if (!isLoggedIn.current) return;
       toast.warning('You will be logged out soon', {
         id: WARNING_TOAST_ID,
-        description: "You've been inactive for 28 minutes. You'll be signed out in 2 minutes.",
+        description: `You've been inactive. You'll be signed out in 2 minutes.`,
         duration: WARNING_BEFORE_MS,
         action: {
           label: 'Stay logged in',
           onClick: () => scheduleTimers(),
         },
       });
-    }, INACTIVITY_TIMEOUT_MS - WARNING_BEFORE_MS);
+    }, warningMs > 0 ? warningMs : 1000);
 
-    // Logout at 30 min
+    // Auto-logout
     inactivityTimer.current = setTimeout(() => {
       if (!isLoggedIn.current) return;
       toast.dismiss(WARNING_TOAST_ID);
       toast.info('You have been signed out due to inactivity.');
+      sessionStorage.removeItem('2fa_verified');
       supabase.auth.signOut({ scope: 'local' });
-      // state update will happen via onAuthStateChange
     }, INACTIVITY_TIMEOUT_MS);
   }, [clearTimers]);
 
@@ -125,6 +141,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signOut = useCallback(async () => {
     clearTimers();
     localStorage.removeItem(LAST_ACTIVE_KEY);
+    sessionStorage.removeItem('2fa_verified');
     await supabase.auth.signOut({ scope: 'local' });
     // state cleared via onAuthStateChange
   }, [clearTimers]);
@@ -143,7 +160,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (session?.user) {
         if (initialLoadDone) setLoading(true);
         setTimeout(() => {
-          Promise.all([fetchProfile(session.user.id), fetchUserRoles(session.user.id)]).then(([p, r]) => {
+          Promise.all([
+            fetchProfile(session.user.id),
+            fetchUserRoles(session.user.id),
+            loadUserTimeout(session.user.id),
+          ]).then(([p, r]) => {
             if (!isMounted) return;
             setProfile(p);
             setUserRoles(r);
@@ -158,6 +179,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (initialLoadDone) setLoading(false);
         clearTimers();
         localStorage.removeItem(LAST_ACTIVE_KEY);
+        sessionStorage.removeItem('2fa_verified');
         ACTIVITY_EVENTS.forEach(e => window.removeEventListener(e, scheduleTimers));
       }
     });
@@ -169,6 +191,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (last && Date.now() - last > INACTIVITY_TIMEOUT_MS) {
           toast.dismiss(WARNING_TOAST_ID);
           toast.info('You have been signed out due to inactivity.');
+          sessionStorage.removeItem('2fa_verified');
           supabase.auth.signOut({ scope: 'local' });
         } else {
           scheduleTimers();
@@ -195,7 +218,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         isLoggedIn.current = !!session?.user;
 
         if (session?.user) {
-          const [p, r] = await Promise.all([fetchProfile(session.user.id), fetchUserRoles(session.user.id)]);
+          const [p, r] = await Promise.all([
+            fetchProfile(session.user.id),
+            fetchUserRoles(session.user.id),
+            loadUserTimeout(session.user.id),
+          ]) as any;
           if (!isMounted) return;
           setProfile(p);
           setUserRoles(r);
