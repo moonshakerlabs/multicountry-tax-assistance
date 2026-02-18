@@ -54,7 +54,7 @@ Deno.serve(async (req) => {
       method: 'POST',
       headers: { 'Authorization': `Bearer ${resendApiKey}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        from: 'WorTaF Security <security@wortaf.com>',
+        from: 'WorTaF Security <onboarding@resend.dev>',
         to: [email],
         subject: `Your WorTaF ${typeLabel} verification code`,
         html: `
