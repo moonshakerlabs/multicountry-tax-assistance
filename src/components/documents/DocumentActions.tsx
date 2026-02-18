@@ -348,23 +348,22 @@ export default function DocumentActions({
                 </select>
               </div>
 
-              {mainCategory && (
-                <div className="doc-edit-field">
-                  <label className="doc-edit-label">{isDE ? "Unterkategorie" : "Sub Category"}</label>
-                  <select
-                    value={subCategory}
-                    onChange={(e) => setSubCategory(e.target.value)}
-                    className="doc-edit-select"
-                  >
-                    <option value="">{isDE ? "Auswählen" : "Select"}</option>
-                    {subCategories.map((cat) => (
-                      <option key={cat.code} value={cat.code}>
-                        {getCategoryLabel(cat, isDE)}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              )}
+              <div className="doc-edit-field">
+                <label className="doc-edit-label">{isDE ? "Unterkategorie" : "Sub Category"}</label>
+                <select
+                  value={subCategory}
+                  onChange={(e) => setSubCategory(e.target.value)}
+                  className="doc-edit-select"
+                  disabled={!mainCategory}
+                >
+                  <option value="">{!mainCategory ? (isDE ? 'Zuerst Hauptkategorie auswählen' : 'Select main category first') : (isDE ? "Auswählen" : "Select")}</option>
+                  {subCategories.map((cat) => (
+                    <option key={cat.code} value={cat.code}>
+                      {getCategoryLabel(cat, isDE)}
+                    </option>
+                  ))}
+                </select>
+              </div>
 
               {/* Share Enabled Toggle */}
               <div

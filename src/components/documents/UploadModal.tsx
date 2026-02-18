@@ -64,6 +64,7 @@ export default function UploadModal({ userProfile, onClose, onUploadComplete }: 
   const [isUploading, setIsUploading] = useState(false);
   const [fileEntries, setFileEntries] = useState<FileEntry[]>([]);
   const [customCategories, setCustomCategories] = useState<CustomCategory[]>([]);
+  const [shareEnabled, setShareEnabled] = useState(true);
   
   // Form state
   const [country, setCountry] = useState(userProfile?.primary_tax_residency || 'GERMANY');
@@ -348,7 +349,7 @@ export default function UploadModal({ userProfile, onClose, onUploadComplete }: 
               sub_category: subCategory,
               file_name: result.file_name || effectiveName,
               file_path: `gdrive://${result.file_id}`,
-              share_enabled: true,
+              share_enabled: shareEnabled,
             });
           } else {
             // SaaS storage upload
@@ -373,7 +374,7 @@ export default function UploadModal({ userProfile, onClose, onUploadComplete }: 
                 sub_category: subCategory,
                 file_name: effectiveName,
                 file_path: filePath,
-                share_enabled: true,
+                share_enabled: shareEnabled,
               });
             
             if (dbError) {
@@ -707,6 +708,43 @@ export default function UploadModal({ userProfile, onClose, onUploadComplete }: 
               )}
             </div>
           )}
+
+          {/* Share Enabled Toggle */}
+          <div className="upload-field" style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+            <Label style={{ marginBottom: 0 }}>
+              {shareEnabled
+                ? (isDE ? 'Freigabe aktiviert' : 'Sharing Enabled')
+                : (isDE ? 'Freigabe deaktiviert' : 'Sharing Disabled')}
+            </Label>
+            <button
+              type="button"
+              onClick={() => setShareEnabled(!shareEnabled)}
+              style={{
+                width: 44,
+                height: 24,
+                borderRadius: 12,
+                border: 'none',
+                cursor: 'pointer',
+                background: shareEnabled ? 'hsl(var(--primary))' : 'hsl(var(--muted))',
+                position: 'relative',
+                transition: 'background 0.2s',
+                flexShrink: 0,
+              }}
+            >
+              <span
+                style={{
+                  position: 'absolute',
+                  top: 2,
+                  left: shareEnabled ? 22 : 2,
+                  width: 20,
+                  height: 20,
+                  borderRadius: '50%',
+                  background: 'white',
+                  transition: 'left 0.2s',
+                }}
+              />
+            </button>
+          </div>
 
           {/* Submit */}
           <div className="upload-modal-actions">
