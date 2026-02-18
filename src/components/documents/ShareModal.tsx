@@ -34,6 +34,7 @@ const FAMILY_RELATIONS = [
   { value: 'Spouse', labelEn: 'Spouse', labelDe: 'Ehepartner' },
   { value: 'Child', labelEn: 'Child', labelDe: 'Kind' },
   { value: 'Sibling', labelEn: 'Sibling', labelDe: 'Geschwister' },
+  { value: 'Friend', labelEn: 'Friend', labelDe: 'Freund/Freundin' },
   { value: 'Other', labelEn: 'Other', labelDe: 'Andere' },
 ];
 

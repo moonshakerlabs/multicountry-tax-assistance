@@ -75,7 +75,7 @@ interface CustomerDetail {
 }
 
 export default function Dashboard() {
-  const { profile, user, signOut, isAnyAdmin, isSuperAdmin, userRoles } = useAuth();
+  const { profile, user, signOut, isAnyAdmin, isSuperAdmin, userRoles, loading: authLoading } = useAuth();
   const { toast } = useToast();
   const [documentSummary, setDocumentSummary] = useState<DocumentSummary[]>([]);
   const [totalDocuments, setTotalDocuments] = useState(0);
@@ -338,7 +338,7 @@ export default function Dashboard() {
             </Link>
           </div>
           <div className="dashboard-header-actions">
-            {isAnyAdmin && (
+            {!authLoading && isAnyAdmin && (
               <div className="dashboard-mode-toggle">
                 <span className={`dashboard-mode-label ${!adminMode ? 'active' : ''}`}>
                   <User className="h-3.5 w-3.5" /> Customer
