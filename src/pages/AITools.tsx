@@ -1,6 +1,7 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
+import { APP_NAME } from '@/lib/appConfig';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { useAuth } from '@/hooks/useAuth';
@@ -748,7 +749,7 @@ function Sidebar({ onSignOut }: { onSignOut: () => void }) {
       <div className="ai-tools-sidebar-header">
         <Link to="/" className="ai-tools-sidebar-logo">
           <div className="ai-tools-sidebar-logo-icon" />
-          <span>WorTaF</span>
+          <span>{APP_NAME}</span>
         </Link>
       </div>
       <nav className="ai-tools-sidebar-nav">

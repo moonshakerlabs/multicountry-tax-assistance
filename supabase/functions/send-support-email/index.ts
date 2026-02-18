@@ -6,10 +6,10 @@ import { Resend } from "npm:resend@2.0.0";
 // Change supportEmail to redirect all support tickets to a different address
 const APP_CONFIG = {
   supportEmail: "connect@moonshakerlabs.com",
-  appName: "WorTaF",
+  appName: "TAXBEBO",
   // Use onboarding@resend.dev for testing (Resend sandbox).
-  // Once wortaf.com domain is verified in Resend, change to: "WorTaF <noreply@wortaf.com>"
-  emailFrom: "WorTaF <onboarding@resend.dev>",
+  // Once taxbebo.com domain is verified in Resend, change to: "TAXBEBO <noreply@taxbebo.com>"
+  emailFrom: "TAXBEBO <onboarding@resend.dev>",
 };
 // ─────────────────────────────────────────────────────────────────────
 

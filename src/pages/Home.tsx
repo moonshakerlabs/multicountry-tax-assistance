@@ -3,15 +3,16 @@ import { Link, Navigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Shield, Globe, Share2, ChevronDown, ChevronUp } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
+import { APP_NAME, APP_TAGLINE } from '@/lib/appConfig';
 import './Home.css';
 
 const faqs = [
   {
     q: 'What membership plans are available?',
-    a: 'WorTaF offers Free, Standard, and Professional plans tailored to individual taxpayers and professionals managing cross-border income. Each plan includes different document storage limits, AI tools access, and community features. Visit the Pricing page for full details.',
+    a: `${APP_NAME} offers Free, Standard, and Professional plans tailored to individual taxpayers and professionals managing cross-border income. Each plan includes different document storage limits, AI tools access, and community features. Visit the Pricing page for full details.`,
   },
   {
-    q: 'Can I try WorTaF before subscribing?',
+    q: `Can I try ${APP_NAME} before subscribing?`,
     a: 'Yes! Our Free plan lets you get started with core document organisation features at no cost. You can upgrade at any time as your needs grow.',
   },
   {
@@ -19,12 +20,12 @@ const faqs = [
     a: 'Your data remains securely stored for 30 days after cancellation. During this period you can export your documents. After 30 days, data is permanently deleted in line with our GDPR-aligned data policy.',
   },
   {
-    q: 'Is WorTaF compliant with GDPR and other privacy regulations?',
-    a: 'Absolutely. WorTaF is built with a privacy-first architecture. All data is stored with explicit user consent, and you retain full control over your documents and personal data at all times.',
+    q: `Is ${APP_NAME} compliant with GDPR and other privacy regulations?`,
+    a: `Absolutely. ${APP_NAME} is built with a privacy-first architecture. All data is stored with explicit user consent, and you retain full control over your documents and personal data at all times.`,
   },
   {
-    q: 'Which countries does WorTaF currently support?',
-    a: 'WorTaF currently supports tax document organisation for Germany, India, and the UAE, with more countries being added regularly. Our platform is designed from the ground up for globally mobile taxpayers.',
+    q: `Which countries does ${APP_NAME} currently support?`,
+    a: `${APP_NAME} currently supports tax document organisation for Germany, India, and the UAE, with more countries being added regularly. Our platform is designed from the ground up for globally mobile taxpayers.`,
   },
 ];
 
@@ -61,7 +62,7 @@ export default function Home() {
         <div className="home-header-content">
           <div className="home-logo">
             <div className="home-logo-icon" />
-            <span className="home-logo-text">WorTaF</span>
+            <span className="home-logo-text">{APP_NAME}</span>
           </div>
           <nav className="home-nav">
             <div className="home-auth-buttons">
@@ -125,7 +126,7 @@ export default function Home() {
       <section className="home-faq">
         <div className="home-faq-content">
           <h2 className="home-faq-title">Frequently Asked Questions</h2>
-          <p className="home-faq-subtitle">Everything you need to know about WorTaF membership and plans.</p>
+          <p className="home-faq-subtitle">Everything you need to know about {APP_NAME} membership and plans.</p>
           <div className="home-faq-list">
             {faqs.map((faq, i) => (
               <div key={i} className="home-faq-item">
@@ -156,7 +157,7 @@ export default function Home() {
         <div className="home-footer-content">
           <div className="home-footer-logo">
             <div className="home-footer-logo-icon" />
-            <span className="home-footer-logo-text">WorTaF</span>
+            <span className="home-footer-logo-text">{APP_NAME}</span>
           </div>
           <nav className="home-footer-nav">
             <a href="#" className="home-footer-link">Privacy Policy</a>

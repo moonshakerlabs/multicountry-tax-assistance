@@ -8,6 +8,7 @@ import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { LogOut, Users } from 'lucide-react';
 import { format } from 'date-fns';
+import { APP_NAME } from '@/lib/appConfig';
 
 interface UserProfile {
   id: string;
@@ -109,7 +110,7 @@ export default function Admin() {
           <div className="flex items-center gap-4">
             <Link to="/" className="flex items-center gap-2">
               <div className="h-8 w-8 rounded-lg bg-primary" />
-              <span className="text-lg font-semibold text-foreground">WorTaF</span>
+              <span className="text-lg font-semibold text-foreground">{APP_NAME}</span>
             </Link>
             <span className="text-sm font-medium px-2 py-1 rounded bg-accent/10 text-accent">Admin</span>
           </div>
