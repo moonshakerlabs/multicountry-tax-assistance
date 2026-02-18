@@ -95,7 +95,7 @@ serve(async (req: Request) => {
     }
 
     // ─── App Configuration ────────────────────────────────────────────────
-    // Once taxbebo.com domain is verified in Resend, change emailFrom to:
+    // Once taxbebo.com domain is verified in Resend, change to:
     // "TAXBEBO <noreply@taxbebo.com>"
     const EMAIL_FROM = "TAXBEBO <onboarding@resend.dev>";
     // ─────────────────────────────────────────────────────────────────────
@@ -106,7 +106,7 @@ serve(async (req: Request) => {
     }
 
     const resend = new Resend(resendKey);
-    const appUrl = req.headers.get("origin") || "https://multicountry-tax-assistance.lovable.app";
+    const appUrl = "https://taxbebo.com";
 
     // Process each recipient independently
     const results: Array<{ email: string; shareId: string; shareLink: string; status: string }> = [];

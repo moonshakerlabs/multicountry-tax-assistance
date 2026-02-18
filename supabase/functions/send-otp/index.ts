@@ -54,7 +54,7 @@ Deno.serve(async (req) => {
       method: 'POST',
       headers: { 'Authorization': `Bearer ${resendApiKey}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        from: 'TAXBEBO Security <onboarding@resend.dev>',
+        from: 'TAXBEBO Security <onboarding@resend.dev>', // Switch to: noreply@taxbebo.com once domain verified
         to: [email],
         subject: `Your TAXBEBO ${typeLabel} verification code`,
         html: `
