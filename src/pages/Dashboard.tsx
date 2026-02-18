@@ -182,7 +182,7 @@ export default function Dashboard() {
     setLoadingAdmin(true);
     try {
       const [postsRes, usersRes, permsRes, logsRes, subsRes, postCountsRes] = await Promise.all([
-        supabase.from('community_posts').select('*').order('created_at', { ascending: false }),
+        supabase.from('community_posts').select('*').eq('status', 'PENDING').order('created_at', { ascending: false }),
         supabase.from('profiles').select('*').order('created_at', { ascending: false }),
         supabase.from('role_permissions').select('*'),
         supabase.from('activity_logs').select('*').order('created_at', { ascending: false }).limit(100),

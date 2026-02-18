@@ -141,13 +141,14 @@ export default function Community() {
       title: data.title,
       description: data.description,
       tags: data.tags,
+      status: 'PENDING',
     });
 
     if (!error) {
       setShowAskModal(false);
       fetchPosts();
       fetchPostCount();
-      toast({ title: 'Question posted successfully!' });
+      toast({ title: 'Question submitted!', description: 'Your question is pending review and will appear in TaxOverflow once approved.' });
     } else {
       toast({ title: 'Error posting question', description: error.message, variant: 'destructive' });
     }
