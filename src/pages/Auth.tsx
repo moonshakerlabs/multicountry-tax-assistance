@@ -155,15 +155,20 @@ export default function Auth() {
   // On custom domains (e.g. taxbebo.com) the Lovable auth-bridge (/~oauth) is not available.
   // We must bypass it by getting the OAuth URL directly and redirecting manually.
   const isCustomDomain = !window.location.hostname.includes('lovable.app') &&
-    !window.location.hostname.includes('lovableproject.com');
+    !window.location.hostname.includes('lovableproject.com') &&
+    !window.location.hostname.includes('localhost') &&
+    !window.location.hostname.includes('127.0.0.1');
 
   const handleGoogleOAuth = async () => {
     setIsLoading(true);
     if (isCustomDomain) {
+      // redirectTo must be a URL registered in the Supabase Auth allowed redirect URLs list.
+      // We redirect to /dashboard so the app loads correctly after OAuth callback.
+      const redirectTo = `${window.location.origin}/dashboard`;
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: `${window.location.origin}/auth`,
+          redirectTo,
           skipBrowserRedirect: true,
         },
       });
