@@ -94,11 +94,7 @@ serve(async (req: Request) => {
       });
     }
 
-    // ─── App Configuration ────────────────────────────────────────────────
-    // Once taxbebo.com domain is verified in Resend, change to:
-    // "TAXBEBO <noreply@taxbebo.com>"
-    const EMAIL_FROM = "TAXBEBO <onboarding@resend.dev>";
-    // ─────────────────────────────────────────────────────────────────────
+    const EMAIL_FROM = "TAXBEBO <noreply@taxbebo.com>";
 
     const resendKey = Deno.env.get("RESEND_API_KEY");
     if (!resendKey) {
@@ -171,7 +167,8 @@ serve(async (req: Request) => {
               </p>
               <hr style="border: none; border-top: 1px solid #eee; margin: 24px 0;" />
               <p style="color: #999; font-size: 12px;">
-                If you didn't expect this email, you can safely ignore it.
+                If you didn't expect this email, you can safely ignore it.<br/>
+                <em>This is a no-reply address. Do not reply to this email — replies to noreply@taxbebo.com will not be received or read.</em>
               </p>
             </div>
           `,

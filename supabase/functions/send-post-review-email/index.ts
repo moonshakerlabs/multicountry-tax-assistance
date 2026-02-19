@@ -9,7 +9,7 @@ const corsHeaders = {
 
 const APP_CONFIG = {
   appName: "TAXBEBO",
-  emailFrom: "TAXBEBO <onboarding@resend.dev>",
+  emailFrom: "TAXBEBO <noreply@taxbebo.com>",
 };
 
 serve(async (req: Request) => {
@@ -50,7 +50,8 @@ serve(async (req: Request) => {
         </p>
         <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;" />
         <p style="color: #999; font-size: 12px;">
-          This is an automated message from the ${APP_CONFIG.appName} moderation team.
+          This is an automated message from the ${APP_CONFIG.appName} moderation team.<br/>
+          <em>Do not reply to this email — replies to noreply@taxbebo.com will not be received.</em>
         </p>
       </div>
     `;

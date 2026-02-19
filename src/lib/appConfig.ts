@@ -19,8 +19,8 @@ export const APP_CONFIG = {
   /** Application name shown in emails */
   appName: APP_NAME,
 
-  /** Email sender — once taxbebo.com is verified in Resend, switch to: `${APP_NAME} <noreply@taxbebo.com>` */
-  emailFrom: `${APP_NAME} <onboarding@resend.dev>`,
+  /** Email sender */
+  emailFrom: `${APP_NAME} <noreply@taxbebo.com>`,
 
   /** Published app URL — used as OAuth redirectTo base on custom domains */
   appUrl: 'https://taxbebo.com',

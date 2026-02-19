@@ -7,9 +7,7 @@ import { Resend } from "npm:resend@2.0.0";
 const APP_CONFIG = {
   supportEmail: "connect@moonshakerlabs.com",
   appName: "TAXBEBO",
-  // Use onboarding@resend.dev for testing (Resend sandbox).
-  // Once taxbebo.com domain is verified in Resend, change to: "TAXBEBO <noreply@taxbebo.com>"
-  emailFrom: "TAXBEBO <onboarding@resend.dev>",
+  emailFrom: "TAXBEBO <noreply@taxbebo.com>",
 };
 // ─────────────────────────────────────────────────────────────────────
 
@@ -98,7 +96,8 @@ serve(async (req: Request) => {
         </div>
         <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;" />
         <p style="color: #999; font-size: 12px;">
-          Reply to this email or respond directly to the customer at <a href="mailto:${userEmail}">${userEmail}</a>
+          Reply to this email or respond directly to the customer at <a href="mailto:${userEmail}">${userEmail}</a><br/>
+          <em>This email was sent from an unmonitored address. Do not reply to noreply@taxbebo.com — your reply will not be received.</em>
         </p>
       </div>
     `;
