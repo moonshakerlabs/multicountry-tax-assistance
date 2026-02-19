@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
-import { supabase } from '@/integrations/supabase/client';
+import { lovable } from '@/integrations/lovable/index';
 import { z } from 'zod';
 import './Auth.css';
 import { APP_NAME } from '@/lib/appConfig';
@@ -28,7 +28,7 @@ export default function Auth() {
   const [showGoogleHint, setShowGoogleHint] = useState(false);
   const [isGoogleAccount, setIsGoogleAccount] = useState(false);
   
-  const { user, profile, signIn, signUp, signInWithGoogle, resetPassword } = useAuth();
+  const { user, profile, signIn, signUp, resetPassword } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
 
@@ -152,47 +152,14 @@ export default function Auth() {
     }
   };
 
-  // On custom domains (e.g. taxbebo.com) the Lovable auth-bridge (/~oauth) is not available.
-  // We must bypass it by getting the OAuth URL directly and redirecting manually.
-  const isCustomDomain = !window.location.hostname.includes('lovable.app') &&
-    !window.location.hostname.includes('lovableproject.com') &&
-    !window.location.hostname.includes('localhost') &&
-    !window.location.hostname.includes('127.0.0.1');
-
   const handleGoogleOAuth = async () => {
     setIsLoading(true);
-    if (isCustomDomain) {
-      // redirectTo must be a URL registered in the Supabase Auth allowed redirect URLs list.
-      // We redirect to /dashboard so the app loads correctly after OAuth callback.
-      const redirectTo = `${window.location.origin}/dashboard`;
-      const { data, error } = await supabase.auth.signInWithOAuth({
-        provider: 'google',
-        options: {
-          redirectTo,
-          skipBrowserRedirect: true,
-        },
-      });
-      if (error) {
-        toast({ title: 'Google sign in failed', description: error.message, variant: 'destructive' });
-        setIsLoading(false);
-        return;
-      }
-      if (data?.url) {
-        const oauthUrl = new URL(data.url);
-        const allowedHosts = ['accounts.google.com'];
-        if (!allowedHosts.some(h => oauthUrl.hostname === h || oauthUrl.hostname.endsWith('.' + h))) {
-          toast({ title: 'Security error', description: 'Invalid OAuth redirect.', variant: 'destructive' });
-          setIsLoading(false);
-          return;
-        }
-        window.location.href = data.url;
-      }
-    } else {
-      const { error } = await signInWithGoogle();
-      if (error) {
-        toast({ title: 'Google sign in failed', description: 'Unable to sign in. Please try again.', variant: 'destructive' });
-        setIsLoading(false);
-      }
+    const { error } = await lovable.auth.signInWithOAuth('google', {
+      redirect_uri: window.location.origin,
+    });
+    if (error) {
+      toast({ title: 'Google sign in failed', description: 'Unable to sign in. Please try again.', variant: 'destructive' });
+      setIsLoading(false);
     }
   };
 
