@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
-import { lovable } from '@/integrations/lovable/index';
+import { supabase } from '@/integrations/supabase/client';
 import { z } from 'zod';
 import './Auth.css';
 import { APP_NAME } from '@/lib/appConfig';
@@ -154,11 +154,28 @@ export default function Auth() {
 
   const handleGoogleOAuth = async () => {
     setIsLoading(true);
-    const { error } = await lovable.auth.signInWithOAuth('google', {
-      redirect_uri: window.location.origin,
-    });
-    if (error) {
-      toast({ title: 'Google sign in failed', description: 'Unable to sign in. Please try again.', variant: 'destructive' });
+    try {
+      // Use skipBrowserRedirect to bypass the Lovable auth-bridge (~oauth/initiate)
+      // which only works on .lovable.app domains — not on Vercel or custom domains.
+      const { data, error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: `${window.location.origin}/dashboard`,
+          skipBrowserRedirect: true,
+        },
+      });
+      if (error) throw error;
+      if (data?.url) {
+        const oauthUrl = new URL(data.url);
+        const allowedHosts = ['accounts.google.com'];
+        if (!allowedHosts.some(h => oauthUrl.hostname === h || oauthUrl.hostname.endsWith('.' + h))) {
+          throw new Error('Invalid OAuth redirect URL');
+        }
+        window.location.href = data.url;
+      }
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Unable to sign in. Please try again.';
+      toast({ title: 'Google sign in failed', description: message, variant: 'destructive' });
       setIsLoading(false);
     }
   };
