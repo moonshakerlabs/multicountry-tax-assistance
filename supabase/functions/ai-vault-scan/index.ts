@@ -79,11 +79,12 @@ serve(async (req) => {
     const body = await req.json();
     const { action } = body;
 
-    // Resolve AI API key & gateway: only use custom values if non-empty
+    // Resolve AI API key & gateway: only use custom values if non-empty and valid
     const customApiKey = Deno.env.get("AI_API_KEY")?.trim();
     const customGatewayUrl = Deno.env.get("AI_GATEWAY_URL")?.trim();
+    const isValidCustomGateway = customGatewayUrl && customGatewayUrl.startsWith("http") && customGatewayUrl.includes("/v1/");
     const aiApiKey = (customApiKey && customApiKey.length > 0) ? customApiKey : Deno.env.get("LOVABLE_API_KEY");
-    const aiGatewayUrl = (customGatewayUrl && customGatewayUrl.length > 0)
+    const aiGatewayUrl = isValidCustomGateway
       ? customGatewayUrl
       : "https://ai.gateway.lovable.dev/v1/chat/completions";
     if (!aiApiKey) throw new Error("AI API key not configured. Please contact support.");
