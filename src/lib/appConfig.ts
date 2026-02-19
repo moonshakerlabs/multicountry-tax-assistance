@@ -22,8 +22,10 @@ export const APP_CONFIG = {
   /** Email sender — once taxbebo.com is verified in Resend, switch to: `${APP_NAME} <noreply@taxbebo.com>` */
   emailFrom: `${APP_NAME} <onboarding@resend.dev>`,
 
-  /** Published app URL */
+  /** Published app URL — used as OAuth redirectTo base on custom domains */
   appUrl: 'https://taxbebo.com',
+  /** www variant — add both to Supabase Auth allowed redirect URLs */
+  appUrlWww: 'https://www.taxbebo.com',
 } as const;
 
 export const SUPPORT_TICKET_CATEGORIES = [
