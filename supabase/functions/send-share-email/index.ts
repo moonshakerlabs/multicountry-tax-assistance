@@ -102,7 +102,7 @@ serve(async (req: Request) => {
     }
 
     const resend = new Resend(resendKey);
-    const appUrl = "https://taxbebo.com";
+    const appUrl = Deno.env.get("APP_URL") || "https://multicountry-tax-assistance.lovable.app";
 
     // Process each recipient independently
     const results: Array<{ email: string; shareId: string; shareLink: string; status: string }> = [];
