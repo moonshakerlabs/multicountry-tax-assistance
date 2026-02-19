@@ -173,9 +173,10 @@ serve(async (req: Request) => {
             </div>
           `,
         });
-        if (emailResult?.id) {
+        const emailId = emailResult?.data?.id ?? emailResult?.id;
+        if (emailId) {
           emailStatus = "SUCCESS";
-          console.log(`Email sent successfully to ${recipientEmail}, id: ${emailResult.id}`);
+          console.log(`Email sent successfully to ${recipientEmail}, id: ${emailId}`);
         } else {
           console.error(`Email send failed for ${recipientEmail} - no ID in response:`, JSON.stringify(emailResult));
           emailStatus = "FAILED";

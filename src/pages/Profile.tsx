@@ -46,6 +46,8 @@ export default function Profile() {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleteConfirmText, setDeleteConfirmText] = useState('');
   const [isDeletingAccount, setIsDeletingAccount] = useState(false);
+  const [deletionReason, setDeletionReason] = useState('');
+  const [deletionReasonOther, setDeletionReasonOther] = useState('');
   const [showGoogleDriveSetup, setShowGoogleDriveSetup] = useState(false);
   const [pendingOAuthCode, setPendingOAuthCode] = useState<string | null>(null);
 
@@ -153,8 +155,30 @@ export default function Profile() {
   // Roles that cannot delete their own accounts
   const isAdminRole = userRoles.some(r => ['employee_admin', 'user_admin'].includes(r)) && !isSuperAdmin;
 
+  const DELETION_REASONS = [
+    { value: 'too_expensive', label: 'Too expensive / pricing concerns' },
+    { value: 'not_using', label: 'Not using it enough' },
+    { value: 'missing_features', label: 'Missing features I need' },
+    { value: 'found_alternative', label: 'Found a better alternative' },
+    { value: 'privacy_concerns', label: 'Privacy or data concerns' },
+    { value: 'too_complicated', label: 'Too complicated to use' },
+    { value: 'temporary_break', label: 'Taking a temporary break' },
+    { value: 'no_longer_needed', label: 'No longer needed (e.g. moved country)' },
+    { value: 'technical_issues', label: 'Technical issues / bugs' },
+    { value: 'poor_support', label: 'Poor customer support experience' },
+    { value: 'other', label: 'Other reason' },
+  ];
+
   const handleRequestAccountDeletion = async () => {
     if (!user || !profile) return;
+    if (!deletionReason) {
+      toast({ title: 'Reason required', description: 'Please select a reason for deleting your account.', variant: 'destructive' });
+      return;
+    }
+    if (deletionReason === 'other' && !deletionReasonOther.trim()) {
+      toast({ title: 'Reason required', description: 'Please describe your reason for deleting your account.', variant: 'destructive' });
+      return;
+    }
     if (deleteConfirmText !== 'DELETE') {
       toast({ title: 'Confirmation required', description: 'Please type DELETE to confirm.', variant: 'destructive' });
       return;
@@ -166,6 +190,10 @@ export default function Profile() {
         .select('storage_preference, google_drive_connected')
         .eq('user_id', user.id)
         .maybeSingle();
+
+      const finalReason = deletionReason === 'other'
+        ? `other: ${deletionReasonOther.trim()}`
+        : deletionReason;
 
       // Archive user data
       const { error: archiveError } = await supabase
@@ -179,6 +207,7 @@ export default function Profile() {
           storage_preference: storageData?.storage_preference,
           google_drive_connected: storageData?.google_drive_connected ?? false,
           status: 'PENDING_DELETION',
+          reason: finalReason,
         } as any);
 
       if (archiveError) throw archiveError;
@@ -190,6 +219,8 @@ export default function Profile() {
       });
       setShowDeleteConfirm(false);
       setDeleteConfirmText('');
+      setDeletionReason('');
+      setDeletionReasonOther('');
       // Sign out after requesting deletion
       setTimeout(() => signOut(), 2000);
     } catch (error: any) {
@@ -463,28 +494,59 @@ export default function Profile() {
                 </Button>
               ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', padding: '1rem', border: '1px solid hsl(var(--destructive) / 0.3)', borderRadius: '0.5rem', background: 'hsl(var(--destructive) / 0.04)' }}>
-                  <p className="profile-label" style={{ color: 'hsl(var(--destructive))' }}>
-                    Type <strong>DELETE</strong> to confirm you understand this action cannot be undone:
-                  </p>
-                  <input
-                    type="text"
-                    className="profile-input"
-                    placeholder="Type DELETE here"
-                    value={deleteConfirmText}
-                    onChange={e => setDeleteConfirmText(e.target.value)}
-                    style={{ borderColor: 'hsl(var(--destructive) / 0.5)' }}
-                  />
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                    <label className="profile-label" style={{ color: 'hsl(var(--destructive))' }}>
+                      Why are you deleting your account? <span style={{ color: 'hsl(var(--destructive))' }}>*</span>
+                    </label>
+                    <select
+                      className="profile-select"
+                      value={deletionReason}
+                      onChange={e => { setDeletionReason(e.target.value); setDeletionReasonOther(''); }}
+                      style={{ borderColor: 'hsl(var(--destructive) / 0.4)' }}
+                      disabled={isDeletingAccount}
+                    >
+                      <option value="">— Select a reason —</option>
+                      {DELETION_REASONS.map(r => (
+                        <option key={r.value} value={r.value}>{r.label}</option>
+                      ))}
+                    </select>
+                    {deletionReason === 'other' && (
+                      <textarea
+                        className="profile-input"
+                        placeholder="Please describe your reason..."
+                        value={deletionReasonOther}
+                        onChange={e => setDeletionReasonOther(e.target.value)}
+                        rows={3}
+                        disabled={isDeletingAccount}
+                        style={{ borderColor: 'hsl(var(--destructive) / 0.5)', resize: 'vertical' }}
+                      />
+                    )}
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                    <p className="profile-label" style={{ color: 'hsl(var(--destructive))' }}>
+                      Type <strong>DELETE</strong> to confirm you understand this action cannot be undone:
+                    </p>
+                    <input
+                      type="text"
+                      className="profile-input"
+                      placeholder="Type DELETE here"
+                      value={deleteConfirmText}
+                      onChange={e => setDeleteConfirmText(e.target.value)}
+                      style={{ borderColor: 'hsl(var(--destructive) / 0.5)' }}
+                      disabled={isDeletingAccount}
+                    />
+                  </div>
                   <div style={{ display: 'flex', gap: '0.75rem' }}>
                     <Button
                       variant="destructive"
-                      disabled={deleteConfirmText !== 'DELETE' || isDeletingAccount}
+                      disabled={!deletionReason || (deletionReason === 'other' && !deletionReasonOther.trim()) || deleteConfirmText !== 'DELETE' || isDeletingAccount}
                       onClick={handleRequestAccountDeletion}
                     >
                       {isDeletingAccount ? 'Processing...' : 'Confirm Deletion'}
                     </Button>
                     <Button
                       variant="outline"
-                      onClick={() => { setShowDeleteConfirm(false); setDeleteConfirmText(''); }}
+                      onClick={() => { setShowDeleteConfirm(false); setDeleteConfirmText(''); setDeletionReason(''); setDeletionReasonOther(''); }}
                       disabled={isDeletingAccount}
                     >
                       Cancel
