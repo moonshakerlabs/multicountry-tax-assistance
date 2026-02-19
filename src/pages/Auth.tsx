@@ -166,9 +166,10 @@ export default function Auth() {
       });
       if (error) throw error;
       if (data?.url) {
+        // The URL from Supabase is a Supabase auth URL that redirects to Google.
+        // We just ensure it's a valid HTTPS URL before redirecting.
         const oauthUrl = new URL(data.url);
-        const allowedHosts = ['accounts.google.com'];
-        if (!allowedHosts.some(h => oauthUrl.hostname === h || oauthUrl.hostname.endsWith('.' + h))) {
+        if (oauthUrl.protocol !== 'https:') {
           throw new Error('Invalid OAuth redirect URL');
         }
         window.location.href = data.url;
