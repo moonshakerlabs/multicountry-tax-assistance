@@ -54,7 +54,7 @@ Deno.serve(async (req) => {
       method: 'POST',
       headers: { 'Authorization': `Bearer ${resendApiKey}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        from: 'TAXBEBO Security <onboarding@resend.dev>', // Switch to: noreply@taxbebo.com once domain verified
+        from: 'TAXBEBO Security <noreply@taxbebo.com>',
         to: [email],
         subject: `Your TAXBEBO ${typeLabel} verification code`,
         html: `
@@ -65,6 +65,7 @@ Deno.serve(async (req) => {
               <span style="font-size: 36px; font-weight: 700; letter-spacing: 8px; color: #1a1a2e;">${otpCode}</span>
             </div>
             <p style="color: #999; font-size: 12px;">If you did not request this code, please ignore this email and ensure your account is secure.</p>
+            <p style="color: #bbb; font-size: 11px; margin-top: 16px;"><em>This email was sent from an unmonitored address. Do not reply — replies to noreply@taxbebo.com will not be received.</em></p>
           </div>
         `,
       }),
