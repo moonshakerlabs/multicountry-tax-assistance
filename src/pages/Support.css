@@ -429,3 +429,128 @@
   border-radius: 0.75rem;
   padding: 1.25rem;
 }
+
+/* New status badges */
+.support-status-resolved {
+  background-color: hsl(142 71% 45% / 0.15);
+  color: hsl(142 71% 35%);
+  border: 1px solid hsl(142 71% 45% / 0.3);
+}
+
+.support-status-onhold {
+  background-color: hsl(38 92% 50% / 0.15);
+  color: hsl(38 92% 35%);
+  border: 1px solid hsl(38 92% 50% / 0.3);
+}
+
+/* Ticket closed notice */
+.support-ticket-closed-notice {
+  background-color: hsl(var(--muted) / 0.5);
+  border: 1px solid hsl(var(--border));
+  border-radius: 0.75rem;
+  padding: 1.25rem;
+  font-size: 0.9rem;
+  color: hsl(var(--muted-foreground));
+  text-align: center;
+}
+
+/* Email copy toggle */
+.support-email-copy-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background-color: hsl(var(--primary) / 0.04);
+  border: 1px solid hsl(var(--primary) / 0.2);
+  border-radius: 0.75rem;
+  padding: 1rem 1.25rem;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.support-email-copy-content {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+}
+
+.support-email-copy-label {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: hsl(var(--foreground));
+  margin: 0;
+}
+
+.support-email-copy-sub {
+  font-size: 0.75rem;
+  color: hsl(var(--muted-foreground));
+  margin: 0.125rem 0 0;
+}
+
+.support-email-copy-switch {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-shrink: 0;
+}
+
+.support-toggle-btn {
+  position: relative;
+  display: inline-flex;
+  height: 1.5rem;
+  width: 2.75rem;
+  border-radius: 9999px;
+  border: none;
+  cursor: pointer;
+  transition: background-color 0.2s;
+  padding: 0;
+  flex-shrink: 0;
+}
+
+.support-toggle-on {
+  background-color: hsl(var(--primary));
+}
+
+.support-toggle-off {
+  background-color: hsl(var(--muted-foreground) / 0.3);
+}
+
+.support-toggle-knob {
+  display: inline-block;
+  height: 1.125rem;
+  width: 1.125rem;
+  border-radius: 9999px;
+  background-color: white;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+  transition: transform 0.2s;
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+.support-toggle-knob-on {
+  left: calc(100% - 1.125rem - 0.1875rem);
+}
+
+.support-toggle-knob-off {
+  left: 0.1875rem;
+}
+
+.support-toggle-label {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: hsl(var(--foreground));
+  min-width: 2rem;
+}
+
+.support-email-copy-locked {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.8rem;
+  color: hsl(var(--muted-foreground));
+  background-color: hsl(var(--muted) / 0.4);
+  border: 1px solid hsl(var(--border));
+  border-radius: 0.5rem;
+  padding: 0.75rem 1rem;
+}
+

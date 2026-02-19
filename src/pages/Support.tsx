@@ -4,7 +4,8 @@ import { Button } from '@/components/ui/button';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
-import { ArrowLeft, Send, Ticket, ChevronRight, Clock, MessageSquare } from 'lucide-react';
+import { useSubscription } from '@/hooks/useSubscription';
+import { ArrowLeft, Send, Ticket, ChevronRight, Clock, MessageSquare, Mail } from 'lucide-react';
 import { SUPPORT_TICKET_CATEGORIES } from '@/lib/appConfig';
 import { format } from 'date-fns';
 import './Support.css';
@@ -32,6 +33,7 @@ interface TicketReply {
 export default function Support() {
   const { user, profile } = useAuth();
   const { toast } = useToast();
+  const { subscription } = useSubscription();
 
   const [view, setView] = useState<'list' | 'new' | 'detail'>('list');
   const [tickets, setTickets] = useState<SupportTicket[]>([]);
@@ -45,9 +47,14 @@ export default function Support() {
   const [subject, setSubject] = useState('');
   const [content, setContent] = useState('');
   const [replyContent, setReplyContent] = useState('');
+  // Email copy opt-in (only for Freemium+)
+  const [wantEmailCopy, setWantEmailCopy] = useState(false);
 
   const meaningfulUserId = (profile as any)?.meaningful_user_id || '—';
   const userEmail = profile?.email || user?.email || '';
+
+  // Freemium+ check
+  const isFreemiumOrAbove = ['FREEMIUM', 'PRO', 'SUPER_PRO'].includes(subscription.subscription_plan);
 
   const fetchTickets = async () => {
     if (!user) return;
@@ -98,7 +105,7 @@ export default function Support() {
         .single();
       if (error) throw error;
 
-      // Send email via edge function
+      // Send email to support team (+ optional user copy)
       try {
         const { data: { session } } = await supabase.auth.getSession();
         await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-support-email`, {
@@ -114,6 +121,7 @@ export default function Support() {
             content,
             userId: meaningfulUserId,
             userEmail,
+            sendUserCopy: isFreemiumOrAbove && wantEmailCopy,
           }),
         });
       } catch (_) {
@@ -124,6 +132,7 @@ export default function Support() {
       setCategory('');
       setSubject('');
       setContent('');
+      setWantEmailCopy(false);
       await fetchTickets();
       setView('list');
     } catch (err: any) {
@@ -193,8 +202,14 @@ export default function Support() {
 
   const getStatusClass = (status: string) => {
     if (status === 'CLOSED') return 'support-status-closed';
+    if (status === 'RESOLVED') return 'support-status-resolved';
+    if (status === 'ON_HOLD') return 'support-status-onhold';
     if (status === 'IN_PROGRESS') return 'support-status-progress';
     return 'support-status-open';
+  };
+
+  const getStatusLabel = (status: string) => {
+    return status.replace(/_/g, ' ');
   };
 
   // Auto-escalate: if created > 24h ago and no reply, show as High Priority
@@ -251,7 +266,7 @@ export default function Support() {
                           <span className="support-ticket-number">{ticket.ticket_number}</span>
                           <div className="support-ticket-badges">
                             <span className={`support-priority-badge ${getPriorityClass(priority)}`}>{priority}</span>
-                            <span className={`support-status-badge ${getStatusClass(ticket.status)}`}>{ticket.status.replace('_', ' ')}</span>
+                            <span className={`support-status-badge ${getStatusClass(ticket.status)}`}>{getStatusLabel(ticket.status)}</span>
                           </div>
                         </div>
                         <p className="support-ticket-subject">{ticket.subject}</p>
@@ -339,6 +354,36 @@ export default function Support() {
                     />
                   </div>
 
+                  {/* Email copy toggle — only for Freemium+ */}
+                  {isFreemiumOrAbove ? (
+                    <div className="support-email-copy-toggle">
+                      <div className="support-email-copy-content">
+                        <Mail className="h-4 w-4 text-primary flex-shrink-0" />
+                        <div>
+                          <p className="support-email-copy-label">Send me an email copy of this ticket</p>
+                          <p className="support-email-copy-sub">A confirmation will be sent to {userEmail}</p>
+                        </div>
+                      </div>
+                      <div className="support-email-copy-switch">
+                        <button
+                          type="button"
+                          role="switch"
+                          aria-checked={wantEmailCopy}
+                          onClick={() => setWantEmailCopy(v => !v)}
+                          className={`support-toggle-btn ${wantEmailCopy ? 'support-toggle-on' : 'support-toggle-off'}`}
+                        >
+                          <span className={`support-toggle-knob ${wantEmailCopy ? 'support-toggle-knob-on' : 'support-toggle-knob-off'}`} />
+                        </button>
+                        <span className="support-toggle-label">{wantEmailCopy ? 'Yes' : 'No'}</span>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="support-email-copy-locked">
+                      <Mail className="h-4 w-4 flex-shrink-0" />
+                      <span>Email confirmation is available on Freemium and above plans.</span>
+                    </div>
+                  )}
+
                   <div className="support-form-actions">
                     <Button type="submit" disabled={isSubmitting || !category || !subject.trim() || !content.trim()}>
                       <Send className="h-4 w-4 mr-2" />
@@ -368,7 +413,7 @@ export default function Support() {
                       {getEffectivePriority(selectedTicket)}
                     </span>
                     <span className={`support-status-badge ${getStatusClass(selectedTicket.status)}`}>
-                      {selectedTicket.status.replace('_', ' ')}
+                      {getStatusLabel(selectedTicket.status)}
                     </span>
                   </div>
                 </div>
@@ -397,7 +442,7 @@ export default function Support() {
               ))}
 
               {/* Reply form */}
-              {selectedTicket.status !== 'CLOSED' && (
+              {selectedTicket.status !== 'CLOSED' && selectedTicket.status !== 'RESOLVED' ? (
                 <form onSubmit={handleSendReply} className="support-reply-form">
                   <textarea
                     value={replyContent}
@@ -412,6 +457,12 @@ export default function Support() {
                     {isSubmitting ? 'Sending...' : 'Send Reply'}
                   </Button>
                 </form>
+              ) : (
+                <div className="support-ticket-closed-notice">
+                  {selectedTicket.status === 'RESOLVED'
+                    ? '✅ This ticket has been resolved. If you still need help, please raise a new ticket.'
+                    : '🔒 This ticket is closed. Please raise a new ticket if you need further assistance.'}
+                </div>
               )}
             </>
           )}
