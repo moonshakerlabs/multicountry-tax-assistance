@@ -604,6 +604,7 @@ export default function Dashboard() {
     const [loadingTickets, setLoadingTickets] = useState(true);
     const [adminReplyContent, setAdminReplyContent] = useState('');
     const [submittingAdminReply, setSubmittingAdminReply] = useState(false);
+    const [updatingStatus, setUpdatingStatus] = useState(false);
 
     const getPriorityClass = (priority: string) => priority === 'HIGH' ? 'admin-status-suspended' : 'admin-status-pending';
 
@@ -654,19 +655,95 @@ export default function Dashboard() {
       }
     };
 
+    const changeTicketStatus = async (newStatus: string) => {
+      if (!selectedTicket || !user) return;
+      setUpdatingStatus(true);
+      try {
+        await supabase.from('support_tickets').update({ status: newStatus }).eq('id', selectedTicket.id);
+        // Send status change email to user
+        try {
+          const { data: { session } } = await supabase.auth.getSession();
+          await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-support-email`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token}` },
+            body: JSON.stringify({
+              statusChange: true,
+              newStatus,
+              ticketNumber: selectedTicket.ticket_number,
+              subject: selectedTicket.subject,
+              userEmail: selectedTicket.email,
+              userId: selectedTicket.meaningful_user_id,
+            }),
+          });
+        } catch (_) { /* non-critical */ }
+        const { data: updatedTicket } = await supabase.from('support_tickets').select('*').eq('id', selectedTicket.id).single();
+        setSelectedAdminTicket(updatedTicket);
+        // Update list
+        const { data } = await supabase.from('support_tickets').select('*').order('created_at', { ascending: false });
+        setAdminTickets(data || []);
+        const statusLabel = newStatus === 'RESOLVED' ? 'Resolved' : newStatus === 'ON_HOLD' ? 'On Hold' : 'Closed';
+        toast({ title: `Ticket marked as ${statusLabel}`, description: 'Customer has been notified by email.' });
+      } catch (err: any) {
+        toast({ title: 'Error', description: err.message, variant: 'destructive' });
+      } finally {
+        setUpdatingStatus(false);
+      }
+    };
+
     if (selectedTicket) {
+      const isClosed = selectedTicket.status === 'CLOSED';
       return (
         <div className="admin-section">
           <Button variant="ghost" size="sm" className="mb-4" onClick={() => setSelectedAdminTicket(null)}>
             <ArrowLeft className="h-4 w-4 mr-1" /> Back to tickets
           </Button>
-          <h2 className="admin-section-title"><TicketIcon className="h-5 w-5" /> {selectedTicket.ticket_number}</h2>
+          <div className="flex items-start justify-between flex-wrap gap-3 mb-4">
+            <h2 className="admin-section-title"><TicketIcon className="h-5 w-5" /> {selectedTicket.ticket_number}</h2>
+            {/* Status action buttons */}
+            <div className="flex flex-wrap gap-2">
+              <Button
+                size="sm"
+                variant={selectedTicket.status === 'RESOLVED' ? 'default' : 'outline'}
+                className="text-xs border-green-600 text-green-700 hover:bg-green-50"
+                disabled={updatingStatus || selectedTicket.status === 'RESOLVED'}
+                onClick={() => changeTicketStatus('RESOLVED')}
+              >
+                ✅ Mark Resolved
+              </Button>
+              <Button
+                size="sm"
+                variant={selectedTicket.status === 'ON_HOLD' ? 'default' : 'outline'}
+                className="text-xs border-amber-500 text-amber-700 hover:bg-amber-50"
+                disabled={updatingStatus || selectedTicket.status === 'ON_HOLD'}
+                onClick={() => changeTicketStatus('ON_HOLD')}
+              >
+                ⏸️ On Hold
+              </Button>
+              <Button
+                size="sm"
+                variant={selectedTicket.status === 'CLOSED' ? 'default' : 'outline'}
+                className="text-xs border-muted-foreground text-muted-foreground hover:bg-muted"
+                disabled={updatingStatus || selectedTicket.status === 'CLOSED'}
+                onClick={() => changeTicketStatus('CLOSED')}
+              >
+                🔒 Close Ticket
+              </Button>
+            </div>
+          </div>
           <div className="rounded-lg border p-4 mb-4 space-y-2 text-sm">
             <div className="grid grid-cols-2 gap-3">
               <div><span className="text-muted-foreground">Customer:</span> {selectedTicket.email}</div>
               <div><span className="text-muted-foreground">User ID:</span> <span className="font-mono">{selectedTicket.meaningful_user_id}</span></div>
               <div><span className="text-muted-foreground">Category:</span> {selectedTicket.category}</div>
-              <div><span className="text-muted-foreground">Status:</span> {selectedTicket.status}</div>
+              <div>
+                <span className="text-muted-foreground">Status:</span>{' '}
+                <span className={`admin-status-badge ${
+                  selectedTicket.status === 'RESOLVED' ? 'admin-status-active' :
+                  selectedTicket.status === 'ON_HOLD' ? 'admin-status-pending' :
+                  selectedTicket.status === 'CLOSED' ? 'admin-status-suspended' :
+                  selectedTicket.status === 'IN_PROGRESS' ? 'admin-status-active' : 'admin-status-pending'
+                }`}>{selectedTicket.status.replace('_', ' ')}</span>
+              </div>
               <div><span className="text-muted-foreground">Priority:</span> <span className={`admin-status-badge ${getPriorityClass(getEffectivePriority(selectedTicket))}`}>{getEffectivePriority(selectedTicket)}</span></div>
               <div><span className="text-muted-foreground">Date:</span> {format(new Date(selectedTicket.created_at), 'MMM d, yyyy HH:mm')}</div>
             </div>
@@ -690,7 +767,7 @@ export default function Dashboard() {
               </div>
             ))}
           </div>
-          {selectedTicket.status !== 'CLOSED' && (
+          {!isClosed && (
             <form onSubmit={sendAdminReply} className="space-y-3">
               <textarea
                 value={adminReplyContent}
@@ -704,6 +781,11 @@ export default function Dashboard() {
                 {submittingAdminReply ? 'Sending...' : 'Send Reply to Customer'}
               </Button>
             </form>
+          )}
+          {isClosed && (
+            <div className="rounded-lg border border-muted bg-muted/30 p-4 text-sm text-muted-foreground text-center">
+              🔒 This ticket is closed. No further replies can be sent.
+            </div>
           )}
         </div>
       );
