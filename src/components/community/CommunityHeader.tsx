@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, Plus, BookOpen, X, CheckCircle2 } from 'lucide-react';
+import { APP_NAME } from '@/lib/appConfig';
 import './CommunityHeader.css';
 
 const COMMUNITY_GUIDELINES = [
@@ -83,7 +84,7 @@ export default function CommunityHeader({ onAskQuestion, canPost, guidelinesAcce
           <div className="community-header-left">
             <Link to="/" className="community-logo-link">
               <div className="community-logo-icon" />
-              <span className="community-logo-text">WorTaF</span>
+              <span className="community-logo-text">{APP_NAME}</span>
             </Link>
             <span className="community-header-divider">/</span>
             <h1 className="community-header-title">TaxOverFlow</h1>

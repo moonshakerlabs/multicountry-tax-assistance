@@ -5,6 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { APP_NAME } from '@/lib/appConfig';
 import './Auth.css';
 
 export default function ResetPassword() {
@@ -77,7 +78,7 @@ export default function ResetPassword() {
         <div className="auth-logo">
           <Link to="/" className="auth-logo-link">
             <div className="auth-logo-icon" />
-            <span className="auth-logo-text">WorTaF</span>
+            <span className="auth-logo-text">{APP_NAME}</span>
           </Link>
         </div>
         <div className="auth-card">

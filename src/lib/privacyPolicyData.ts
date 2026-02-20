@@ -2,6 +2,8 @@
 // This file is the single source of truth for all T&C and Privacy Policy content.
 // Update this file whenever privacy policies change due to new features.
 
+import { APP_NAME } from '@/lib/appConfig';
+
 export interface PolicySection {
   type: 'heading' | 'subheading' | 'paragraph' | 'bullets';
   content: string | string[];
@@ -24,7 +26,7 @@ export const privacyPolicyData: PolicyData = {
     {
       type: 'paragraph',
       content:
-        'By creating an account or using WorTaF ("the Platform", "we", "us"), you agree to be bound by these Terms & Conditions. If you do not agree, you must not use the Platform. We reserve the right to modify these terms at any time. Continued use after changes constitutes acceptance.',
+        `By creating an account or using ${APP_NAME} (\"the Platform\", \"we\", \"us\"), you agree to be bound by these Terms & Conditions. If you do not agree, you must not use the Platform. We reserve the right to modify these terms at any time. Continued use after changes constitutes acceptance.`,
     },
     {
       type: 'heading',
@@ -33,7 +35,7 @@ export const privacyPolicyData: PolicyData = {
     {
       type: 'paragraph',
       content:
-        'WorTaF is a document organisation and storage platform designed for cross-border taxpayers. The Platform does not provide tax advice, legal advice, financial planning, or accounting services of any kind. Any AI-generated outputs, summaries, or analyses are for informational and organisational purposes only and must not be relied upon as professional advice.',
+        `${APP_NAME} is a document organisation and storage platform designed for cross-border taxpayers. The Platform does not provide tax advice, legal advice, financial planning, or accounting services of any kind. Any AI-generated outputs, summaries, or analyses are for informational and organisational purposes only and must not be relied upon as professional advice.`,
     },
     {
       type: 'bullets',
@@ -59,7 +61,7 @@ export const privacyPolicyData: PolicyData = {
     {
       type: 'bullets',
       content: [
-        'Personal Google Drive – Documents are stored in your own Google Drive account. WorTaF does not retain copies of these files. We are not responsible for the availability, security, or integrity of files stored in your Google Drive.',
+        `Personal Google Drive – Documents are stored in your own Google Drive account. ${APP_NAME} does not retain copies of these files. We are not responsible for the availability, security, or integrity of files stored in your Google Drive.`,
         'Secure Storage Vault (available to Freemium and above plans) – Documents are stored in our cloud infrastructure. While we implement reasonable access controls aligned with industry practices, no system is entirely immune to security risks. We do not guarantee absolute protection against data loss, breaches, or unauthorised access.',
       ],
     },
@@ -188,7 +190,7 @@ export const privacyPolicyData: PolicyData = {
         'Post only relevant, respectful, and lawful content. Do not share personal financial details of others.',
         'Content you post may be visible to other users. We are not responsible for how others interpret or use publicly shared information.',
         'Moderators may remove content that violates guidelines without prior notice.',
-        'Community responses are user-generated and do not represent advice from WorTaF. We are not liable for the accuracy of user-contributed answers.',
+        `Community responses are user-generated and do not represent advice from ${APP_NAME}. We are not liable for the accuracy of user-contributed answers.`,
       ],
     },
     {
@@ -203,7 +205,7 @@ export const privacyPolicyData: PolicyData = {
     {
       type: 'bullets',
       content: [
-        'The Platform is provided "as is" and "as available" without warranties of any kind, express or implied.',
+        'The Platform is provided \"as is\" and \"as available\" without warranties of any kind, express or implied.',
         'We do not warrant uninterrupted, error-free, or secure access to the Platform.',
         'We are not liable for any indirect, incidental, consequential, or punitive damages arising from use of the Platform.',
         'Our total liability for any claim arising from your use of the Platform is limited to the amount you have paid us in the 12 months preceding the claim.',
@@ -235,7 +237,7 @@ export const privacyPolicyData: PolicyData = {
     {
       type: 'paragraph',
       content:
-        'These terms are governed by the laws of the jurisdiction in which WorTaF operates. Any disputes arising from or in connection with these terms shall be resolved through the competent courts of that jurisdiction.',
+        `These terms are governed by the laws of the jurisdiction in which ${APP_NAME} operates. Any disputes arising from or in connection with these terms shall be resolved through the competent courts of that jurisdiction.`,
     },
     {
       type: 'heading',
@@ -260,7 +262,7 @@ export const privacyPolicyPageData: PolicyData = {
     {
       type: 'paragraph',
       content:
-        'WorTaF ("the Platform", "we", "us") is committed to handling your data responsibly and in alignment with applicable data protection regulations including GDPR. This Privacy Policy explains what data we collect, how we use it, and your rights regarding your personal information.',
+        `${APP_NAME} (\"the Platform\", \"we\", \"us\") is committed to handling your data responsibly and in alignment with applicable data protection regulations including GDPR. This Privacy Policy explains what data we collect, how we use it, and your rights regarding your personal information.`,
     },
     {
       type: 'heading',
@@ -269,7 +271,7 @@ export const privacyPolicyPageData: PolicyData = {
     {
       type: 'paragraph',
       content:
-        'WorTaF acts as the data controller for the personal data processed through the Platform. For questions regarding data processing, contact us through our support channels.',
+        `${APP_NAME} acts as the data controller for the personal data processed through the Platform. For questions regarding data processing, contact us through our support channels.`,
     },
     {
       type: 'heading',
@@ -412,7 +414,7 @@ export const privacyPolicyPageData: PolicyData = {
     {
       type: 'paragraph',
       content:
-        'We may update this Privacy Policy from time to time. Material changes will be communicated via email or in-app notification. The "Last updated" date at the top reflects the most recent revision.',
+        'We may update this Privacy Policy from time to time. Material changes will be communicated via email or in-app notification. The \"Last updated\" date at the top reflects the most recent revision.',
     },
   ],
 };
