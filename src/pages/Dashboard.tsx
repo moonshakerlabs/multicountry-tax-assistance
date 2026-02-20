@@ -7,7 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { APP_NAME } from '@/lib/appConfig';
-import { User, FileText, LogOut, FolderOpen, Upload, ChevronRight, MessageSquare, Brain, Shield, Users, CheckCircle, XCircle, Settings, Activity, CreditCard, Briefcase, ArrowLeft, HeadphonesIcon, TicketIcon, Eye, RotateCcw, X, Trash2, AlertTriangle, UserX, UserPlus } from 'lucide-react';
+import { User, FileText, LogOut, FolderOpen, Upload, ChevronRight, MessageSquare, Brain, Shield, Users, CheckCircle, XCircle, Settings, Activity, CreditCard, Briefcase, ArrowLeft, HeadphonesIcon, TicketIcon, Eye, RotateCcw, X, Trash2, AlertTriangle, UserX, UserPlus, Sliders } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Input } from '@/components/ui/input';
@@ -1080,6 +1080,106 @@ export default function Dashboard() {
       </div>
     );
   }
+
+  // ─── Subscription Config Tab (Super Admin only) ─────────────────────
+  function SubscriptionConfigTab() {
+    const [configs, setConfigs] = useState<any[]>([]);
+    const [loadingConfig, setLoadingConfig] = useState(true);
+    const [savingKey, setSavingKey] = useState<string | null>(null);
+    const [editValues, setEditValues] = useState<Record<string, string>>({});
+
+    useEffect(() => {
+      (async () => {
+        setLoadingConfig(true);
+        const { data } = await supabase.from('subscription_config' as any).select('*').order('config_key');
+        const rows = (data || []) as any[];
+        setConfigs(rows);
+        const vals: Record<string, string> = {};
+        rows.forEach((r: any) => { vals[r.config_key] = r.config_value; });
+        setEditValues(vals);
+        setLoadingConfig(false);
+      })();
+    }, []);
+
+    const saveConfig = async (key: string) => {
+      setSavingKey(key);
+      const { error } = await supabase
+        .from('subscription_config' as any)
+        .update({ config_value: editValues[key] } as any)
+        .eq('config_key', key);
+      if (error) {
+        toast({ title: 'Error', description: error.message, variant: 'destructive' });
+      } else {
+        toast({ title: 'Saved', description: `${key} updated.` });
+        logActivity('update_subscription_config', 'subscription_config', key, { value: editValues[key] });
+      }
+      setSavingKey(null);
+    };
+
+    const configLabels: Record<string, string> = {
+      default_trial_days: '🕐 Default Trial Days',
+      default_trial_plan: '📋 Default Trial Plan',
+      early_access_enabled: '🚀 Early Access Enabled',
+      early_access_deadline: '📅 Early Access Deadline (YYYY-MM-DD)',
+      early_access_freemium_days: '🔵 Early Access Freemium Days',
+      early_access_pro_days: '🟣 Early Access Pro Days',
+      early_access_headline: '📝 Early Access Headline',
+      early_access_description: '📝 Early Access Description',
+    };
+
+    return (
+      <div className="admin-section">
+        <h2 className="admin-section-title"><Sliders className="h-5 w-5" /> Subscription & Trial Configuration</h2>
+        <p className="text-sm text-muted-foreground mb-4">
+          Configure free trial periods, early access offers, and promotional deadlines. Changes take effect immediately.
+        </p>
+        {loadingConfig ? (
+          <p className="text-muted-foreground">Loading configuration...</p>
+        ) : (
+          <div className="space-y-4 max-w-xl">
+            {configs.map((c: any) => (
+              <div key={c.config_key} className="rounded-lg border p-4 space-y-2">
+                <label className="text-sm font-semibold block">{configLabels[c.config_key] || c.config_key}</label>
+                {c.description && <p className="text-xs text-muted-foreground">{c.description}</p>}
+                <div className="flex gap-2">
+                  {c.config_key === 'early_access_enabled' ? (
+                    <Select value={editValues[c.config_key] || 'false'} onValueChange={v => setEditValues(prev => ({ ...prev, [c.config_key]: v }))}>
+                      <SelectTrigger className="flex-1"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="true">Enabled</SelectItem>
+                        <SelectItem value="false">Disabled</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  ) : c.config_key === 'default_trial_plan' ? (
+                    <Select value={editValues[c.config_key] || 'PRO'} onValueChange={v => setEditValues(prev => ({ ...prev, [c.config_key]: v }))}>
+                      <SelectTrigger className="flex-1"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="FREEMIUM">Freemium</SelectItem>
+                        <SelectItem value="PRO">Pro</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  ) : (
+                    <Input
+                      className="flex-1"
+                      value={editValues[c.config_key] || ''}
+                      onChange={e => setEditValues(prev => ({ ...prev, [c.config_key]: e.target.value }))}
+                    />
+                  )}
+                  <Button
+                    size="sm"
+                    disabled={savingKey === c.config_key || editValues[c.config_key] === c.config_value}
+                    onClick={() => saveConfig(c.config_key)}
+                  >
+                    {savingKey === c.config_key ? 'Saving...' : 'Save'}
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  }
   // ─────────────────────────────────────────────────────────────────────
 
   return (
@@ -1159,6 +1259,11 @@ export default function Dashboard() {
                   {isSuperAdmin && (
                     <TabsTrigger value="stripe" className="flex items-center gap-1">
                       <CreditCard className="h-3.5 w-3.5" /> Payments
+                    </TabsTrigger>
+                  )}
+                  {isSuperAdmin && (
+                    <TabsTrigger value="sub-config" className="flex items-center gap-1">
+                      <Sliders className="h-3.5 w-3.5" /> Trial Config
                     </TabsTrigger>
                   )}
                 </TabsList>
@@ -1443,6 +1548,13 @@ export default function Dashboard() {
                         </p>
                       </div>
                     </div>
+                  </TabsContent>
+                )}
+
+                {/* ─── SUBSCRIPTION CONFIG TAB ─── */}
+                {isSuperAdmin && (
+                  <TabsContent value="sub-config">
+                    <SubscriptionConfigTab />
                   </TabsContent>
                 )}
               </Tabs>
