@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { FileText, Download, Lock, Loader2, AlertTriangle, CheckCircle2 } from 'lucide-react';
+import { FileText, Download, Lock, Loader2, AlertTriangle, CheckCircle2, ShieldAlert } from 'lucide-react';
 import './SharedDocumentView.css';
 
 interface SharedDocument {
@@ -11,6 +11,8 @@ interface SharedDocument {
   fileType: string;
   mainCategory: string;
   subCategory: string;
+  isDriveFile?: boolean;
+  drivePermissionActive?: boolean;
 }
 
 type ViewState = 'loading' | 'invalid' | 'expired' | 'email-entry' | 'otp-sent' | 'verified';
@@ -97,22 +99,34 @@ export default function SharedDocumentView() {
   };
 
   // Fetch a fresh signed URL on demand — never stale
-  const getFreshSignedUrl = async (documentId: string): Promise<string | null> => {
-    if (!accessToken) return null;
+  const getFreshSignedUrl = async (documentId: string): Promise<{ url: string | null; error?: string; permissionRevoked?: boolean }> => {
+    if (!accessToken) return { url: null };
     try {
       const data = await callFunction({ action: 'get-url', token, accessToken, documentId });
-      return data.signedUrl || null;
+      if (data.error) {
+        return { url: null, error: data.error, permissionRevoked: data.permissionRevoked };
+      }
+      return { url: data.signedUrl || null };
     } catch {
-      return null;
+      return { url: null };
     }
   };
 
   const handleView = async (doc: SharedDocument) => {
     setLoadingDocId(doc.id);
     try {
-      const url = await getFreshSignedUrl(doc.id);
-      if (url) window.open(url, '_blank');
-      else setError('Could not load document. Please try again.');
+      const result = await getFreshSignedUrl(doc.id);
+      if (result.permissionRevoked) {
+        // Update local state to reflect revoked permission
+        setDocuments(prev => prev.map(d =>
+          d.id === doc.id ? { ...d, drivePermissionActive: false } : d
+        ));
+        setError('Sharing permission for this document was revoked by the owner.');
+      } else if (result.url) {
+        window.open(result.url, '_blank');
+      } else {
+        setError(result.error || 'Could not load document. Please try again.');
+      }
     } finally {
       setLoadingDocId(null);
     }
@@ -120,12 +134,17 @@ export default function SharedDocumentView() {
 
   const handleDownload = async (doc: SharedDocument) => {
     if (!allowDownload) return;
+    // Google Drive files open in Drive viewer (download handled there)
+    if (doc.isDriveFile) {
+      await handleView(doc);
+      return;
+    }
     setLoadingDocId(doc.id + '-dl');
     try {
-      const url = await getFreshSignedUrl(doc.id);
-      if (!url) { setError('Could not download document. Please try again.'); return; }
+      const result = await getFreshSignedUrl(doc.id);
+      if (!result.url) { setError(result.error || 'Could not download document. Please try again.'); return; }
       const link = document.createElement('a');
-      link.href = url;
+      link.href = result.url;
       link.download = doc.fileName || 'document';
       document.body.appendChild(link);
       link.click();
@@ -237,41 +256,54 @@ export default function SharedDocumentView() {
         <h2>Shared Documents</h2>
         {error && <p className="shared-view-error">{error}</p>}
         <div className="shared-view-documents">
-          {documents.map((doc) => (
-            <div key={doc.id} className="shared-view-doc-item">
-              <FileText className="shared-view-doc-icon" />
-              <div className="shared-view-doc-info">
-                <span className="shared-view-doc-name">{doc.fileName}</span>
-                <span className="shared-view-doc-meta">
-                  {doc.mainCategory?.replace(/_/g, ' ')}
-                  {doc.subCategory ? ` • ${doc.subCategory.replace(/_/g, ' ')}` : ''}
-                </span>
-              </div>
-              <div className="shared-view-doc-actions">
-                <Button
-                  size="sm"
-                  variant="outline"
-                  disabled={loadingDocId === doc.id}
-                  onClick={() => handleView(doc)}
-                >
-                  {loadingDocId === doc.id
-                    ? <Loader2 className="h-4 w-4 animate-spin" />
-                    : 'View'}
-                </Button>
-                {allowDownload && (
+          {documents.map((doc) => {
+            const permRevoked = doc.isDriveFile && doc.drivePermissionActive === false;
+
+            return (
+              <div key={doc.id} className={`shared-view-doc-item ${permRevoked ? 'shared-view-doc-revoked' : ''}`}>
+                <FileText className="shared-view-doc-icon" />
+                <div className="shared-view-doc-info">
+                  <span className="shared-view-doc-name">{doc.fileName}</span>
+                  <span className="shared-view-doc-meta">
+                    {doc.mainCategory?.replace(/_/g, ' ')}
+                    {doc.subCategory ? ` • ${doc.subCategory.replace(/_/g, ' ')}` : ''}
+                    {doc.isDriveFile && (
+                      <span className="shared-view-drive-badge"> • Google Drive</span>
+                    )}
+                  </span>
+                  {permRevoked && (
+                    <span className="shared-view-perm-revoked">
+                      <ShieldAlert className="h-3 w-3" />
+                      Access revoked by owner
+                    </span>
+                  )}
+                </div>
+                <div className="shared-view-doc-actions">
                   <Button
                     size="sm"
-                    disabled={loadingDocId === doc.id + '-dl'}
-                    onClick={() => handleDownload(doc)}
+                    variant="outline"
+                    disabled={loadingDocId === doc.id || permRevoked}
+                    onClick={() => handleView(doc)}
                   >
-                    {loadingDocId === doc.id + '-dl'
+                    {loadingDocId === doc.id
                       ? <Loader2 className="h-4 w-4 animate-spin" />
-                      : <Download className="h-4 w-4" />}
+                      : 'View'}
                   </Button>
-                )}
+                  {allowDownload && !doc.isDriveFile && (
+                    <Button
+                      size="sm"
+                      disabled={loadingDocId === doc.id + '-dl' || permRevoked}
+                      onClick={() => handleDownload(doc)}
+                    >
+                      {loadingDocId === doc.id + '-dl'
+                        ? <Loader2 className="h-4 w-4 animate-spin" />
+                        : <Download className="h-4 w-4" />}
+                    </Button>
+                  )}
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
           {documents.length === 0 && (
             <p className="shared-view-no-docs">No accessible documents found.</p>
           )}

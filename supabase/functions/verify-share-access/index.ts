@@ -1,5 +1,13 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import {
+  isDriveFile,
+  extractDriveFileId,
+  getValidAccessToken,
+  getFilePermissions,
+  getFileWebViewLink,
+  checkPermissionStatus,
+} from "../_shared/drive-permissions.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -17,7 +25,7 @@ serve(async (req: Request) => {
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const adminClient = createClient(supabaseUrl, supabaseServiceKey);
 
-    const { action, token, email, otp, accessToken } = await req.json();
+    const { action, token, email, otp, accessToken, documentId } = await req.json();
 
     if (!token) {
       return new Response(JSON.stringify({ error: "Token is required" }), {
@@ -128,23 +136,70 @@ serve(async (req: Request) => {
         .update({ otp_verified_at: new Date().toISOString() })
         .eq("share_id", share.id);
 
-      // Return doc metadata + access token — NO signed URLs here (they'd expire)
+      // Return doc metadata + access token
       const { data: docs, error: docsError } = await adminClient
         .from("documents")
-        .select("id, file_name, file_type, main_category, sub_category, share_enabled")
+        .select("id, file_name, file_type, file_path, main_category, sub_category, share_enabled")
         .in("id", share.document_ids);
 
       if (docsError) throw docsError;
 
-      const accessibleDocs = (docs || [])
-        .filter((d: any) => d.share_enabled)
-        .map((doc: any) => ({
+      // For Google Drive files, check current permissions and sync status
+      const drivePermIds = (share.drive_permission_ids as Record<string, string>) || {};
+      let driveAccessToken: string | null = null;
+
+      // Get doc owner's drive tokens if needed
+      const hasDriveFiles = (docs || []).some((d: any) => isDriveFile(d.file_path));
+      if (hasDriveFiles) {
+        const { data: tokenRow } = await adminClient
+          .from("google_drive_tokens")
+          .select("access_token, refresh_token, token_expiry")
+          .eq("user_id", share.user_id)
+          .maybeSingle();
+
+        if (tokenRow) {
+          try {
+            driveAccessToken = await getValidAccessToken(tokenRow, share.user_id);
+          } catch (err) {
+            console.error("Failed to refresh drive token:", err);
+          }
+        }
+      }
+
+      const accessibleDocs = [];
+      for (const doc of (docs || [])) {
+        if (!doc.share_enabled) continue;
+
+        let drivePermissionActive = true;
+        const fileId = extractDriveFileId(doc.file_path);
+
+        // For Drive files, verify the permission is still active
+        if (fileId && driveAccessToken && drivePermIds[fileId]) {
+          const status = await checkPermissionStatus(driveAccessToken, fileId, drivePermIds[fileId]);
+          drivePermissionActive = status.exists;
+
+          // If permission was removed externally, update the share record
+          if (!status.exists) {
+            console.log(`Permission for file ${fileId} was removed externally`);
+            const updatedPermIds = { ...drivePermIds };
+            delete updatedPermIds[fileId];
+            await adminClient
+              .from("document_shares")
+              .update({ drive_permission_ids: updatedPermIds })
+              .eq("id", share.id);
+          }
+        }
+
+        accessibleDocs.push({
           id: doc.id,
           fileName: doc.file_name,
           fileType: doc.file_type,
           mainCategory: doc.main_category,
           subCategory: doc.sub_category,
-        }));
+          isDriveFile: isDriveFile(doc.file_path),
+          drivePermissionActive: isDriveFile(doc.file_path) ? drivePermissionActive : undefined,
+        });
+      }
 
       return new Response(
         JSON.stringify({
@@ -158,10 +213,7 @@ serve(async (req: Request) => {
     }
 
     // ─── Action: get-url ─────────────────────────────────────────────────────
-    // Generate a fresh signed URL for a single document on demand
     if (action === "get-url") {
-      const { documentId } = await req.json().catch(() => ({})) as any;
-
       if (!accessToken) {
         return new Response(
           JSON.stringify({ error: "Access token required" }),
@@ -203,7 +255,72 @@ serve(async (req: Request) => {
         );
       }
 
-      // Generate a fresh 1-hour signed URL
+      // ─── Google Drive file ─────────────────────────────────────
+      if (isDriveFile(doc.file_path)) {
+        const fileId = extractDriveFileId(doc.file_path)!;
+
+        // Get doc owner's Drive tokens
+        const { data: tokenRow } = await adminClient
+          .from("google_drive_tokens")
+          .select("access_token, refresh_token, token_expiry")
+          .eq("user_id", share.user_id)
+          .maybeSingle();
+
+        if (!tokenRow) {
+          return new Response(
+            JSON.stringify({ error: "Document owner's Google Drive is disconnected" }),
+            { status: 503, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+
+        let driveToken: string;
+        try {
+          driveToken = await getValidAccessToken(tokenRow, share.user_id);
+        } catch (err) {
+          return new Response(
+            JSON.stringify({ error: "Failed to access Google Drive" }),
+            { status: 503, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+
+        // Check if permission still exists
+        const drivePermIds = (share.drive_permission_ids as Record<string, string>) || {};
+        const storedPermId = drivePermIds[fileId];
+
+        if (storedPermId) {
+          const permStatus = await checkPermissionStatus(driveToken, fileId, storedPermId);
+          if (!permStatus.exists) {
+            // Permission was removed externally — update record and deny access
+            const updatedPermIds = { ...drivePermIds };
+            delete updatedPermIds[fileId];
+            await adminClient
+              .from("document_shares")
+              .update({ drive_permission_ids: updatedPermIds })
+              .eq("id", share.id);
+
+            return new Response(
+              JSON.stringify({
+                error: "Sharing permission was revoked by the document owner",
+                permissionRevoked: true,
+              }),
+              { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+            );
+          }
+        }
+
+        // Get the webViewLink (masked — only the Drive preview URL, not the raw file ID)
+        const webViewLink = await getFileWebViewLink(driveToken, fileId);
+
+        return new Response(
+          JSON.stringify({
+            signedUrl: webViewLink,
+            isDriveFile: true,
+          }),
+          { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      // ─── SaaS (Supabase storage) file ──────────────────────────
       const { data: urlData } = await adminClient.storage
         .from("user-documents")
         .createSignedUrl(doc.file_path, 3600);

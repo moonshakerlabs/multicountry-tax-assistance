@@ -161,3 +161,24 @@
   color: hsl(var(--muted-foreground));
   padding: 24px;
 }
+
+.shared-view-doc-revoked {
+  opacity: 0.6;
+  background: hsl(var(--destructive) / 0.05);
+  border: 1px solid hsl(var(--destructive) / 0.2);
+}
+
+.shared-view-drive-badge {
+  color: hsl(var(--primary));
+  font-weight: 500;
+}
+
+.shared-view-perm-revoked {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  color: hsl(var(--destructive));
+  font-weight: 500;
+  margin-top: 2px;
+}
