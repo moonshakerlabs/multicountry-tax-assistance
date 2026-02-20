@@ -210,9 +210,7 @@ export default function Home() {
             <span className="home-footer-logo-text">{APP_NAME}</span>
           </div>
           <nav className="home-footer-nav">
-            <a href="#" className="home-footer-link">Privacy Policy</a>
-            <a href="#" className="home-footer-link">Terms</a>
-            <a href="#" className="home-footer-link">Contact</a>
+            <Link to="/privacy" className="home-footer-link">Privacy Policy</Link>
           </nav>
         </div>
       </footer>

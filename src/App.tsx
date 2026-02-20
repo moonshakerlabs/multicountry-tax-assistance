@@ -19,6 +19,7 @@ import Community from "./pages/Community";
 import PublicCommunity from "./pages/PublicCommunity";
 import Blog from "./pages/Blog";
 import TermsAndConditions from "./pages/TermsAndConditions";
+import PrivacyPolicy from "./pages/PrivacyPolicy";
 import ResetPassword from "./pages/ResetPassword";
 import TwoFactorVerify from "./pages/TwoFactorVerify";
 import Support from "./pages/Support";
@@ -43,6 +44,7 @@ const App = () => (
             <Route path="/blog" element={<Blog />} />
             <Route path="/taxoverflow" element={<PublicCommunity />} />
             <Route path="/terms" element={<TermsAndConditions />} />
+            <Route path="/privacy" element={<PrivacyPolicy />} />
             <Route path="/reset-password" element={<ResetPassword />} />
             <Route path="/2fa-verify" element={<TwoFactorVerify />} />
 
