@@ -14,8 +14,10 @@ import {
   Image,
   Table,
   Shield,
-  Sparkles,
+  Crown,
   LogOut,
+  Calendar,
+  ShieldCheck,
   LayoutDashboard,
   User,
   MessageSquare,
@@ -430,7 +432,7 @@ export default function AITools() {
           <div className="ai-tools-content">
             <div className="ai-tools-upgrade-overlay" style={{ position: 'relative', background: 'none' }}>
               <div className="ai-tools-upgrade-modal">
-                <Sparkles className="ai-tools-upgrade-icon" />
+                <Crown className="ai-tools-upgrade-icon" />
                 <h2 className="ai-tools-upgrade-title">Premium Feature</h2>
                 <p className="ai-tools-upgrade-text">
                   AI Multi-File Intelligence is available for Freemium, Pro, and Super Pro plans.
@@ -462,7 +464,7 @@ export default function AITools() {
           </span>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
             <span className="ai-tools-plan-badge">
-              <Sparkles className="h-3 w-3" />
+              <Crown className="h-3 w-3" />
               {plan}
             </span>
             {sourceMode === 'upload' && (
@@ -758,12 +760,12 @@ function Sidebar({ onSignOut }: { onSignOut: () => void }) {
           Multi-File Analysis
         </Link>
         <div className="ai-tools-nav-item coming-soon">
-          <Sparkles className="h-4 w-4" />
+          <Calendar className="h-4 w-4" />
           Tax Calendar AI
           <span style={{ fontSize: '0.65rem', marginLeft: 'auto', opacity: 0.6 }}>Soon</span>
         </div>
         <div className="ai-tools-nav-item coming-soon">
-          <Sparkles className="h-4 w-4" />
+          <ShieldCheck className="h-4 w-4" />
           Compliance Check
           <span style={{ fontSize: '0.65rem', marginLeft: 'auto', opacity: 0.6 }}>Soon</span>
         </div>

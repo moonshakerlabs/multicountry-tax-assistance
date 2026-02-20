@@ -4,8 +4,10 @@ import { Button } from '@/components/ui/button';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
 import { useStoragePreference } from '@/hooks/useStoragePreference';
+import { useSubscription } from '@/hooks/useSubscription';
+import { useSubscriptionConfig } from '@/hooks/useSubscriptionConfig';
 import { supabase } from '@/integrations/supabase/client';
-import { ArrowLeft, ChevronDown, Check, X, Cloud, HardDrive, Unlink, Loader2, User, Settings, Trash2, AlertTriangle } from 'lucide-react';
+import { ArrowLeft, ChevronDown, Check, X, Cloud, HardDrive, Unlink, Loader2, User, Settings, Trash2, AlertTriangle, ArrowDown } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { 
   ALL_COUNTRIES, 
@@ -33,6 +35,9 @@ export default function Profile() {
     refresh: refreshStoragePreference,
   } = useStoragePreference();
   
+  const { subscription, loading: subLoading } = useSubscription();
+  const { config } = useSubscriptionConfig();
+  
   const [activeTab, setActiveTab] = useState<Tab>('preferences');
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
@@ -50,6 +55,13 @@ export default function Profile() {
   const [deletionReasonOther, setDeletionReasonOther] = useState('');
   const [showGoogleDriveSetup, setShowGoogleDriveSetup] = useState(false);
   const [pendingOAuthCode, setPendingOAuthCode] = useState<string | null>(null);
+  const [showDowngrade, setShowDowngrade] = useState(false);
+  const [downgradeTarget, setDowngradeTarget] = useState('');
+  const [downgradeReason, setDowngradeReason] = useState('');
+  const [downgradeReasonOther, setDowngradeReasonOther] = useState('');
+  const [isDowngrading, setIsDowngrading] = useState(false);
+
+  const isFreeUser = subscription.subscription_plan === 'FREE';
 
   const availableLanguages = getLanguagesForCountries(primaryTaxResidency, otherTaxCountries);
   const otherCountriesOptions = getOtherCountriesOptions(primaryTaxResidency);
@@ -389,13 +401,16 @@ export default function Profile() {
               <div className="profile-field">
                 <label className="profile-label">Document Storage</label>
                 <div className="profile-storage-options">
-                  <div className={`profile-storage-option ${storagePreference === 'saas' ? 'profile-storage-option-selected' : ''}`} onClick={() => !isLoading && setStoragePreference('saas')}>
-                    <Cloud className="w-5 h-5" />
-                    <div>
-                      <strong>Platform Storage</strong>
-                      <span>{gdprConsentGiven ? '✓ GDPR consent given' : 'GDPR consent required'}</span>
+                  {/* Hide Platform Storage (Secure Vault) for Free users */}
+                  {!isFreeUser && (
+                    <div className={`profile-storage-option ${storagePreference === 'saas' ? 'profile-storage-option-selected' : ''}`} onClick={() => !isLoading && setStoragePreference('saas')}>
+                      <Cloud className="w-5 h-5" />
+                      <div>
+                        <strong>Platform Storage</strong>
+                        <span>{gdprConsentGiven ? '✓ GDPR consent given' : 'GDPR consent required'}</span>
+                      </div>
                     </div>
-                  </div>
+                  )}
                   <div className={`profile-storage-option ${storagePreference === 'google_drive' ? 'profile-storage-option-selected' : ''}`} onClick={() => !isLoading && setStoragePreference('google_drive')}>
                     <HardDrive className="w-5 h-5" />
                     <div>
@@ -404,6 +419,11 @@ export default function Profile() {
                     </div>
                   </div>
                 </div>
+                {isFreeUser && (
+                  <span className="profile-hint" style={{ color: 'hsl(var(--primary))' }}>
+                    Secure Storage Vault is available for Freemium and above plans. <Link to="/pricing" style={{ textDecoration: 'underline' }}>Upgrade</Link>
+                  </span>
+                )}
                 {storagePreference === 'google_drive' && !googleDriveConnected && (
                   <Button type="button" variant="default" size="sm" className="mt-2" onClick={() => setShowGoogleDriveSetup(true)}>
                     <HardDrive className="w-4 h-4 mr-1" /> Connect Google Drive
@@ -458,7 +478,152 @@ export default function Profile() {
 
         {/* ── Settings Tab ── */}
         {activeTab === 'settings' && (
-          <SecuritySettings />
+          <>
+            <SecuritySettings />
+
+            {/* Downgrade Subscription Section */}
+            {!subLoading && subscription.subscription_plan !== 'FREE' && (
+              <div className="profile-card" style={{ marginTop: '1.5rem' }}>
+                <div className="profile-form">
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                    <ArrowDown className="h-5 w-5" style={{ color: 'hsl(var(--muted-foreground))' }} />
+                    <div>
+                      <h3 className="profile-section-title" style={{ marginBottom: 0 }}>Downgrade Plan</h3>
+                      <p className="profile-hint">
+                        Current plan: <strong>{subscription.subscription_plan}</strong> ({subscription.billing_cycle})
+                      </p>
+                    </div>
+                  </div>
+
+                  {!showDowngrade ? (
+                    <Button variant="outline" onClick={() => setShowDowngrade(true)} className="w-fit">
+                      <ArrowDown className="h-4 w-4 mr-2" /> Request Downgrade
+                    </Button>
+                  ) : (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', padding: '1rem', border: '1px solid hsl(var(--border))', borderRadius: '0.5rem', background: 'hsl(var(--muted) / 0.3)' }}>
+                      {/* Downgrade target */}
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                        <label className="profile-label">Downgrade to:</label>
+                        <select
+                          className="profile-select"
+                          value={downgradeTarget}
+                          onChange={e => setDowngradeTarget(e.target.value)}
+                          disabled={isDowngrading}
+                        >
+                          <option value="">— Select plan —</option>
+                          {subscription.subscription_plan === 'SUPER_PRO' && <option value="PRO">Pro</option>}
+                          {['SUPER_PRO', 'PRO'].includes(subscription.subscription_plan) && <option value="FREEMIUM">Freemium</option>}
+                          <option value="FREE">Free</option>
+                        </select>
+                      </div>
+
+                      {/* Downgrade reason */}
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                        <label className="profile-label">Why do you wish to downgrade? <span style={{ color: 'hsl(var(--destructive))' }}>*</span></label>
+                        <select
+                          className="profile-select"
+                          value={downgradeReason}
+                          onChange={e => { setDowngradeReason(e.target.value); setDowngradeReasonOther(''); }}
+                          disabled={isDowngrading}
+                        >
+                          <option value="">— Select a reason —</option>
+                          <option value="too_expensive">Too expensive / pricing concerns</option>
+                          <option value="not_using_features">Not using premium features enough</option>
+                          <option value="temporary">Temporary — may upgrade again later</option>
+                          <option value="found_alternative">Found a better alternative</option>
+                          <option value="missing_features">Missing features I need</option>
+                          <option value="simplifying">Simplifying my setup</option>
+                          <option value="other">Other reason</option>
+                        </select>
+                        {downgradeReason === 'other' && (
+                          <textarea
+                            className="profile-input"
+                            placeholder="Please describe your reason..."
+                            value={downgradeReasonOther}
+                            onChange={e => setDowngradeReasonOther(e.target.value)}
+                            rows={3}
+                            disabled={isDowngrading}
+                            style={{ resize: 'vertical' }}
+                          />
+                        )}
+                      </div>
+
+                      {/* Important notices */}
+                      <div style={{ background: 'hsl(var(--accent) / 0.3)', border: '1px solid hsl(var(--border))', borderRadius: '0.5rem', padding: '0.75rem', fontSize: '0.8rem' }}>
+                        <ul style={{ listStyle: 'disc', paddingLeft: '1.25rem', display: 'flex', flexDirection: 'column', gap: '0.3rem', color: 'hsl(var(--muted-foreground))' }}>
+                          <li>Your current plan features will remain active until the end of your billing cycle.</li>
+                          <li>Downgrade must be requested at least <strong>{config.downgrade_cutoff_days} days</strong> before billing cycle ends.</li>
+                          {storagePreference === 'saas' && (
+                            <li>You will have <strong>{config.vault_grace_period_days} days</strong> after downgrade to download your files from the Secure Vault.</li>
+                          )}
+                          {storagePreference === 'google_drive' && (
+                            <li>Your Google Drive files will remain untouched — no action needed.</li>
+                          )}
+                          <li>You can upgrade again at any time to restore access.</li>
+                        </ul>
+                      </div>
+
+                      <div style={{ display: 'flex', gap: '0.75rem' }}>
+                        <Button
+                          variant="default"
+                          disabled={!downgradeTarget || !downgradeReason || (downgradeReason === 'other' && !downgradeReasonOther.trim()) || isDowngrading}
+                          onClick={async () => {
+                            if (!user || !downgradeTarget || !downgradeReason) return;
+                            setIsDowngrading(true);
+                            try {
+                              const { error } = await supabase
+                                .from('user_subscriptions')
+                                .update({
+                                  subscription_plan: downgradeTarget,
+                                  updated_at: new Date().toISOString(),
+                                })
+                                .eq('user_id', user.id);
+                              if (error) throw error;
+
+                              const reasonText = downgradeReason === 'other' ? `other: ${downgradeReasonOther.trim()}` : downgradeReason;
+                              await supabase.from('subscription_history').insert({
+                                user_id: user.id,
+                                plan: downgradeTarget,
+                                billing_cycle: subscription.billing_cycle,
+                                change_type: 'DOWNGRADE',
+                                price_at_purchase: 0,
+                                is_legacy_applied: false,
+                                payment_reference_id: `reason:${reasonText}`,
+                              });
+
+                              toast({
+                                title: 'Plan downgraded',
+                                description: `Your plan has been changed to ${downgradeTarget}. Current features remain active until billing cycle ends.`,
+                                duration: 8000,
+                              });
+                              setShowDowngrade(false);
+                              setDowngradeTarget('');
+                              setDowngradeReason('');
+                              setDowngradeReasonOther('');
+                              setTimeout(() => window.location.reload(), 1500);
+                            } catch (err: any) {
+                              toast({ title: 'Error', description: err.message || 'Failed to downgrade.', variant: 'destructive' });
+                            } finally {
+                              setIsDowngrading(false);
+                            }
+                          }}
+                        >
+                          {isDowngrading ? 'Processing...' : 'Confirm Downgrade'}
+                        </Button>
+                        <Button
+                          variant="outline"
+                          onClick={() => { setShowDowngrade(false); setDowngradeTarget(''); setDowngradeReason(''); setDowngradeReasonOther(''); }}
+                          disabled={isDowngrading}
+                        >
+                          Cancel
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+          </>
         )}
 
         {/* ── Delete Account Tab ── */}
