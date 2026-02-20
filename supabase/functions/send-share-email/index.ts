@@ -1,6 +1,12 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { Resend } from "npm:resend@2.0.0";
+import {
+  isDriveFile,
+  extractDriveFileId,
+  getValidAccessToken,
+  addAnyoneReaderPermission,
+} from "../_shared/drive-permissions.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -42,7 +48,6 @@ serve(async (req: Request) => {
     }
 
     const body = await req.json();
-    // Support multiple recipients: recipients[] array OR single recipientEmail (backwards compat)
     const { documentIds, allowDownload, expiresAt } = body;
 
     // Normalise recipients into an array
@@ -50,7 +55,6 @@ serve(async (req: Request) => {
     if (Array.isArray(body.recipients) && body.recipients.length > 0) {
       recipients = body.recipients;
     } else if (body.recipientEmail) {
-      // Backwards compatibility
       recipients = [{
         email: body.recipientEmail,
         type: String(body.recipientType || "other").toLowerCase(),
@@ -70,7 +74,7 @@ serve(async (req: Request) => {
     // Verify all documents belong to user and have share_enabled = true
     const { data: docs, error: docsError } = await adminClient
       .from("documents")
-      .select("id, share_enabled, file_name")
+      .select("id, share_enabled, file_name, file_path")
       .eq("user_id", user.id)
       .in("id", documentIds);
 
@@ -92,6 +96,41 @@ serve(async (req: Request) => {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
+    }
+
+    // Check if any docs are Google Drive files — if so, add sharing permissions
+    const driveFiles = docs.filter((d: any) => isDriveFile(d.file_path));
+    const drivePermissionIds: Record<string, string> = {};
+
+    if (driveFiles.length > 0) {
+      // Get the user's Google Drive tokens
+      const { data: tokenRow } = await adminClient
+        .from("google_drive_tokens")
+        .select("access_token, refresh_token, token_expiry")
+        .eq("user_id", user.id)
+        .maybeSingle();
+
+      if (!tokenRow) {
+        return new Response(
+          JSON.stringify({ error: "Google Drive not connected. Cannot share Drive files." }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      const accessToken = await getValidAccessToken(tokenRow, user.id);
+
+      // Add "anyone with link" reader permission to each Drive file
+      for (const doc of driveFiles) {
+        const fileId = extractDriveFileId(doc.file_path);
+        if (!fileId) continue;
+
+        const permId = await addAnyoneReaderPermission(accessToken, fileId);
+        if (permId) {
+          drivePermissionIds[fileId] = permId;
+        } else {
+          console.error(`Failed to add permission for Drive file ${fileId}`);
+        }
+      }
     }
 
     const EMAIL_FROM = "TAXBEBO <noreply@taxbebo.com>";
@@ -119,7 +158,7 @@ serve(async (req: Request) => {
         .map((b) => b.toString(16).padStart(2, "0"))
         .join("");
 
-      // Insert share record
+      // Insert share record with drive permission IDs
       const { data: share, error: shareError } = await adminClient
         .from("document_shares")
         .insert({
@@ -133,6 +172,7 @@ serve(async (req: Request) => {
           token,
           share_type: documentIds.length === 1 ? "single" : "multiple",
           status: "PENDING",
+          drive_permission_ids: Object.keys(drivePermissionIds).length > 0 ? drivePermissionIds : {},
         })
         .select()
         .single();
@@ -211,7 +251,6 @@ serve(async (req: Request) => {
       JSON.stringify({
         success: anySuccess,
         results,
-        // For backwards compatibility return single-recipient fields if only one recipient
         shareId: results[0]?.shareId,
         status: results[0]?.status,
         shareLink: results[0]?.shareLink,

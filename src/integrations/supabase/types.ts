@@ -315,6 +315,7 @@ export type Database = {
           allow_download: boolean
           created_at: string
           document_ids: string[]
+          drive_permission_ids: Json | null
           expires_at: string
           id: string
           recipient_email: string
@@ -329,6 +330,7 @@ export type Database = {
           allow_download?: boolean
           created_at?: string
           document_ids: string[]
+          drive_permission_ids?: Json | null
           expires_at: string
           id?: string
           recipient_email: string
@@ -343,6 +345,7 @@ export type Database = {
           allow_download?: boolean
           created_at?: string
           document_ids?: string[]
+          drive_permission_ids?: Json | null
           expires_at?: string
           id?: string
           recipient_email?: string
