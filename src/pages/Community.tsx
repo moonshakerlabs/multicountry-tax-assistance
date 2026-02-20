@@ -25,7 +25,18 @@ export default function Community() {
   const [submittingPost, setSubmittingPost] = useState(false);
   const [postCount, setPostCount] = useState(0);
   const [filterCountry, setFilterCountry] = useState<string>('all');
-  const [guidelinesAccepted, setGuidelinesAccepted] = useState(false);
+  const [guidelinesAccepted, setGuidelinesAccepted] = useState(() => {
+    // Persist guidelines acceptance in localStorage per user
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('community_guidelines_accepted') === 'true';
+    }
+    return false;
+  });
+
+  const handleGuidelinesAccepted = useCallback((accepted: boolean) => {
+    setGuidelinesAccepted(accepted);
+    localStorage.setItem('community_guidelines_accepted', String(accepted));
+  }, []);
 
   // Report state
   const [reportTarget, setReportTarget] = useState<{ entityId: string; entityType: 'POST' | 'ANSWER' } | null>(null);
@@ -213,7 +224,7 @@ export default function Community() {
           onAskQuestion={() => setShowAskModal(true)}
           canPost={canPost}
           guidelinesAccepted={guidelinesAccepted}
-          onGuidelinesAccepted={setGuidelinesAccepted}
+          onGuidelinesAccepted={handleGuidelinesAccepted}
         />
         <PostDetail
           postId={selectedPostId}
@@ -239,7 +250,7 @@ export default function Community() {
         onAskQuestion={() => setShowAskModal(true)}
         canPost={canPost}
         guidelinesAccepted={guidelinesAccepted}
-        onGuidelinesAccepted={setGuidelinesAccepted}
+        onGuidelinesAccepted={handleGuidelinesAccepted}
       />
 
       <main className="community-main">
