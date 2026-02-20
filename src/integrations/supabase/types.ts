@@ -639,6 +639,33 @@ export type Database = {
           },
         ]
       }
+      subscription_config: {
+        Row: {
+          config_key: string
+          config_value: string
+          created_at: string
+          description: string | null
+          id: string
+          updated_at: string
+        }
+        Insert: {
+          config_key: string
+          config_value: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          updated_at?: string
+        }
+        Update: {
+          config_key?: string
+          config_value?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       subscription_history: {
         Row: {
           billing_cycle: string
@@ -933,8 +960,12 @@ export type Database = {
         Row: {
           billing_cycle: string
           created_at: string
+          early_access_freemium_end: string | null
+          early_access_pro_end: string | null
+          early_access_user: boolean
           id: string
           is_legacy_user: boolean
+          is_trial: boolean
           legacy_price_amount: number | null
           legacy_valid_until: string | null
           points_balance: number
@@ -943,14 +974,21 @@ export type Database = {
           subscription_price_at_signup: number | null
           subscription_start_date: string
           subscription_status: string
+          trial_end_date: string | null
+          trial_plan: string | null
+          trial_start_date: string | null
           updated_at: string
           user_id: string
         }
         Insert: {
           billing_cycle?: string
           created_at?: string
+          early_access_freemium_end?: string | null
+          early_access_pro_end?: string | null
+          early_access_user?: boolean
           id?: string
           is_legacy_user?: boolean
+          is_trial?: boolean
           legacy_price_amount?: number | null
           legacy_valid_until?: string | null
           points_balance?: number
@@ -959,14 +997,21 @@ export type Database = {
           subscription_price_at_signup?: number | null
           subscription_start_date?: string
           subscription_status?: string
+          trial_end_date?: string | null
+          trial_plan?: string | null
+          trial_start_date?: string | null
           updated_at?: string
           user_id: string
         }
         Update: {
           billing_cycle?: string
           created_at?: string
+          early_access_freemium_end?: string | null
+          early_access_pro_end?: string | null
+          early_access_user?: boolean
           id?: string
           is_legacy_user?: boolean
+          is_trial?: boolean
           legacy_price_amount?: number | null
           legacy_valid_until?: string | null
           points_balance?: number
@@ -975,6 +1020,9 @@ export type Database = {
           subscription_price_at_signup?: number | null
           subscription_start_date?: string
           subscription_status?: string
+          trial_end_date?: string | null
+          trial_plan?: string | null
+          trial_start_date?: string | null
           updated_at?: string
           user_id?: string
         }

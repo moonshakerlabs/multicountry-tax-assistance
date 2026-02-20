@@ -136,6 +136,19 @@ export default function Auth() {
           });
         }
       } else {
+        // Assign trial subscription via edge function
+        try {
+          const { data: { session: newSession } } = await supabase.auth.getSession();
+          if (newSession?.user) {
+            await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/assign-trial`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ userId: newSession.user.id, email: signupEmail }),
+            });
+          }
+        } catch (trialErr) {
+          console.error('Trial assignment error:', trialErr);
+        }
         toast({
           title: 'Account created',
           description: 'Welcome! Your account is ready. Signing you in...',

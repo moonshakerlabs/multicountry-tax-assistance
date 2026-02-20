@@ -1,9 +1,13 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { useAuth } from '@/hooks/useAuth';
-import { Check, X as XIcon, Star, ArrowLeft, Sparkles } from 'lucide-react';
+import { useSubscription } from '@/hooks/useSubscription';
+import { useSubscriptionConfig } from '@/hooks/useSubscriptionConfig';
+import { supabase } from '@/integrations/supabase/client';
+import { Check, X as XIcon, Star, ArrowLeft, Sparkles, Clock, ArrowUp, ArrowDown } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
 import './Pricing.css';
 import { APP_NAME } from '@/lib/appConfig';
 
@@ -31,6 +35,8 @@ interface Plan {
   planKey: string;
   pricingTBD?: boolean;
 }
+
+const PLAN_ORDER = ['FREE', 'FREEMIUM', 'PRO', 'SUPER_PRO'];
 
 const plans: Plan[] = [
   {
@@ -246,6 +252,113 @@ const plans: Plan[] = [
 export default function Pricing() {
   const [isYearly, setIsYearly] = useState(false);
   const { user } = useAuth();
+  const { subscription, loading: subLoading } = useSubscription();
+  const { config, isEarlyAccessActive, getDaysRemaining } = useSubscriptionConfig();
+  const { toast } = useToast();
+  const [changingPlan, setChangingPlan] = useState<string | null>(null);
+
+  const currentPlanIndex = PLAN_ORDER.indexOf(subscription.subscription_plan);
+  const earlyAccessActive = isEarlyAccessActive();
+
+  const handlePlanChange = async (targetPlan: string) => {
+    if (!user) return;
+    const targetIndex = PLAN_ORDER.indexOf(targetPlan);
+    const isUpgrade = targetIndex > currentPlanIndex;
+    const changeType = isUpgrade ? 'UPGRADE' : 'DOWNGRADE';
+
+    setChangingPlan(targetPlan);
+    try {
+      // Update subscription
+      const { error } = await supabase
+        .from('user_subscriptions')
+        .update({
+          subscription_plan: targetPlan,
+          billing_cycle: isYearly ? 'YEARLY' : 'MONTHLY',
+          updated_at: new Date().toISOString(),
+        })
+        .eq('user_id', user.id);
+
+      if (error) throw error;
+
+      // Log change
+      const plan = plans.find(p => p.planKey === targetPlan);
+      const price = isYearly ? (plan?.yearlyPrice || 0) : (plan?.monthlyPrice || 0);
+
+      await supabase.from('subscription_history').insert({
+        user_id: user.id,
+        plan: targetPlan,
+        billing_cycle: isYearly ? 'YEARLY' : 'MONTHLY',
+        change_type: changeType,
+        price_at_purchase: price,
+        is_legacy_applied: false,
+      });
+
+      toast({
+        title: isUpgrade ? '🎉 Upgraded!' : 'Plan changed',
+        description: `Your plan has been ${isUpgrade ? 'upgraded' : 'downgraded'} to ${plan?.name || targetPlan}.`,
+      });
+
+      // Reload to reflect changes
+      window.location.reload();
+    } catch (err: any) {
+      toast({ title: 'Error', description: err.message || 'Failed to change plan.', variant: 'destructive' });
+    } finally {
+      setChangingPlan(null);
+    }
+  };
+
+  const getButtonForPlan = (plan: Plan) => {
+    if (!user) {
+      if (plan.pricingTBD) {
+        return (
+          <Button variant="outline" className="pricing-cta-btn" disabled>
+            <Sparkles className="h-4 w-4" /> Coming Soon
+          </Button>
+        );
+      }
+      return (
+        <Button asChild variant={plan.popular ? 'default' : 'outline'} className="pricing-cta-btn">
+          <Link to="/auth?mode=signup">{plan.planKey === 'FREE' ? 'Get Started' : 'Sign Up'}</Link>
+        </Button>
+      );
+    }
+
+    if (plan.pricingTBD) {
+      return (
+        <Button variant="outline" className="pricing-cta-btn" disabled>
+          <Sparkles className="h-4 w-4" /> Coming Soon
+        </Button>
+      );
+    }
+
+    const planIndex = PLAN_ORDER.indexOf(plan.planKey);
+
+    if (plan.planKey === subscription.subscription_plan) {
+      return (
+        <Button variant="outline" className="pricing-cta-btn" disabled>
+          ✅ Current Plan
+        </Button>
+      );
+    }
+
+    const isUpgrade = planIndex > currentPlanIndex;
+
+    return (
+      <Button
+        variant={isUpgrade ? 'default' : 'outline'}
+        className="pricing-cta-btn"
+        disabled={changingPlan !== null}
+        onClick={() => handlePlanChange(plan.planKey)}
+      >
+        {changingPlan === plan.planKey ? 'Processing...' : (
+          <>
+            {isUpgrade ? <ArrowUp className="h-4 w-4 mr-1" /> : <ArrowDown className="h-4 w-4 mr-1" />}
+            {isUpgrade ? 'Upgrade' : 'Downgrade'}
+          </>
+        )}
+      </Button>
+    );
+  };
 
   return (
     <div className="pricing-container">
@@ -277,6 +390,33 @@ export default function Pricing() {
             Choose the plan that fits your cross-border tax needs.
           </p>
 
+          {/* Early Access Banner */}
+          {earlyAccessActive && (
+            <div className="pricing-early-access">
+              <Sparkles className="h-5 w-5 text-primary" />
+              <div>
+                <strong>{config.early_access_headline}</strong>
+                <p className="text-sm text-muted-foreground mt-0.5">{config.early_access_description}</p>
+              </div>
+              <span className="pricing-early-access-timer">
+                <Clock className="h-3.5 w-3.5" /> {getDaysRemaining()} days left
+              </span>
+            </div>
+          )}
+
+          {/* Current Plan Display (for logged-in users) */}
+          {user && !subLoading && (
+            <div className="pricing-current-plan">
+              <span className="text-sm text-muted-foreground">Your current plan:</span>
+              <span className="pricing-current-plan-badge">{subscription.subscription_plan}</span>
+              {(subscription as any).is_trial && (
+                <span className="pricing-trial-badge">
+                  <Clock className="h-3 w-3" /> Trial
+                </span>
+              )}
+            </div>
+          )}
+
           {/* Billing Toggle */}
           <div className="pricing-toggle-wrapper">
             <span className={`pricing-toggle-label ${!isYearly ? 'pricing-toggle-active' : ''}`}>
@@ -304,17 +444,21 @@ export default function Pricing() {
                   ? plan.yearlyPrice
                   : plan.monthlyPrice;
               const period = isYearly ? '/year' : '/month';
+              const isCurrentPlan = user && plan.planKey === subscription.subscription_plan;
 
               return (
                 <div
                   key={plan.name}
-                  className={`pricing-card ${plan.popular ? 'pricing-card-popular' : ''}`}
+                  className={`pricing-card ${plan.popular ? 'pricing-card-popular' : ''} ${isCurrentPlan ? 'pricing-card-current' : ''}`}
                 >
                   {plan.popular && (
                     <div className="pricing-popular-badge">
                       <Star className="pricing-popular-icon" />
                       Most Popular
                     </div>
+                  )}
+                  {isCurrentPlan && (
+                    <div className="pricing-current-badge">✅ Your Plan</div>
                   )}
                   <div className="pricing-card-header">
                     <h3 className="pricing-plan-name">
@@ -364,26 +508,7 @@ export default function Pricing() {
                   </div>
 
                   <div className="pricing-card-footer">
-                    {plan.planKey === 'FREE' ? (
-                      <Button variant="outline" className="pricing-cta-btn" disabled>
-                        {plan.cta}
-                      </Button>
-                    ) : plan.pricingTBD ? (
-                      <Button variant="outline" className="pricing-cta-btn" disabled>
-                        <Sparkles className="h-4 w-4" />
-                        {plan.cta}
-                      </Button>
-                    ) : (
-                      <Button
-                        asChild
-                        variant={plan.popular ? 'default' : 'outline'}
-                        className="pricing-cta-btn"
-                      >
-                        <Link to={user ? '/dashboard' : '/auth?mode=signup'}>
-                          {plan.cta}
-                        </Link>
-                      </Button>
-                    )}
+                    {getButtonForPlan(plan)}
                   </div>
                 </div>
               );

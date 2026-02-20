@@ -1,9 +1,10 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link, Navigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { Shield, Globe, Share2, ChevronDown, ChevronUp } from 'lucide-react';
+import { Shield, Globe, Share2, ChevronDown, ChevronUp, Sparkles, Clock } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { APP_NAME, APP_TAGLINE } from '@/lib/appConfig';
+import { useSubscriptionConfig } from '@/hooks/useSubscriptionConfig';
 import './Home.css';
 
 const faqs = [
@@ -13,7 +14,7 @@ const faqs = [
   },
   {
     q: `Can I try ${APP_NAME} before subscribing?`,
-    a: 'Yes! Our Free plan lets you get started with core document organisation features at no cost. You can upgrade at any time as your needs grow.',
+    a: `Yes! New users get a free trial with access to Pro features. Early access users enjoy even longer trial periods with premium features. Sign up today to take advantage of our launch offers!`,
   },
   {
     q: 'What happens to my data if I cancel my subscription?',
@@ -50,10 +51,14 @@ const features = [
 export default function Home() {
   const { user } = useAuth();
   const [openFaq, setOpenFaq] = useState<number | null>(null);
+  const { config, loading: configLoading, isEarlyAccessActive, getDaysRemaining } = useSubscriptionConfig();
 
   if (user) {
     return <Navigate to="/dashboard" replace />;
   }
+
+  const earlyAccessActive = isEarlyAccessActive();
+  const daysRemaining = getDaysRemaining();
 
   return (
     <div className="home-container">
@@ -86,6 +91,36 @@ export default function Home() {
         </div>
       </header>
 
+      {/* Early Access Banner */}
+      {earlyAccessActive && !configLoading && (
+        <section className="home-early-access-banner">
+          <div className="home-early-access-content">
+            <div className="home-early-access-icon-wrapper">
+              <Sparkles className="home-early-access-icon" />
+            </div>
+            <div className="home-early-access-text">
+              <h3 className="home-early-access-headline">{config.early_access_headline}</h3>
+              <p className="home-early-access-description">{config.early_access_description}</p>
+              <div className="home-early-access-details">
+                <span className="home-early-access-badge">
+                  <Clock className="h-3.5 w-3.5" />
+                  {daysRemaining} day{daysRemaining !== 1 ? 's' : ''} remaining
+                </span>
+                <span className="home-early-access-badge home-early-access-badge-pro">
+                  {config.early_access_pro_days} days Pro features free
+                </span>
+                <span className="home-early-access-badge home-early-access-badge-freemium">
+                  {config.early_access_freemium_days} days Freemium features free
+                </span>
+              </div>
+            </div>
+            <Button asChild variant="default" size="lg" className="home-early-access-cta">
+              <Link to="/auth?mode=signup">Claim Your Free Trial</Link>
+            </Button>
+          </div>
+        </section>
+      )}
+
       {/* Hero Section */}
       <section className="home-hero">
         <div className="home-hero-content">
@@ -106,6 +141,21 @@ export default function Home() {
               <Link to="/taxoverflow">See what others are talking about</Link>
             </Button>
           </div>
+
+          {/* Trial info below buttons */}
+          {!configLoading && (
+            <div className="home-trial-info">
+              {earlyAccessActive ? (
+                <p className="home-trial-text">
+                  🎉 <strong>Launch Offer:</strong> Sign up now for {config.early_access_pro_days} days of Pro features + {config.early_access_freemium_days} days of Freemium — <strong>completely free!</strong>
+                </p>
+              ) : (
+                <p className="home-trial-text">
+                  ✨ New users get a <strong>{config.default_trial_days}-day free trial</strong> with {config.default_trial_plan} features.
+                </p>
+              )}
+            </div>
+          )}
 
           {/* Feature cards directly below buttons */}
           <div className="home-features-inline">
