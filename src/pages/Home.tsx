@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link, Navigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { Shield, Globe, Share2, ChevronDown, ChevronUp, Sparkles, Clock } from 'lucide-react';
+import { Shield, Globe, Share2, ChevronDown, ChevronUp, Gift, Clock } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { APP_NAME, APP_TAGLINE } from '@/lib/appConfig';
 import { useSubscriptionConfig } from '@/hooks/useSubscriptionConfig';
@@ -96,7 +96,7 @@ export default function Home() {
         <section className="home-early-access-banner">
           <div className="home-early-access-content">
             <div className="home-early-access-icon-wrapper">
-              <Sparkles className="home-early-access-icon" />
+              <Gift className="home-early-access-icon" />
             </div>
             <div className="home-early-access-text">
               <h3 className="home-early-access-headline">{config.early_access_headline}</h3>

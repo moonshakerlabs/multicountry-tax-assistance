@@ -10,6 +10,8 @@ export interface SubscriptionConfig {
   early_access_pro_days: number;
   early_access_headline: string;
   early_access_description: string;
+  downgrade_cutoff_days: number;
+  vault_grace_period_days: number;
 }
 
 const DEFAULT_CONFIG: SubscriptionConfig = {
@@ -21,6 +23,8 @@ const DEFAULT_CONFIG: SubscriptionConfig = {
   early_access_pro_days: 90,
   early_access_headline: '🚀 Early Access Offer',
   early_access_description: 'Sign up now and get premium features free!',
+  downgrade_cutoff_days: 3,
+  vault_grace_period_days: 30,
 };
 
 export function useSubscriptionConfig() {
@@ -49,6 +53,8 @@ export function useSubscriptionConfig() {
         early_access_pro_days: parseInt(configMap['early_access_pro_days'] || '90'),
         early_access_headline: configMap['early_access_headline'] || DEFAULT_CONFIG.early_access_headline,
         early_access_description: configMap['early_access_description'] || DEFAULT_CONFIG.early_access_description,
+        downgrade_cutoff_days: parseInt(configMap['downgrade_cutoff_days'] || '3'),
+        vault_grace_period_days: parseInt(configMap['vault_grace_period_days'] || '30'),
       });
     } catch (e) {
       console.error('Error fetching subscription config:', e);

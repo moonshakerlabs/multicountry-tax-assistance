@@ -6,7 +6,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useSubscription } from '@/hooks/useSubscription';
 import { useSubscriptionConfig } from '@/hooks/useSubscriptionConfig';
 import { supabase } from '@/integrations/supabase/client';
-import { Check, X as XIcon, Star, ArrowLeft, Sparkles, Clock, ArrowUp, ArrowDown } from 'lucide-react';
+import { Check, X as XIcon, Star, ArrowLeft, Gift, Clock, ArrowUp, ArrowDown, Hourglass, Info } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import './Pricing.css';
 import { APP_NAME } from '@/lib/appConfig';
@@ -260,27 +260,77 @@ export default function Pricing() {
   const currentPlanIndex = PLAN_ORDER.indexOf(subscription.subscription_plan);
   const earlyAccessActive = isEarlyAccessActive();
 
+  // Calculate days until billing cycle end
+  const getDaysUntilBillingEnd = (): number => {
+    if (!subscription.subscription_plan || subscription.subscription_plan === 'FREE') return 999;
+    const sub = subscription as any;
+    const startDate = sub.subscription_start_date ? new Date(sub.subscription_start_date) : new Date();
+    const now = new Date();
+    const billingCycle = sub.billing_cycle || 'MONTHLY';
+    
+    // Calculate the next billing date
+    let nextBilling = new Date(startDate);
+    if (billingCycle === 'YEARLY') {
+      while (nextBilling <= now) nextBilling.setFullYear(nextBilling.getFullYear() + 1);
+    } else {
+      while (nextBilling <= now) nextBilling.setMonth(nextBilling.getMonth() + 1);
+    }
+    
+    const diffMs = nextBilling.getTime() - now.getTime();
+    return Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+  };
+
+  const canDowngrade = (): boolean => {
+    const daysLeft = getDaysUntilBillingEnd();
+    return daysLeft > config.downgrade_cutoff_days;
+  };
+
   const handlePlanChange = async (targetPlan: string) => {
     if (!user) return;
     const targetIndex = PLAN_ORDER.indexOf(targetPlan);
     const isUpgrade = targetIndex > currentPlanIndex;
     const changeType = isUpgrade ? 'UPGRADE' : 'DOWNGRADE';
 
+    // Block downgrade if too close to billing cycle
+    if (!isUpgrade && !canDowngrade()) {
+      toast({
+        title: 'Downgrade not available',
+        description: `Downgrades must be requested at least ${config.downgrade_cutoff_days} days before your billing cycle ends. You have ${getDaysUntilBillingEnd()} day(s) remaining.`,
+        variant: 'destructive',
+      });
+      return;
+    }
+
     setChangingPlan(targetPlan);
     try {
-      // Update subscription
+      const updateData: any = {
+        subscription_plan: targetPlan,
+        billing_cycle: isYearly ? 'YEARLY' : 'MONTHLY',
+        updated_at: new Date().toISOString(),
+      };
+
+      // For downgrades, the current plan runs until billing cycle end
+      // Set a vault grace period if downgrading from vault-eligible plan
+      if (!isUpgrade) {
+        const sub = subscription as any;
+        const startDate = sub.subscription_start_date ? new Date(sub.subscription_start_date) : new Date();
+        const billingCycle = sub.billing_cycle || 'MONTHLY';
+        let nextBilling = new Date(startDate);
+        if (billingCycle === 'YEARLY') {
+          while (nextBilling <= new Date()) nextBilling.setFullYear(nextBilling.getFullYear() + 1);
+        } else {
+          while (nextBilling <= new Date()) nextBilling.setMonth(nextBilling.getMonth() + 1);
+        }
+        updateData.subscription_end_date = nextBilling.toISOString();
+      }
+
       const { error } = await supabase
         .from('user_subscriptions')
-        .update({
-          subscription_plan: targetPlan,
-          billing_cycle: isYearly ? 'YEARLY' : 'MONTHLY',
-          updated_at: new Date().toISOString(),
-        })
+        .update(updateData)
         .eq('user_id', user.id);
 
       if (error) throw error;
 
-      // Log change
       const plan = plans.find(p => p.planKey === targetPlan);
       const price = isYearly ? (plan?.yearlyPrice || 0) : (plan?.monthlyPrice || 0);
 
@@ -293,12 +343,22 @@ export default function Pricing() {
         is_legacy_applied: false,
       });
 
-      toast({
-        title: isUpgrade ? '🎉 Upgraded!' : 'Plan changed',
-        description: `Your plan has been ${isUpgrade ? 'upgraded' : 'downgraded'} to ${plan?.name || targetPlan}.`,
-      });
+      if (isUpgrade) {
+        toast({
+          title: '🎉 Upgraded!',
+          description: `Your plan has been upgraded to ${plan?.name || targetPlan}.`,
+        });
+      } else {
+        const daysLeft = getDaysUntilBillingEnd();
+        toast({
+          title: 'Plan downgraded',
+          description: `Your current features will remain active for ${daysLeft} more day(s) until your billing cycle ends. ${
+            subscription.subscription_plan !== 'FREE' ? `You have ${config.vault_grace_period_days} days to download any files from the Secure Vault.` : ''
+          }`,
+          duration: 8000,
+        });
+      }
 
-      // Reload to reflect changes
       window.location.reload();
     } catch (err: any) {
       toast({ title: 'Error', description: err.message || 'Failed to change plan.', variant: 'destructive' });
@@ -312,7 +372,7 @@ export default function Pricing() {
       if (plan.pricingTBD) {
         return (
           <Button variant="outline" className="pricing-cta-btn" disabled>
-            <Sparkles className="h-4 w-4" /> Coming Soon
+            <Hourglass className="h-4 w-4" /> Coming Soon
           </Button>
         );
       }
@@ -326,7 +386,7 @@ export default function Pricing() {
     if (plan.pricingTBD) {
       return (
         <Button variant="outline" className="pricing-cta-btn" disabled>
-          <Sparkles className="h-4 w-4" /> Coming Soon
+          <Hourglass className="h-4 w-4" /> Coming Soon
         </Button>
       );
     }
@@ -343,20 +403,40 @@ export default function Pricing() {
 
     const isUpgrade = planIndex > currentPlanIndex;
 
+    if (!isUpgrade && !canDowngrade()) {
+      return (
+        <div style={{ textAlign: 'center' }}>
+          <Button variant="outline" className="pricing-cta-btn" disabled>
+            <Info className="h-4 w-4 mr-1" /> Downgrade unavailable
+          </Button>
+          <p style={{ fontSize: '0.7rem', color: 'hsl(var(--muted-foreground))', marginTop: '0.25rem' }}>
+            Must request {config.downgrade_cutoff_days}+ days before billing cycle ends
+          </p>
+        </div>
+      );
+    }
+
     return (
-      <Button
-        variant={isUpgrade ? 'default' : 'outline'}
-        className="pricing-cta-btn"
-        disabled={changingPlan !== null}
-        onClick={() => handlePlanChange(plan.planKey)}
-      >
-        {changingPlan === plan.planKey ? 'Processing...' : (
-          <>
-            {isUpgrade ? <ArrowUp className="h-4 w-4 mr-1" /> : <ArrowDown className="h-4 w-4 mr-1" />}
-            {isUpgrade ? 'Upgrade' : 'Downgrade'}
-          </>
+      <div style={{ textAlign: 'center' }}>
+        <Button
+          variant={isUpgrade ? 'default' : 'outline'}
+          className="pricing-cta-btn"
+          disabled={changingPlan !== null}
+          onClick={() => handlePlanChange(plan.planKey)}
+        >
+          {changingPlan === plan.planKey ? 'Processing...' : (
+            <>
+              {isUpgrade ? <ArrowUp className="h-4 w-4 mr-1" /> : <ArrowDown className="h-4 w-4 mr-1" />}
+              {isUpgrade ? 'Upgrade' : 'Downgrade'}
+            </>
+          )}
+        </Button>
+        {!isUpgrade && (
+          <p style={{ fontSize: '0.7rem', color: 'hsl(var(--muted-foreground))', marginTop: '0.25rem' }}>
+            Current plan active until billing cycle ends
+          </p>
         )}
-      </Button>
+      </div>
     );
   };
 
@@ -393,7 +473,7 @@ export default function Pricing() {
           {/* Early Access Banner */}
           {earlyAccessActive && (
             <div className="pricing-early-access">
-              <Sparkles className="h-5 w-5 text-primary" />
+              <Gift className="h-5 w-5 text-primary" />
               <div>
                 <strong>{config.early_access_headline}</strong>
                 <p className="text-sm text-muted-foreground mt-0.5">{config.early_access_description}</p>
@@ -433,6 +513,19 @@ export default function Pricing() {
             {isYearly && (
               <span className="pricing-savings-badge">Save 2 Months</span>
             )}
+          </div>
+
+          {/* Limited Period Offer - moved above plans */}
+          <div className="pricing-legacy-notice">
+            <div className="pricing-legacy-content">
+              <h3 className="pricing-legacy-title">🔔 Limited Period Offer</h3>
+              <p className="pricing-legacy-text">
+                Early subscribers lock in current pricing for up to 5 years, provided subscription remains active without interruption.
+              </p>
+              <p className="pricing-legacy-warning">
+                ⚠ If you cancel after a price increase, resubscription will follow the new pricing structure.
+              </p>
+            </div>
           </div>
 
           {/* Plans Grid */}
@@ -513,19 +606,6 @@ export default function Pricing() {
                 </div>
               );
             })}
-          </div>
-
-          {/* Legacy Pricing Notice */}
-          <div className="pricing-legacy-notice">
-            <div className="pricing-legacy-content">
-              <h3 className="pricing-legacy-title">🔔 Limited Period Offer</h3>
-              <p className="pricing-legacy-text">
-                Early subscribers lock in current pricing for up to 5 years, provided subscription remains active without interruption.
-              </p>
-              <p className="pricing-legacy-warning">
-                ⚠ If you cancel after a price increase, resubscription will follow the new pricing structure.
-              </p>
-            </div>
           </div>
         </div>
       </main>
