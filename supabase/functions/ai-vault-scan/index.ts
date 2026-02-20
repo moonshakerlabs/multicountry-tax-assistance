@@ -82,7 +82,7 @@ serve(async (req) => {
     // Resolve AI API key & gateway: only use custom values if non-empty and valid
     const customApiKey = Deno.env.get("AI_API_KEY")?.trim();
     const customGatewayUrl = Deno.env.get("AI_GATEWAY_URL")?.trim();
-    const isValidCustomGateway = customGatewayUrl && customGatewayUrl.startsWith("http") && customGatewayUrl.includes("/v1/");
+    const isValidCustomGateway = customGatewayUrl && customGatewayUrl.startsWith("http") && customGatewayUrl.includes("/chat/completions");
     const aiApiKey = (customApiKey && customApiKey.length > 0) ? customApiKey : Deno.env.get("LOVABLE_API_KEY");
     const aiGatewayUrl = isValidCustomGateway
       ? customGatewayUrl
