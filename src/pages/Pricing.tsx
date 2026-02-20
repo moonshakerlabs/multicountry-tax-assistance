@@ -618,9 +618,7 @@ export default function Pricing() {
             <span className="pricing-footer-logo-text">{APP_NAME}</span>
           </div>
           <nav className="pricing-footer-nav">
-            <a href="#" className="pricing-footer-link">Privacy Policy</a>
-            <a href="#" className="pricing-footer-link">Terms</a>
-            <a href="#" className="pricing-footer-link">Contact</a>
+            <Link to="/privacy" className="pricing-footer-link">Privacy Policy</Link>
           </nav>
         </div>
       </footer>
