@@ -114,7 +114,8 @@
 }
 
 .vault-upload-btn,
-.vault-share-btn {
+.vault-share-btn,
+.vault-delete-btn {
   flex-shrink: 0;
 }
 

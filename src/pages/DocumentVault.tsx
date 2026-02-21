@@ -22,8 +22,16 @@ import {
   Square,
   XCircle,
   ToggleLeft,
-  ToggleRight
+  ToggleRight,
+  Trash2,
+  AlertTriangle
 } from 'lucide-react';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import UploadModal from '@/components/documents/UploadModal';
 import DocumentActions from '@/components/documents/DocumentActions';
 import ShareModal from '@/components/documents/ShareModal';
@@ -262,7 +270,7 @@ export default function DocumentVault() {
 
   // Toggle single document selection (only share-enabled)
   const handleToggleDoc = (doc: Document) => {
-    if (!doc.share_enabled) return;
+    if (!deleteSelectionMode && !doc.share_enabled) return;
     setSelectedIds(prev => {
       const next = new Set(prev);
       if (next.has(doc.id)) next.delete(doc.id); else next.add(doc.id);
@@ -270,21 +278,23 @@ export default function DocumentVault() {
     });
   };
 
-  // Select all share-enabled docs in a folder (category)
+  // Select all docs in a folder (category) - respects mode
   const handleSelectFolder = (docs: Document[]) => {
-    const shareableIds = docs.filter(d => d.share_enabled).map(d => d.id);
-    if (shareableIds.length === 0) {
+    const eligibleIds = deleteSelectionMode
+      ? docs.map(d => d.id)
+      : docs.filter(d => d.share_enabled).map(d => d.id);
+    if (eligibleIds.length === 0) {
       toast({
         title: isDE ? 'Hinweis' : 'Notice',
         description: isDE
-          ? 'Kein Dokument in diesem Ordner hat die Freigabe aktiviert.'
-          : 'No documents in this folder have sharing enabled.',
+          ? 'Keine auswählbaren Dokumente in diesem Ordner.'
+          : 'No selectable documents in this folder.',
       });
       return;
     }
     setSelectedIds(prev => {
       const next = new Set(prev);
-      shareableIds.forEach(id => next.add(id));
+      eligibleIds.forEach(id => next.add(id));
       return next;
     });
   };
@@ -325,6 +335,107 @@ export default function DocumentVault() {
     setShareDocumentIds(Array.from(selectedIds));
     setShowShareModal(true);
     setSelectionMode(false);
+    setSelectedIds(new Set());
+  };
+
+  // Delete confirmation state
+  const [showBulkDeleteConfirm, setShowBulkDeleteConfirm] = useState(false);
+  const [bulkDeleteIds, setBulkDeleteIds] = useState<string[]>([]);
+  const [isBulkDeleting, setIsBulkDeleting] = useState(false);
+
+  // Delete All documents
+  const handleDeleteAll = () => {
+    if (documents.length === 0) {
+      toast({
+        title: isDE ? 'Fehler' : 'Error',
+        description: isDE ? 'Keine Dokumente vorhanden.' : 'No documents found.',
+        variant: 'destructive',
+      });
+      return;
+    }
+    setBulkDeleteIds(documents.map(d => d.id));
+    setShowBulkDeleteConfirm(true);
+  };
+
+  // Enter selection mode for delete
+  const [deleteSelectionMode, setDeleteSelectionMode] = useState(false);
+
+  const handleDeleteSelected = () => {
+    setDeleteSelectionMode(true);
+    setSelectionMode(true);
+    setSelectedIds(new Set());
+  };
+
+  // Confirm delete selected
+  const handleConfirmDeleteSelected = () => {
+    if (selectedIds.size === 0) {
+      toast({
+        title: isDE ? 'Fehler' : 'Error',
+        description: isDE ? 'Bitte mindestens ein Dokument auswählen.' : 'Please select at least one document.',
+        variant: 'destructive',
+      });
+      return;
+    }
+    setBulkDeleteIds(Array.from(selectedIds));
+    setShowBulkDeleteConfirm(true);
+  };
+
+  // Execute bulk delete
+  const handleBulkDelete = async () => {
+    if (!user || bulkDeleteIds.length === 0) return;
+    setIsBulkDeleting(true);
+    try {
+      // Get file paths for storage deletion
+      const docsToDelete = documents.filter(d => bulkDeleteIds.includes(d.id));
+      const storagePaths = docsToDelete
+        .filter(d => d.file_path && !d.file_path.startsWith('gdrive://'))
+        .map(d => d.file_path!);
+
+      // Delete from storage
+      if (storagePaths.length > 0) {
+        const { error: storageError } = await supabase.storage
+          .from('user-documents')
+          .remove(storagePaths);
+        if (storageError) console.error('Storage delete error:', storageError);
+      }
+
+      // Delete from database
+      const { error: dbError } = await supabase
+        .from('documents')
+        .delete()
+        .eq('user_id', user.id)
+        .in('id', bulkDeleteIds);
+
+      if (dbError) throw dbError;
+
+      toast({
+        title: isDE ? 'Dokumente gelöscht' : 'Documents deleted',
+        description: isDE
+          ? `${bulkDeleteIds.length} Dokument(e) gelöscht.`
+          : `${bulkDeleteIds.length} document(s) deleted.`,
+      });
+
+      await refreshDocuments();
+    } catch (err: any) {
+      toast({
+        title: isDE ? 'Fehler' : 'Error',
+        description: err.message,
+        variant: 'destructive',
+      });
+    } finally {
+      setIsBulkDeleting(false);
+      setShowBulkDeleteConfirm(false);
+      setBulkDeleteIds([]);
+      setSelectionMode(false);
+      setDeleteSelectionMode(false);
+      setSelectedIds(new Set());
+    }
+  };
+
+  // Override cancel selection to also clear delete mode
+  const handleCancelSelectionFull = () => {
+    setSelectionMode(false);
+    setDeleteSelectionMode(false);
     setSelectedIds(new Set());
   };
 
@@ -404,32 +515,74 @@ export default function DocumentVault() {
 
               {!selectionMode && hasDocuments && (
                 <>
-                  <Button onClick={handleShareAll} variant="outline" className="vault-share-btn">
-                    <Share2 className="vault-btn-icon" />
-                    {isDE ? 'Alle teilen' : 'Share All'}
-                  </Button>
-                  <Button onClick={handleShareSelected} variant="outline" className="vault-share-btn">
-                    <CheckSquare className="vault-btn-icon" />
-                    {isDE ? 'Auswahl teilen' : 'Share Selected'}
-                  </Button>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="outline" className="vault-share-btn">
+                        <Share2 className="vault-btn-icon" />
+                        {isDE ? 'Teilen' : 'Share'}
+                        <ChevronDown className="vault-btn-icon ml-1" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="start">
+                      <DropdownMenuItem onClick={handleShareAll}>
+                        <Share2 className="vault-btn-icon" />
+                        {isDE ? 'Alle teilen' : 'Share All'}
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={handleShareSelected}>
+                        <CheckSquare className="vault-btn-icon" />
+                        {isDE ? 'Auswahl teilen' : 'Share Selected'}
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="outline" className="vault-delete-btn">
+                        <Trash2 className="vault-btn-icon" />
+                        {isDE ? 'Löschen' : 'Delete'}
+                        <ChevronDown className="vault-btn-icon ml-1" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="start">
+                      <DropdownMenuItem onClick={handleDeleteAll} className="text-destructive">
+                        <Trash2 className="vault-btn-icon" />
+                        {isDE ? 'Alle löschen' : 'Delete All'}
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={handleDeleteSelected} className="text-destructive">
+                        <CheckSquare className="vault-btn-icon" />
+                        {isDE ? 'Auswahl löschen' : 'Delete Selected'}
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 </>
               )}
 
               {selectionMode && (
                 <>
-                  <Button
-                    onClick={handleShareSelectedDocs}
-                    className="vault-share-confirm-btn"
-                    disabled={selectedIds.size === 0}
-                  >
-                    <Share2 className="vault-btn-icon" />
-                    {isDE ? `${selectedIds.size} teilen` : `Share ${selectedIds.size} selected`}
-                  </Button>
+                  {deleteSelectionMode ? (
+                    <Button
+                      onClick={handleConfirmDeleteSelected}
+                      variant="destructive"
+                      disabled={selectedIds.size === 0}
+                    >
+                      <Trash2 className="vault-btn-icon" />
+                      {isDE ? `${selectedIds.size} löschen` : `Delete ${selectedIds.size} selected`}
+                    </Button>
+                  ) : (
+                    <Button
+                      onClick={handleShareSelectedDocs}
+                      className="vault-share-confirm-btn"
+                      disabled={selectedIds.size === 0}
+                    >
+                      <Share2 className="vault-btn-icon" />
+                      {isDE ? `${selectedIds.size} teilen` : `Share ${selectedIds.size} selected`}
+                    </Button>
+                  )}
                   <Button onClick={handleDeselectAll} variant="ghost" size="sm" className="vault-deselect-btn">
                     <XCircle className="vault-btn-icon" />
                     {isDE ? 'Alle abwählen' : 'Deselect All'}
                   </Button>
-                  <Button onClick={handleCancelSelection} variant="ghost" size="sm" className="vault-cancel-btn">
+                  <Button onClick={handleCancelSelectionFull} variant="ghost" size="sm" className="vault-cancel-btn">
                     <X className="vault-btn-icon" />
                     {isDE ? 'Abbrechen' : 'Cancel'}
                   </Button>
@@ -460,11 +613,15 @@ export default function DocumentVault() {
           {/* Selection mode banner */}
           {selectionMode && (
             <div className="vault-selection-banner">
-              <CheckSquare className="vault-selection-banner-icon" />
+              {deleteSelectionMode ? <Trash2 className="vault-selection-banner-icon" /> : <CheckSquare className="vault-selection-banner-icon" />}
               <span>
-                {isDE
-                  ? `Auswahlmodus aktiv – Klicken Sie auf Ordner oder Dateien (mit aktivierter Freigabe). ${selectedIds.size} ausgewählt.`
-                  : `Selection mode active – click folders or files with sharing enabled. ${selectedIds.size} selected.`}
+                {deleteSelectionMode
+                  ? (isDE
+                    ? `Lösch-Auswahlmodus aktiv – Klicken Sie auf Ordner oder Dateien. ${selectedIds.size} ausgewählt.`
+                    : `Delete selection mode – click folders or files to select. ${selectedIds.size} selected.`)
+                  : (isDE
+                    ? `Auswahlmodus aktiv – Klicken Sie auf Ordner oder Dateien (mit aktivierter Freigabe). ${selectedIds.size} ausgewählt.`
+                    : `Selection mode active – click folders or files with sharing enabled. ${selectedIds.size} selected.`)}
               </span>
             </div>
           )}
@@ -578,7 +735,7 @@ export default function DocumentVault() {
                                     <div key={catKey} className="vault-category-group">
                                       <div className="vault-category-row">
                                         {/* Folder checkbox in selection mode */}
-                                        {selectionMode && folderShareableCount > 0 && (
+                                        {selectionMode && (deleteSelectionMode || folderShareableCount > 0) && (
                                           <button
                                             className="vault-select-checkbox"
                                             onClick={(e) => { e.stopPropagation(); handleSelectFolder(docs); }}
@@ -639,7 +796,7 @@ export default function DocumentVault() {
                                         <div className="vault-documents-list">
                                           {docs.map(doc => {
                                             const isSelected = selectedIds.has(doc.id);
-                                            const isSelectable = doc.share_enabled;
+                                            const isSelectable = deleteSelectionMode || doc.share_enabled;
 
                                             return (
                                               <div
@@ -738,6 +895,35 @@ export default function DocumentVault() {
           onClose={() => setShowShareModal(false)}
           onShareComplete={() => refreshDocuments()}
         />
+      )}
+
+      {/* Bulk Delete Confirmation Modal */}
+      {showBulkDeleteConfirm && (
+        <div className="doc-actions-overlay" onClick={() => !isBulkDeleting && setShowBulkDeleteConfirm(false)}>
+          <div className="doc-actions-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="doc-delete-confirmation">
+              <AlertTriangle className="doc-delete-icon" />
+              <p className="doc-delete-message">
+                {isDE
+                  ? `Sind Sie sicher, dass Sie ${bulkDeleteIds.length} Dokument(e) löschen möchten?`
+                  : `Are you sure you want to delete ${bulkDeleteIds.length} document(s)?`}
+              </p>
+              <p className="doc-delete-warning">
+                {isDE ? 'Diese Aktion kann nicht rückgängig gemacht werden.' : 'This action cannot be undone.'}
+              </p>
+              <div className="doc-delete-actions">
+                <Button variant="outline" onClick={() => setShowBulkDeleteConfirm(false)} disabled={isBulkDeleting}>
+                  {isDE ? 'Abbrechen' : 'Cancel'}
+                </Button>
+                <Button variant="destructive" onClick={handleBulkDelete} disabled={isBulkDeleting}>
+                  {isBulkDeleting
+                    ? (isDE ? 'Löschen...' : 'Deleting...')
+                    : (isDE ? 'Löschen' : 'Delete')}
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
