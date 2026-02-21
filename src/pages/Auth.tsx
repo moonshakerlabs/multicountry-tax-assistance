@@ -437,18 +437,6 @@ export default function Auth() {
             </Button>
           </form>
 
-          {/* Toggle Sign Up / Sign In */}
-          <p className="auth-toggle-text">
-            {mode === 'signup' ? 'Already have an account?' : "Don't have an account?"}{' '}
-            <button
-              type="button"
-              onClick={toggleMode}
-              className="auth-toggle-link"
-              disabled={isLoading}
-            >
-              {mode === 'signup' ? 'Sign in' : 'Sign up'}
-            </button>
-          </p>
         </div>
       </div>
     </div>
