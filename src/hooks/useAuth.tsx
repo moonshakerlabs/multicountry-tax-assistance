@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useRef, useState, ReactNode, useCallback } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
+import { lovable } from '@/integrations/lovable/index';
 import { toast } from 'sonner';
 
 // Default 30 min — overridden per-user from DB on login
@@ -261,22 +262,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signInWithGoogle = async () => {
     try {
-      // Bypass auth-bridge to prevent redirects through lovable.app domains
-      const { data, error } = await supabase.auth.signInWithOAuth({
-        provider: 'google',
-        options: {
-          redirectTo: `${window.location.origin}/dashboard`,
-          skipBrowserRedirect: true,
-        },
+      const result = await lovable.auth.signInWithOAuth("google", {
+        redirect_uri: window.location.origin,
       });
-      if (error) return { error: error as Error };
-      if (data?.url) {
-        const oauthUrl = new URL(data.url);
-        if (oauthUrl.protocol !== 'https:') {
-          return { error: new Error('Invalid OAuth redirect URL') };
-        }
-        window.location.href = data.url;
-      }
+      if (result.error) return { error: result.error as Error };
       return { error: null };
     } catch (err) {
       return { error: err as Error };
