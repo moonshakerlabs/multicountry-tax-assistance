@@ -70,8 +70,8 @@ export default function GoogleDriveSetupModal({
     const state = crypto.randomUUID();
     sessionStorage.setItem("gdrive_oauth_state", state);
 
-    // Always use the configured app URL for Google Drive OAuth redirect
-    const redirectUri = `${APP_CONFIG.appUrl}/profile`;
+    // Use current origin to match whichever domain the user is on (taxbebo.com or www.taxbebo.com)
+    const redirectUri = `${window.location.origin}/profile`;
     sessionStorage.setItem("gdrive_redirect_uri", redirectUri);
 
     const params = new URLSearchParams({
@@ -102,7 +102,7 @@ export default function GoogleDriveSetupModal({
         return;
       }
 
-      const redirectUri = sessionStorage.getItem("gdrive_redirect_uri") || `${APP_CONFIG.appUrl}/profile`;
+      const redirectUri = sessionStorage.getItem("gdrive_redirect_uri") || `${window.location.origin}/profile`;
 
       const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/google-drive-auth`, {
         method: "POST",
