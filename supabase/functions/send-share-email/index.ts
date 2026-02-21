@@ -101,35 +101,40 @@ serve(async (req: Request) => {
     // Check if any docs are Google Drive files — if so, add sharing permissions
     const driveFiles = docs.filter((d: any) => isDriveFile(d.file_path));
     const drivePermissionIds: Record<string, string> = {};
+    let drivePermissionWarning: string | null = null;
 
     if (driveFiles.length > 0) {
-      // Get the user's Google Drive tokens
-      const { data: tokenRow } = await adminClient
-        .from("google_drive_tokens")
-        .select("access_token, refresh_token, token_expiry")
-        .eq("user_id", user.id)
-        .maybeSingle();
+      try {
+        // Get the user's Google Drive tokens
+        const { data: tokenRow } = await adminClient
+          .from("google_drive_tokens")
+          .select("access_token, refresh_token, token_expiry")
+          .eq("user_id", user.id)
+          .maybeSingle();
 
-      if (!tokenRow) {
-        return new Response(
-          JSON.stringify({ error: "Google Drive not connected. Cannot share Drive files." }),
-          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-
-      const accessToken = await getValidAccessToken(tokenRow, user.id);
-
-      // Add "anyone with link" reader permission to each Drive file
-      for (const doc of driveFiles) {
-        const fileId = extractDriveFileId(doc.file_path);
-        if (!fileId) continue;
-
-        const permId = await addAnyoneReaderPermission(accessToken, fileId);
-        if (permId) {
-          drivePermissionIds[fileId] = permId;
+        if (!tokenRow) {
+          drivePermissionWarning = "Google Drive not connected. Drive files will be shared without direct link access.";
+          console.warn(drivePermissionWarning);
         } else {
-          console.error(`Failed to add permission for Drive file ${fileId}`);
+          const accessToken = await getValidAccessToken(tokenRow, user.id);
+
+          // Add "anyone with link" reader permission to each Drive file
+          for (const doc of driveFiles) {
+            const fileId = extractDriveFileId(doc.file_path);
+            if (!fileId) continue;
+
+            const permId = await addAnyoneReaderPermission(accessToken, fileId);
+            if (permId) {
+              drivePermissionIds[fileId] = permId;
+            } else {
+              console.error(`Failed to add permission for Drive file ${fileId}`);
+            }
+          }
         }
+      } catch (driveErr: any) {
+        // Don't crash the entire share — proceed without Drive permissions
+        drivePermissionWarning = `Google Drive permission setup failed: ${driveErr.message}. Share will proceed without direct Drive access.`;
+        console.error("Drive permission error (non-fatal):", driveErr.message);
       }
     }
 
@@ -254,6 +259,7 @@ serve(async (req: Request) => {
         shareId: results[0]?.shareId,
         status: results[0]?.status,
         shareLink: results[0]?.shareLink,
+        ...(drivePermissionWarning ? { driveWarning: drivePermissionWarning } : {}),
       }),
       {
         status: allFailed ? 500 : 200,

@@ -29,7 +29,8 @@ export async function refreshAccessToken(
 
   const data = await response.json();
   if (data.error) {
-    throw new Error(`Token refresh failed: ${data.error_description || data.error}`);
+    console.error("Token refresh error details:", JSON.stringify(data));
+    throw new Error(`Token refresh failed: ${data.error_description || data.error}. Please reconnect Google Drive from your profile.`);
   }
 
   const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
