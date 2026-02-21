@@ -18,6 +18,7 @@ import Pricing from "./pages/Pricing";
 import Community from "./pages/Community";
 import PublicCommunity from "./pages/PublicCommunity";
 import Blog from "./pages/Blog";
+import BlogPost from "./pages/BlogPost";
 import TermsAndConditions from "./pages/TermsAndConditions";
 import PrivacyPolicy from "./pages/PrivacyPolicy";
 import ResetPassword from "./pages/ResetPassword";
@@ -42,6 +43,7 @@ const App = () => (
             <Route path="/login" element={<Auth />} />
             <Route path="/pricing" element={<Pricing />} />
             <Route path="/blog" element={<Blog />} />
+            <Route path="/blog/:slug" element={<BlogPost />} />
             <Route path="/taxoverflow" element={<PublicCommunity />} />
             <Route path="/terms" element={<TermsAndConditions />} />
             <Route path="/privacy" element={<PrivacyPolicy />} />
