@@ -191,11 +191,13 @@ serve(async (req) => {
       }
     }
 
-    // Resolve AI API key & gateway: only use custom values if non-empty
+    // Resolve AI API key & gateway: only use custom values if non-empty and valid
     const customApiKey = Deno.env.get("AI_API_KEY")?.trim();
     const customGatewayUrl = Deno.env.get("AI_GATEWAY_URL")?.trim();
-    const aiApiKey = (customApiKey && customApiKey.length > 0) ? customApiKey : Deno.env.get("LOVABLE_API_KEY");
-    const aiGatewayUrl = (customGatewayUrl && customGatewayUrl.length > 0)
+    const isValidCustomGateway = customGatewayUrl && customGatewayUrl.startsWith("http") && customGatewayUrl.includes("/chat/completions");
+    const useCustom = !!(customApiKey && customApiKey.length > 0 && isValidCustomGateway);
+    const aiApiKey = useCustom ? customApiKey : Deno.env.get("LOVABLE_API_KEY");
+    const aiGatewayUrl = useCustom
       ? customGatewayUrl
       : "https://ai.gateway.lovable.dev/v1/chat/completions";
     if (!aiApiKey) {
@@ -212,7 +214,7 @@ serve(async (req) => {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          model: "google/gemini-2.5-pro",
+          ...(useCustom ? {} : { model: "google/gemini-2.5-pro" }),
           messages: [
             {
               role: "system",
