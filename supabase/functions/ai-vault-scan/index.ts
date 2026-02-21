@@ -1,6 +1,9 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
+const GOOGLE_TOKEN_URL = "https://oauth2.googleapis.com/token";
+const DRIVE_FILES_URL = "https://www.googleapis.com/drive/v3/files";
+
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
@@ -256,25 +259,111 @@ Format using clear markdown with tables where appropriate. Use OCR to extract AL
 Files being analyzed: ${docs.map(d => d.file_name).join(", ")}`,
       }];
 
+      // Helper: refresh Google Drive access token
+      async function refreshDriveToken(refreshToken: string, driveUserId: string): Promise<string> {
+        const clientId = Deno.env.get("GOOGLE_CLIENT_ID")!;
+        const clientSecret = Deno.env.get("GOOGLE_CLIENT_SECRET")!;
+        const resp = await fetch(GOOGLE_TOKEN_URL, {
+          method: "POST",
+          headers: { "Content-Type": "application/x-www-form-urlencoded" },
+          body: new URLSearchParams({
+            client_id: clientId,
+            client_secret: clientSecret,
+            refresh_token: refreshToken,
+            grant_type: "refresh_token",
+          }),
+        });
+        if (!resp.ok) throw new Error("Failed to refresh Google Drive token");
+        const data = await resp.json();
+        // Update token in DB
+        await adminSupabase
+          .from("google_drive_tokens")
+          .update({
+            access_token: data.access_token,
+            token_expiry: new Date(Date.now() + data.expires_in * 1000).toISOString(),
+          })
+          .eq("user_id", driveUserId);
+        return data.access_token;
+      }
+
+      // Helper: download file from Google Drive
+      async function downloadFromDrive(fileId: string, driveUserId: string): Promise<Uint8Array | null> {
+        // Get user's Drive tokens
+        const { data: tokenRow } = await adminSupabase
+          .from("google_drive_tokens")
+          .select("*")
+          .eq("user_id", driveUserId)
+          .maybeSingle();
+
+        if (!tokenRow?.access_token) {
+          console.error("No Google Drive tokens found for user");
+          return null;
+        }
+
+        let accessToken = tokenRow.access_token;
+        const tokenExpiry = new Date(tokenRow.token_expiry || 0);
+        if (tokenExpiry <= new Date() && tokenRow.refresh_token) {
+          try {
+            accessToken = await refreshDriveToken(tokenRow.refresh_token, driveUserId);
+          } catch (e) {
+            console.error("Failed to refresh Drive token:", e);
+            return null;
+          }
+        }
+
+        // Download file content
+        const downloadUrl = `${DRIVE_FILES_URL}/${fileId}?alt=media`;
+        const resp = await fetch(downloadUrl, {
+          headers: { Authorization: `Bearer ${accessToken}` },
+        });
+
+        if (!resp.ok) {
+          console.error(`Drive download failed for ${fileId}: ${resp.status} ${resp.statusText}`);
+          return null;
+        }
+
+        const arrayBuffer = await resp.arrayBuffer();
+        return new Uint8Array(arrayBuffer);
+      }
+
       // Download and encode each file
       for (const doc of docs) {
         if (!doc.file_path) continue;
 
-        const { data: fileData, error: dlErr } = await adminSupabase.storage
-          .from("user-documents")
-          .download(doc.file_path);
+        let uint8: Uint8Array | null = null;
+        const isGDrive = doc.file_path.startsWith("gdrive://");
 
-        if (dlErr || !fileData) {
-          console.error(`Failed to download ${doc.file_name}:`, dlErr);
-          contentParts.push({
-            type: "text",
-            text: `\n--- File: ${doc.file_name} (COULD NOT BE DOWNLOADED) ---\n`,
-          });
-          continue;
+        if (isGDrive) {
+          // Download from Google Drive
+          const fileId = doc.file_path.replace("gdrive://", "");
+          uint8 = await downloadFromDrive(fileId, userId);
+          if (!uint8) {
+            console.error(`Failed to download ${doc.file_name} from Google Drive`);
+            contentParts.push({
+              type: "text",
+              text: `\n--- File: ${doc.file_name} (COULD NOT BE DOWNLOADED FROM GOOGLE DRIVE) ---\n`,
+            });
+            continue;
+          }
+        } else {
+          // Download from Supabase storage
+          const { data: fileData, error: dlErr } = await adminSupabase.storage
+            .from("user-documents")
+            .download(doc.file_path);
+
+          if (dlErr || !fileData) {
+            console.error(`Failed to download ${doc.file_name}:`, dlErr);
+            contentParts.push({
+              type: "text",
+              text: `\n--- File: ${doc.file_name} (COULD NOT BE DOWNLOADED) ---\n`,
+            });
+            continue;
+          }
+
+          const bytes = await fileData.arrayBuffer();
+          uint8 = new Uint8Array(bytes);
         }
 
-        const bytes = await fileData.arrayBuffer();
-        const uint8 = new Uint8Array(bytes);
         let binary = "";
         for (let i = 0; i < uint8.length; i++) {
           binary += String.fromCharCode(uint8[i]);
@@ -282,8 +371,8 @@ Files being analyzed: ${docs.map(d => d.file_name).join(", ")}`,
         const base64 = btoa(binary);
 
         const isImage = doc.file_type?.startsWith("image/") || false;
-        const isPDF = doc.file_type === "application/pdf";
-        const mimeType = doc.file_type || "application/octet-stream";
+        const isPDF = doc.file_type === "application/pdf" || doc.file_name?.toLowerCase().endsWith(".pdf");
+        const mimeType = doc.file_type || (isPDF ? "application/pdf" : "application/octet-stream");
 
         if (isImage || isPDF) {
           contentParts.push({
