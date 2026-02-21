@@ -69,7 +69,8 @@ export default function GoogleDriveSetupModal({
     const state = crypto.randomUUID();
     sessionStorage.setItem("gdrive_oauth_state", state);
 
-    const redirectUri = `${window.location.origin}${window.location.pathname}`;
+    // Always use /profile as the redirect path for Google Drive OAuth
+    const redirectUri = `${window.location.origin}/profile`;
     sessionStorage.setItem("gdrive_redirect_uri", redirectUri);
 
     const params = new URLSearchParams({
@@ -196,8 +197,8 @@ export default function GoogleDriveSetupModal({
             <h3>{isDE ? "Erfolgreich verbunden!" : "Successfully connected!"}</h3>
             <p>
               {isDE
-                ? 'Ordner "WordTaxFiling" wurde in Ihrem Google Drive erstellt.'
-                : '"WordTaxFiling" folder has been created in your Google Drive.'}
+                ? 'Ordner "TAXBEBO" wurde in Ihrem Google Drive erstellt.'
+                : '"TAXBEBO" folder has been created in your Google Drive.'}
             </p>
           </div>
         );

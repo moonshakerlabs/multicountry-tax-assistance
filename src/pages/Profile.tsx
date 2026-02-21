@@ -7,7 +7,7 @@ import { useStoragePreference } from '@/hooks/useStoragePreference';
 import { useSubscription } from '@/hooks/useSubscription';
 import { useSubscriptionConfig } from '@/hooks/useSubscriptionConfig';
 import { supabase } from '@/integrations/supabase/client';
-import { ArrowLeft, ChevronDown, Check, X, Cloud, HardDrive, Unlink, Loader2, User, Settings, Trash2, AlertTriangle, ArrowDown } from 'lucide-react';
+import { ArrowLeft, ChevronDown, Check, X, Cloud, HardDrive, Unlink, Loader2, User, Settings, Trash2, AlertTriangle, ArrowDown, CreditCard } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { 
   ALL_COUNTRIES, 
@@ -20,7 +20,7 @@ import GoogleDriveSetupModal from '@/components/documents/GoogleDriveSetupModal'
 import SecuritySettings from '@/components/profile/SecuritySettings';
 
 
-type Tab = 'preferences' | 'settings' | 'danger';
+type Tab = 'preferences' | 'settings' | 'subscription' | 'danger';
 
 export default function Profile() {
   const { user, profile, refreshProfile, signOut, userRoles, isSuperAdmin } = useAuth();
@@ -278,6 +278,13 @@ export default function Profile() {
             <Settings className="h-4 w-4" />
             Settings
           </button>
+          <button
+            className={`profile-tab ${activeTab === 'subscription' ? 'profile-tab-active' : ''}`}
+            onClick={() => setActiveTab('subscription')}
+          >
+            <CreditCard className="h-4 w-4" />
+            Subscription
+          </button>
           {!isAdminRole && (
             <button
               className={`profile-tab ${activeTab === 'danger' ? 'profile-tab-active' : ''}`}
@@ -478,19 +485,48 @@ export default function Profile() {
 
         {/* ── Settings Tab ── */}
         {activeTab === 'settings' && (
-          <>
-            <SecuritySettings />
+          <SecuritySettings />
+        )}
 
-            {/* Downgrade Subscription Section */}
-            {!subLoading && subscription.subscription_plan !== 'FREE' && (
-              <div className="profile-card" style={{ marginTop: '1.5rem' }}>
-                <div className="profile-form">
+        {/* ── Subscription Tab ── */}
+        {activeTab === 'subscription' && (
+          <div className="profile-card">
+            <div className="profile-form">
+              {/* Current Plan Info */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                <CreditCard className="h-5 w-5" style={{ color: 'hsl(var(--primary))' }} />
+                <div>
+                  <h3 className="profile-section-title" style={{ marginBottom: 0 }}>Your Subscription</h3>
+                  <p className="profile-hint">
+                    Current plan: <strong>{subscription.subscription_plan}</strong> ({subscription.billing_cycle})
+                    {subscription.is_legacy_user && ' • Legacy pricing'}
+                  </p>
+                </div>
+              </div>
+
+              {/* Upgrade CTA for non-Super Pro users */}
+              {subscription.subscription_plan !== 'SUPER_PRO' && (
+                <div style={{ background: 'hsl(var(--primary) / 0.06)', border: '1px solid hsl(var(--primary) / 0.2)', borderRadius: '0.5rem', padding: '1rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.75rem' }}>
+                  <p className="profile-hint" style={{ margin: 0 }}>
+                    Unlock more features by upgrading your plan.
+                  </p>
+                  <Link to="/pricing">
+                    <Button variant="default" size="sm">View Plans & Upgrade</Button>
+                  </Link>
+                </div>
+              )}
+
+              <div className="profile-section-divider" />
+
+              {/* Downgrade Section */}
+              {!subLoading && subscription.subscription_plan !== 'FREE' && (
+                <>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
                     <ArrowDown className="h-5 w-5" style={{ color: 'hsl(var(--muted-foreground))' }} />
                     <div>
                       <h3 className="profile-section-title" style={{ marginBottom: 0 }}>Downgrade Plan</h3>
                       <p className="profile-hint">
-                        Current plan: <strong>{subscription.subscription_plan}</strong> ({subscription.billing_cycle})
+                        Request a downgrade to a lower tier.
                       </p>
                     </div>
                   </div>
@@ -620,10 +656,15 @@ export default function Profile() {
                       </div>
                     </div>
                   )}
-                </div>
-              </div>
-            )}
-          </>
+                </>
+              )}
+
+              {/* Free users see upgrade-only */}
+              {subscription.subscription_plan === 'FREE' && (
+                <p className="profile-hint">You are on the Free plan. Visit the <Link to="/pricing" style={{ textDecoration: 'underline', color: 'hsl(var(--primary))' }}>Pricing page</Link> to explore available plans.</p>
+              )}
+            </div>
+          </div>
         )}
 
         {/* ── Delete Account Tab ── */}
