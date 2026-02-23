@@ -26,6 +26,7 @@ import TwoFactorVerify from "./pages/TwoFactorVerify";
 import Support from "./pages/Support";
 import NotFound from "./pages/NotFound";
 import SharedPost from "./pages/SharedPost";
+import Sitemap from "./pages/Sitemap";
 
 const queryClient = new QueryClient();
 
@@ -49,6 +50,7 @@ const App = () => (
             <Route path="/privacy" element={<PrivacyPolicy />} />
             <Route path="/reset-password" element={<ResetPassword />} />
             <Route path="/2fa-verify" element={<TwoFactorVerify />} />
+            <Route path="/sitemap" element={<Sitemap />} />
 
             {/* Protected user routes */}
             <Route path="/dashboard" element={
