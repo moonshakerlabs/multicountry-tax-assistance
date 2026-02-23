@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
-import { lovable } from '@/integrations/lovable/index';
+import { supabase } from '@/integrations/supabase/client';
 import { z } from 'zod';
 import './Auth.css';
 import { APP_NAME } from '@/lib/appConfig';
@@ -138,7 +138,6 @@ export default function Auth() {
       } else {
         // Assign trial subscription via edge function
         try {
-          const { supabase } = await import('@/integrations/supabase/client');
           const { data: { session: newSession } } = await supabase.auth.getSession();
           if (newSession?.user) {
             await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/assign-trial`, {
@@ -169,10 +168,21 @@ export default function Auth() {
   const handleGoogleOAuth = async () => {
     setIsLoading(true);
     try {
-      const { error } = await lovable.auth.signInWithOAuth('google', {
-        redirect_uri: window.location.origin,
+      const { data, error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: `${window.location.origin}/dashboard`,
+          skipBrowserRedirect: true,
+        },
       });
       if (error) throw error;
+      if (data?.url) {
+        const oauthUrl = new URL(data.url);
+        if (oauthUrl.protocol !== 'https:') {
+          throw new Error('Invalid OAuth redirect URL');
+        }
+        window.location.href = data.url;
+      }
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Unable to sign in. Please try again.';
       toast({ title: 'Google sign in failed', description: message, variant: 'destructive' });
