@@ -374,7 +374,7 @@ export default function Pricing() {
         });
       }
 
-      window.location.reload();
+      window.location.href = '/pricing';
     } catch (err: any) {
       toast({ title: 'Error', description: err.message || 'Failed to change plan.', variant: 'destructive' });
     } finally {
