@@ -17,6 +17,7 @@ import {
 } from '@/lib/countryLanguageData';
 import './Profile.css';
 import GoogleDriveSetupModal from '@/components/documents/GoogleDriveSetupModal';
+import GDPRConsentModal from '@/components/documents/GDPRConsentModal';
 import SecuritySettings from '@/components/profile/SecuritySettings';
 
 
@@ -32,6 +33,7 @@ export default function Profile() {
     gdprConsentGiven,
     googleDriveConnected,
     setStoragePreference,
+    setGDPRConsent,
     refresh: refreshStoragePreference,
   } = useStoragePreference();
   
@@ -54,6 +56,7 @@ export default function Profile() {
   const [deletionReason, setDeletionReason] = useState('');
   const [deletionReasonOther, setDeletionReasonOther] = useState('');
   const [showGoogleDriveSetup, setShowGoogleDriveSetup] = useState(false);
+  const [showGDPRConsent, setShowGDPRConsent] = useState(false);
   const [pendingOAuthCode, setPendingOAuthCode] = useState<string | null>(null);
   const [showDowngrade, setShowDowngrade] = useState(false);
   const [downgradeTarget, setDowngradeTarget] = useState('');
@@ -417,7 +420,14 @@ export default function Profile() {
                 <div className="profile-storage-options">
                   {/* Hide Platform Storage (Secure Vault) for Free users */}
                   {!isFreeUser && (
-                    <div className={`profile-storage-option ${storagePreference === 'saas' ? 'profile-storage-option-selected' : ''}`} onClick={() => !isLoading && setStoragePreference('saas')}>
+                    <div className={`profile-storage-option ${storagePreference === 'saas' ? 'profile-storage-option-selected' : ''}`} onClick={() => {
+                      if (isLoading) return;
+                      if (gdprConsentGiven) {
+                        setStoragePreference('saas');
+                      } else {
+                        setShowGDPRConsent(true);
+                      }
+                    }}>
                       <Cloud className="w-5 h-5" />
                       <div>
                         <strong>Platform Storage</strong>
@@ -791,6 +801,24 @@ export default function Profile() {
           }}
           onCancel={() => { setPendingOAuthCode(null); setShowGoogleDriveSetup(false); }}
           userEmail={profile?.email}
+        />
+      )}
+
+      {/* GDPR Consent Modal */}
+      {showGDPRConsent && (
+        <GDPRConsentModal
+          isDE={preferredLanguage === 'DE'}
+          onAccept={async () => {
+            try {
+              await setGDPRConsent(true);
+              await setStoragePreference('saas');
+              setShowGDPRConsent(false);
+              toast({ title: 'GDPR consent accepted', description: 'Platform Storage is now your storage preference.' });
+            } catch (error: any) {
+              toast({ title: 'Error', description: error.message || 'Failed to update consent.', variant: 'destructive' });
+            }
+          }}
+          onDecline={() => setShowGDPRConsent(false)}
         />
       )}
     </div>

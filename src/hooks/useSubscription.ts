@@ -64,5 +64,19 @@ export function useSubscription() {
     }
   };
 
-  return { subscription, loading, getCountryLimit, getPostingLimit };
+  const refetch = async () => {
+    if (!user) return;
+    setLoading(true);
+    const { data, error } = await supabase
+      .from('user_subscriptions')
+      .select('subscription_plan, billing_cycle, subscription_status, is_legacy_user, points_balance')
+      .eq('user_id', user.id)
+      .maybeSingle();
+    if (data && !error) {
+      setSubscription(data as SubscriptionData);
+    }
+    setLoading(false);
+  };
+
+  return { subscription, loading, getCountryLimit, getPostingLimit, refetch };
 }
