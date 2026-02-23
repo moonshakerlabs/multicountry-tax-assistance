@@ -5,8 +5,9 @@ import { Shield, Globe, Share2, ChevronDown, ChevronUp, Gift, Clock } from 'luci
 import { useAuth } from '@/hooks/useAuth';
 import { APP_NAME, APP_TAGLINE } from '@/lib/appConfig';
 import { useSubscriptionConfig } from '@/hooks/useSubscriptionConfig';
-import taxbeboLogo from '@/assets/taxbebo-logo.jpeg';
 import './Home.css';
+
+const taxbeboLogo = '/images/taxbebo-logo.png';
 
 const faqs = [
   {

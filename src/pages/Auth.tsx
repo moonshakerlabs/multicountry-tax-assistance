@@ -9,7 +9,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { z } from 'zod';
 import './Auth.css';
 import { APP_NAME } from '@/lib/appConfig';
-import taxbeboLogo from '@/assets/taxbebo-logo.jpeg';
+const taxbeboLogo = '/images/taxbebo-logo.png';
 
 const emailSchema = z.string().email('Please enter a valid email address');
 const passwordSchema = z.string().min(6, 'Password must be at least 6 characters');
