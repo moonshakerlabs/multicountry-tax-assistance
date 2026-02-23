@@ -1,16 +1,7 @@
-User-agent: Googlebot
-Allow: /
-
-User-agent: Bingbot
-Allow: /
-
-User-agent: Twitterbot
-Allow: /
-
-User-agent: facebookexternalhit
+User-agent: GPTBot
 Allow: /
 
 User-agent: *
 Allow: /
 
-Sitemap: https://taxbebo.com/sitemap.xml
+Sitemap: https://www.taxbebo.com/sitemap.xml
