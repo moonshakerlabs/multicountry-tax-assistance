@@ -576,6 +576,45 @@ export type Database = {
         }
         Relationships: []
       }
+      faq_items: {
+        Row: {
+          answer: string
+          category: string
+          created_at: string
+          created_by: string
+          id: string
+          is_published: boolean
+          question: string
+          sort_order: number
+          updated_at: string
+          updated_by: string
+        }
+        Insert: {
+          answer: string
+          category?: string
+          created_at?: string
+          created_by: string
+          id?: string
+          is_published?: boolean
+          question: string
+          sort_order?: number
+          updated_at?: string
+          updated_by: string
+        }
+        Update: {
+          answer?: string
+          category?: string
+          created_at?: string
+          created_by?: string
+          id?: string
+          is_published?: boolean
+          question?: string
+          sort_order?: number
+          updated_at?: string
+          updated_by?: string
+        }
+        Relationships: []
+      }
       google_drive_tokens: {
         Row: {
           access_token: string | null
@@ -606,6 +645,36 @@ export type Database = {
           token_expiry?: string | null
           updated_at?: string
           user_id?: string
+        }
+        Relationships: []
+      }
+      privacy_policy_versions: {
+        Row: {
+          content: Json
+          created_at: string
+          id: string
+          is_active: boolean
+          published_at: string | null
+          updated_by: string
+          version: number
+        }
+        Insert: {
+          content?: Json
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          published_at?: string | null
+          updated_by: string
+          version?: number
+        }
+        Update: {
+          content?: Json
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          published_at?: string | null
+          updated_by?: string
+          version?: number
         }
         Relationships: []
       }
