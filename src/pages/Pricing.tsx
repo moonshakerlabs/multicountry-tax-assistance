@@ -343,6 +343,21 @@ export default function Pricing() {
         is_legacy_applied: false,
       });
 
+      // Send subscription change notification email
+      fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-user-notification`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: 'subscription_change',
+          userId: user.id,
+          data: {
+            oldPlan: subscription.subscription_plan,
+            newPlan: targetPlan,
+            changeType,
+          },
+        }),
+      }).catch(err => console.error('Subscription email error:', err));
+
       if (isUpgrade) {
         toast({
           title: '🎉 Upgraded!',

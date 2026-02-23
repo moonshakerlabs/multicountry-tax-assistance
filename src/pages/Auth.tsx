@@ -145,6 +145,12 @@ export default function Auth() {
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ userId: newSession.user.id, email: signupEmail }),
             });
+            // Send welcome email
+            fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-user-notification`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ type: 'welcome', userId: newSession.user.id, email: signupEmail }),
+            }).catch(err => console.error('Welcome email error:', err));
           }
         } catch (trialErr) {
           console.error('Trial assignment error:', trialErr);

@@ -224,6 +224,13 @@ export default function Profile() {
 
       if (archiveError) throw archiveError;
 
+      // Send account deletion notification email
+      fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-user-notification`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type: 'account_deletion', userId: user.id, email: profile.email }),
+      }).catch(err => console.error('Deletion email error:', err));
+
       toast({
         title: 'Account deletion requested',
         description: 'Your account will be deleted within 30 days. You have 30 days to download your documents.',
