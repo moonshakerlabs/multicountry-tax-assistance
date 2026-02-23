@@ -71,6 +71,17 @@ serve(async (req: Request) => {
 
     const adminClient = createClient(supabaseUrl, supabaseServiceKey);
 
+    // Fetch sender's name from profiles table
+    const { data: senderProfile } = await adminClient
+      .from("profiles")
+      .select("first_name, last_name, email")
+      .eq("id", user.id)
+      .maybeSingle();
+
+    const senderFirstName = senderProfile?.first_name || "";
+    const senderLastName = senderProfile?.last_name || "";
+    const senderFullName = [senderFirstName, senderLastName].filter(Boolean).join(" ") || senderProfile?.email || user.email || "Someone";
+
     // Verify all documents belong to user and have share_enabled = true
     const { data: docs, error: docsError } = await adminClient
       .from("documents")
@@ -105,7 +116,6 @@ serve(async (req: Request) => {
 
     if (driveFiles.length > 0) {
       try {
-        // Get the user's Google Drive tokens
         const { data: tokenRow } = await adminClient
           .from("google_drive_tokens")
           .select("access_token, refresh_token, token_expiry")
@@ -118,7 +128,6 @@ serve(async (req: Request) => {
         } else {
           const accessToken = await getValidAccessToken(tokenRow, user.id);
 
-          // Add "anyone with link" reader permission to each Drive file
           for (const doc of driveFiles) {
             const fileId = extractDriveFileId(doc.file_path);
             if (!fileId) continue;
@@ -132,7 +141,6 @@ serve(async (req: Request) => {
           }
         }
       } catch (driveErr: any) {
-        // Don't crash the entire share — proceed without Drive permissions
         drivePermissionWarning = `Google Drive permission setup failed: ${driveErr.message}. Share will proceed without direct Drive access.`;
         console.error("Drive permission error (non-fatal):", driveErr.message);
       }
@@ -147,6 +155,9 @@ serve(async (req: Request) => {
 
     const resend = new Resend(resendKey);
     const appUrl = Deno.env.get("APP_URL") || "https://multicountry-tax-assistance.lovable.app";
+
+    // Build document list HTML for the email
+    const docListHtml = docs.map((d: any) => `<li style="padding: 4px 0;">${d.file_name || 'Document'}</li>`).join("");
 
     // Process each recipient independently
     const results: Array<{ email: string; shareId: string; shareLink: string; status: string }> = [];
@@ -196,19 +207,31 @@ serve(async (req: Request) => {
         const emailResult = await resend.emails.send({
           from: EMAIL_FROM,
           to: [recipientEmail],
-          subject: `Documents shared with you via TAXBEBO`,
+          subject: `${senderFullName} has shared documents with you via TAXBEBO`,
           html: `
             <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
-              <h2 style="color: #1a1a2e;">Documents Shared With You</h2>
-              <p>Someone has shared <strong>${documentIds.length} document(s)</strong> with you via TAXBEBO.</p>
-              <p><strong>Access expires:</strong> ${new Date(expiresAt).toLocaleDateString()}</p>
-              <div style="margin: 24px 0;">
-                <a href="${shareLink}" style="background: #6366f1; color: white; padding: 12px 24px; border-radius: 6px; text-decoration: none; display: inline-block;">
-                  View Documents
+              <div style="text-align: center; margin-bottom: 24px;">
+                <h1 style="color: #1a1a2e; font-size: 24px; margin: 0;">TAXBEBO</h1>
+                <p style="color: #666; font-size: 14px; margin: 4px 0 0;">Secure Document Sharing</p>
+              </div>
+              <h2 style="color: #1a1a2e; font-size: 18px;">Documents Shared With You</h2>
+              <p style="color: #333; font-size: 15px;">
+                <strong>${senderFullName}</strong> has shared <strong>${documentIds.length} document(s)</strong> with you via TAXBEBO.
+              </p>
+              <div style="background: #f8f9fa; border-radius: 8px; padding: 16px; margin: 16px 0;">
+                <p style="margin: 0 0 8px; font-size: 13px; color: #666; font-weight: 600;">SHARED DOCUMENTS:</p>
+                <ul style="margin: 0; padding-left: 20px; color: #333; font-size: 14px;">
+                  ${docListHtml}
+                </ul>
+              </div>
+              <p style="color: #333; font-size: 14px;"><strong>Access expires:</strong> ${new Date(expiresAt).toLocaleDateString()}</p>
+              <div style="margin: 24px 0; text-align: center;">
+                <a href="${shareLink}" style="background: #6366f1; color: white; padding: 14px 32px; border-radius: 6px; text-decoration: none; display: inline-block; font-size: 16px; font-weight: 600;">
+                  View & Download Documents
                 </a>
               </div>
-              <p style="color: #666; font-size: 14px;">
-                🔒 You will need to verify your email with a one-time code before accessing the documents.
+              <p style="color: #666; font-size: 13px; text-align: center;">
+                Click the button above to access the shared documents directly.
               </p>
               <hr style="border: none; border-top: 1px solid #eee; margin: 24px 0;" />
               <p style="color: #999; font-size: 12px;">
