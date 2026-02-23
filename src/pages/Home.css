@@ -1,5 +1,5 @@
 .home-container {
-  min-height: 100vh;
+  min-height: 150vh;
   background-color: hsl(var(--background));
 }
 
@@ -446,4 +446,3 @@
   border-top: 1px solid hsl(var(--border));
   padding-top: 1rem;
 }
-
