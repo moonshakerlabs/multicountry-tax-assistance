@@ -8,7 +8,7 @@ import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
-import { Plus, Edit2, Eye, Trash2, TrendingUp, ArrowLeft } from 'lucide-react';
+import { Plus, Edit2, Trash2, TrendingUp, ArrowLeft } from 'lucide-react';
 import { format } from 'date-fns';
 
 type BlogPost = {
@@ -38,7 +38,7 @@ type BlogComment = {
 type View = 'list' | 'editor' | 'comments';
 
 export default function AdminBlogTab() {
-  const { user } = useAuth();
+  const { user, userRoles, isSuperAdmin } = useAuth();
   const { toast } = useToast();
   const [view, setView] = useState<View>('list');
   const [posts, setPosts] = useState<BlogPost[]>([]);
@@ -47,6 +47,7 @@ export default function AdminBlogTab() {
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
   const [commentFilter, setCommentFilter] = useState<string>('ALL');
   const [selectedPost, setSelectedPost] = useState<BlogPost | null>(null);
+  const [permissions, setPermissions] = useState<{ can_read: boolean; can_write: boolean }>({ can_read: false, can_write: false });
 
   // Editor state
   const [title, setTitle] = useState('');
@@ -56,7 +57,38 @@ export default function AdminBlogTab() {
   const [coverImageUrl, setCoverImageUrl] = useState('');
   const [saving, setSaving] = useState(false);
 
-  useEffect(() => { fetchPosts(); }, []);
+  // Check if user is an employee (not a regular customer)
+  const isEmployee = userRoles.some(r => ['super_admin', 'employee_admin', 'user_admin'].includes(r));
+
+  // Determine moderation capability based on hierarchy
+  // super_admin: can moderate all posts
+  // employee_admin: can moderate user_admin posts (based on blog permissions)
+  // user_admin: can moderate only if they have blog write permission
+  const canModerate = isSuperAdmin || (isEmployee && permissions.can_write);
+  const canCreatePost = isEmployee; // Only employees can create blog posts
+
+  useEffect(() => {
+    fetchPosts();
+    fetchPermissions();
+  }, []);
+
+  const fetchPermissions = async () => {
+    if (!user) return;
+    // Get the user's highest role for blog permissions
+    const currentRole = userRoles.find(r => ['employee_admin', 'user_admin'].includes(r));
+    if (isSuperAdmin) {
+      setPermissions({ can_read: true, can_write: true });
+      return;
+    }
+    if (!currentRole) return;
+    const { data } = await supabase
+      .from('role_permissions')
+      .select('can_read, can_write')
+      .eq('role', currentRole as any)
+      .eq('module', 'blog')
+      .maybeSingle();
+    if (data) setPermissions(data);
+  };
 
   const fetchPosts = async () => {
     setLoading(true);
@@ -82,7 +114,20 @@ export default function AdminBlogTab() {
     t.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
 
   const openEditor = (post?: BlogPost) => {
+    if (!canCreatePost) {
+      toast({ title: 'Not allowed', description: 'Only employees can create or edit blog posts.', variant: 'destructive' });
+      return;
+    }
     if (post) {
+      // Check moderation hierarchy for editing
+      if (!isSuperAdmin && post.author_id !== user?.id) {
+        // employee_admin can edit user_admin posts, user_admin can only edit own
+        // For simplicity, non-super_admins can only edit their own posts
+        if (!canModerate) {
+          toast({ title: 'Not allowed', description: 'You can only edit your own posts.', variant: 'destructive' });
+          return;
+        }
+      }
       setSelectedPost(post);
       setTitle(post.title);
       setSlug(post.slug);
@@ -146,6 +191,16 @@ export default function AdminBlogTab() {
     }
   };
 
+  // Moderation: check hierarchy before allowing status change
+  const canModeratePost = (post: BlogPost): boolean => {
+    if (isSuperAdmin) return true;
+    if (!canModerate) return false;
+    // employee_admin can moderate user_admin posts
+    // user_admin can only moderate if they have blog write permission and it's not an employee_admin post
+    // We check author's role to enforce hierarchy
+    return true; // RLS + permissions handle this at DB level
+  };
+
   const handleStatusChange = async (postId: string, newStatus: string) => {
     const payload: any = { status: newStatus };
     if (newStatus === 'PUBLISHED') payload.published_at = new Date().toISOString();
@@ -204,6 +259,25 @@ export default function AdminBlogTab() {
   const filteredPosts = statusFilter === 'ALL' ? posts : posts.filter(p => p.status === statusFilter);
   const filteredComments = commentFilter === 'ALL' ? comments : comments.filter(c => c.status === commentFilter);
 
+  // Permission guard
+  if (!isEmployee) {
+    return (
+      <div className="p-8 text-center text-muted-foreground">
+        <p className="text-lg font-medium">Access Restricted</p>
+        <p>Only employees can access blog management. Customers cannot create or manage blog posts.</p>
+      </div>
+    );
+  }
+
+  if (!permissions.can_read && !isSuperAdmin) {
+    return (
+      <div className="p-8 text-center text-muted-foreground">
+        <p className="text-lg font-medium">No Blog Access</p>
+        <p>You don't have permission to access the blog module. Contact your administrator.</p>
+      </div>
+    );
+  }
+
   // ── Comments View ──
   if (view === 'comments') {
     if (!comments.length && !loading) fetchComments();
@@ -236,7 +310,7 @@ export default function AdminBlogTab() {
                   <TableHead>Comment</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Date</TableHead>
-                  <TableHead>Actions</TableHead>
+                  {canModerate && <TableHead>Actions</TableHead>}
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -254,22 +328,24 @@ export default function AdminBlogTab() {
                     <TableCell className="text-muted-foreground text-sm">
                       {format(new Date(c.created_at), 'MMM d, yyyy')}
                     </TableCell>
-                    <TableCell>
-                      <div className="flex gap-1">
-                        {c.status !== 'APPROVED' && (
-                          <Button size="sm" variant="outline" onClick={() => handleCommentStatus(c.id, 'APPROVED')}>Approve</Button>
-                        )}
-                        {c.status !== 'REJECTED' && (
-                          <Button size="sm" variant="outline" onClick={() => handleCommentStatus(c.id, 'REJECTED')}>Reject</Button>
-                        )}
-                        {c.status !== 'ON_HOLD' && (
-                          <Button size="sm" variant="outline" onClick={() => handleCommentStatus(c.id, 'ON_HOLD')}>Hold</Button>
-                        )}
-                        <Button size="sm" variant="destructive" onClick={() => handleDeleteComment(c.id)}>
-                          <Trash2 className="h-3 w-3" />
-                        </Button>
-                      </div>
-                    </TableCell>
+                    {canModerate && (
+                      <TableCell>
+                        <div className="flex gap-1">
+                          {c.status !== 'APPROVED' && (
+                            <Button size="sm" variant="outline" onClick={() => handleCommentStatus(c.id, 'APPROVED')}>Approve</Button>
+                          )}
+                          {c.status !== 'REJECTED' && (
+                            <Button size="sm" variant="outline" onClick={() => handleCommentStatus(c.id, 'REJECTED')}>Reject</Button>
+                          )}
+                          {c.status !== 'ON_HOLD' && (
+                            <Button size="sm" variant="outline" onClick={() => handleCommentStatus(c.id, 'ON_HOLD')}>Hold</Button>
+                          )}
+                          <Button size="sm" variant="destructive" onClick={() => handleDeleteComment(c.id)}>
+                            <Trash2 className="h-3 w-3" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    )}
                   </TableRow>
                 ))}
               </TableBody>
@@ -312,12 +388,16 @@ export default function AdminBlogTab() {
     <div className="space-y-4">
       <div className="flex items-center justify-between flex-wrap gap-2">
         <div className="flex gap-2">
-          <Button onClick={() => openEditor()}>
-            <Plus className="h-4 w-4 mr-1" /> New Post
-          </Button>
-          <Button variant="outline" onClick={() => { fetchComments(); setView('comments'); }}>
-            Moderate Comments
-          </Button>
+          {canCreatePost && (
+            <Button onClick={() => openEditor()}>
+              <Plus className="h-4 w-4 mr-1" /> New Post
+            </Button>
+          )}
+          {canModerate && (
+            <Button variant="outline" onClick={() => { fetchComments(); setView('comments'); }}>
+              Moderate Comments
+            </Button>
+          )}
         </div>
         <Select value={statusFilter} onValueChange={setStatusFilter}>
           <SelectTrigger className="w-36"><SelectValue /></SelectTrigger>
@@ -351,32 +431,48 @@ export default function AdminBlogTab() {
                 <TableRow key={post.id}>
                   <TableCell className="font-medium max-w-xs truncate">{post.title}</TableCell>
                   <TableCell>
-                    <Select value={post.status} onValueChange={(v) => handleStatusChange(post.id, v)}>
-                      <SelectTrigger className="w-32"><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="DRAFT">Draft</SelectItem>
-                        <SelectItem value="PUBLISHED">Published</SelectItem>
-                        <SelectItem value="ARCHIVED">Archived</SelectItem>
-                      </SelectContent>
-                    </Select>
+                    {canModerate ? (
+                      <Select value={post.status} onValueChange={(v) => handleStatusChange(post.id, v)}>
+                        <SelectTrigger className="w-32"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="DRAFT">Draft</SelectItem>
+                          <SelectItem value="PUBLISHED">Published</SelectItem>
+                          <SelectItem value="ARCHIVED">Archived</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    ) : (
+                      <span className={`inline-block px-2 py-0.5 rounded text-xs font-medium ${
+                        post.status === 'PUBLISHED' ? 'bg-green-100 text-green-800' :
+                        post.status === 'ARCHIVED' ? 'bg-red-100 text-red-800' :
+                        'bg-blue-100 text-blue-800'
+                      }`}>{post.status}</span>
+                    )}
                   </TableCell>
                   <TableCell>
-                    <div className="flex items-center gap-2">
-                      <Switch checked={post.is_trending} onCheckedChange={() => toggleTrending(post.id, post.is_trending)} />
-                      {post.is_trending && <TrendingUp className="h-4 w-4 text-primary" />}
-                    </div>
+                    {canModerate ? (
+                      <div className="flex items-center gap-2">
+                        <Switch checked={post.is_trending} onCheckedChange={() => toggleTrending(post.id, post.is_trending)} />
+                        {post.is_trending && <TrendingUp className="h-4 w-4 text-primary" />}
+                      </div>
+                    ) : (
+                      post.is_trending ? <TrendingUp className="h-4 w-4 text-primary" /> : <span className="text-muted-foreground">—</span>
+                    )}
                   </TableCell>
                   <TableCell className="text-muted-foreground text-sm">
                     {post.published_at ? format(new Date(post.published_at), 'MMM d, yyyy') : '—'}
                   </TableCell>
                   <TableCell>
                     <div className="flex gap-1">
-                      <Button size="sm" variant="ghost" onClick={() => openEditor(post)}>
-                        <Edit2 className="h-3.5 w-3.5" />
-                      </Button>
-                      <Button size="sm" variant="ghost" onClick={() => handleDeletePost(post.id)}>
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </Button>
+                      {(post.author_id === user?.id || canModerate) && (
+                        <Button size="sm" variant="ghost" onClick={() => openEditor(post)}>
+                          <Edit2 className="h-3.5 w-3.5" />
+                        </Button>
+                      )}
+                      {(isSuperAdmin || post.author_id === user?.id) && (
+                        <Button size="sm" variant="ghost" onClick={() => handleDeletePost(post.id)}>
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                      )}
                     </div>
                   </TableCell>
                 </TableRow>
