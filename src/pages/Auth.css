@@ -40,17 +40,10 @@
   text-decoration: none;
 }
 
-.auth-logo-icon {
-  height: 2.5rem;
-  width: 2.5rem;
-  border-radius: 0.5rem;
-  background-color: hsl(var(--primary));
-}
-
-.auth-logo-text {
-  font-size: 1.25rem;
-  font-weight: 600;
-  color: hsl(var(--foreground));
+.auth-logo-img {
+  height: 3rem;
+  width: auto;
+  object-fit: contain;
 }
 
 .auth-card {
