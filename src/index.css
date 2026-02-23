@@ -19,7 +19,7 @@
 @layer base {
   :root {
     /* Core brand colors - Deep blue-grey palette */
-    --background: 0 0% 100%;
+    --background: 0 0% 98%;
     --foreground: 0 0% 9%;
 
     /* Card surfaces with subtle warmth */
