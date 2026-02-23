@@ -26,7 +26,7 @@
 }
 
 .home-logo-img {
-  height: 2.5rem;
+  height: 4rem;
   width: auto;
   object-fit: contain;
 }
@@ -347,7 +347,7 @@
 }
 
 .home-footer-logo-img {
-  height: 2rem;
+  height: 3rem;
   width: auto;
   object-fit: contain;
 }
