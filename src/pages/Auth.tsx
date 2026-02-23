@@ -9,6 +9,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { z } from 'zod';
 import './Auth.css';
 import { APP_NAME } from '@/lib/appConfig';
+import taxbeboLogo from '@/assets/taxbebo-logo.jpeg';
 
 const emailSchema = z.string().email('Please enter a valid email address');
 const passwordSchema = z.string().min(6, 'Password must be at least 6 characters');
@@ -308,8 +309,7 @@ export default function Auth() {
         </div>
         <div className="auth-logo">
           <Link to="/" className="auth-logo-link">
-            <div className="auth-logo-icon" />
-            <span className="auth-logo-text">{APP_NAME}</span>
+            <img src={taxbeboLogo} alt={APP_NAME} className="auth-logo-img" />
           </Link>
         </div>
 

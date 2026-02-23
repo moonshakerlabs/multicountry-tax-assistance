@@ -5,6 +5,7 @@ import { Shield, Globe, Share2, ChevronDown, ChevronUp, Gift, Clock } from 'luci
 import { useAuth } from '@/hooks/useAuth';
 import { APP_NAME, APP_TAGLINE } from '@/lib/appConfig';
 import { useSubscriptionConfig } from '@/hooks/useSubscriptionConfig';
+import taxbeboLogo from '@/assets/taxbebo-logo.jpeg';
 import './Home.css';
 
 const faqs = [
@@ -66,8 +67,7 @@ export default function Home() {
       <header className="home-header">
         <div className="home-header-content">
           <div className="home-logo">
-            <div className="home-logo-icon" />
-            <span className="home-logo-text">{APP_NAME}</span>
+            <img src={taxbeboLogo} alt={APP_NAME} className="home-logo-img" />
           </div>
           <nav className="home-nav">
             <div className="home-auth-buttons">
@@ -206,8 +206,7 @@ export default function Home() {
       <footer className="home-footer">
         <div className="home-footer-content">
           <div className="home-footer-logo">
-            <div className="home-footer-logo-icon" />
-            <span className="home-footer-logo-text">{APP_NAME}</span>
+            <img src={taxbeboLogo} alt={APP_NAME} className="home-footer-logo-img" />
           </div>
           <nav className="home-footer-nav">
             <Link to="/privacy" className="home-footer-link">Privacy Policy</Link>
