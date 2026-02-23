@@ -1,5 +1,5 @@
 .home-container {
-  min-height: 150vh;
+  min-height: 100vh;
   background-color: hsl(var(--background));
 }
 
@@ -13,7 +13,7 @@
   max-width: 1280px;
   margin: 0 auto;
   padding: 0 1.5rem;
-  height: 4rem;
+  height: 5rem;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -26,7 +26,7 @@
 }
 
 .home-logo-img {
-  height: 4rem;
+  height: 3.5rem;
   width: auto;
   object-fit: contain;
 }
