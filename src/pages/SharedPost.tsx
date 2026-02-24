@@ -6,7 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { CheckCircle, Lock, MessageSquare, ThumbsUp, ThumbsDown, ArrowLeft } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import './SharedPost.css';
-import { APP_NAME } from '@/lib/appConfig';
+import { APP_NAME, APP_TAGLINE } from '@/lib/appConfig';
 
 interface Post {
   id: string;
@@ -75,8 +75,8 @@ export default function SharedPost() {
       <header className="shared-post-header">
         <div className="shared-post-header-content">
           <Link to="/taxoverflow" className="shared-post-logo-link">
-            <div className="shared-post-logo-icon" />
-            <span className="shared-post-logo-text">{APP_NAME}</span>
+            <img src="/images/taxbebo-logo.png" alt={APP_NAME} className="shared-post-logo-icon" />
+            <span className="shared-post-logo-text">{APP_NAME} – {APP_TAGLINE}</span>
           </Link>
           <span className="shared-post-divider">/</span>
           <span className="shared-post-breadcrumb">TaxOverFlow</span>

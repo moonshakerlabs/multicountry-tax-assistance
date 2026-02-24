@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
-import { APP_NAME } from '@/lib/appConfig';
+import { APP_NAME, APP_TAGLINE } from '@/lib/appConfig';
 import { 
   LogOut, 
   Upload, 
@@ -468,8 +468,8 @@ export default function DocumentVault() {
         <div className="vault-header-content">
           <div className="vault-logo">
             <Link to="/" className="vault-logo-link">
-              <div className="vault-logo-icon" />
-              <span className="vault-logo-text">{APP_NAME}</span>
+              <img src="/images/taxbebo-logo.png" alt={APP_NAME} className="vault-logo-icon" />
+              <span className="vault-logo-text">{APP_NAME} – {APP_TAGLINE}</span>
             </Link>
           </div>
           <div className="vault-header-actions">

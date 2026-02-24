@@ -43,7 +43,7 @@
   height: 2rem;
   width: 2rem;
   border-radius: 0.5rem;
-  background-color: hsl(var(--primary));
+  object-fit: contain;
 }
 
 .vault-logo-text {

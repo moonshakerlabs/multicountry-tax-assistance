@@ -960,7 +960,7 @@ function Sidebar({ onSignOut }: { onSignOut: () => void }) {
     <aside className="ai-tools-sidebar">
       <div className="ai-tools-sidebar-header">
         <Link to="/" className="ai-tools-sidebar-logo">
-          <div className="ai-tools-sidebar-logo-icon" />
+          <img src="/images/taxbebo-logo.png" alt={APP_NAME} className="ai-tools-sidebar-logo-icon" />
           <span>{APP_NAME}</span>
         </Link>
       </div>

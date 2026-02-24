@@ -5,7 +5,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { privacyPolicyData, PolicySection } from '@/lib/privacyPolicyData';
 import { useToast } from '@/hooks/use-toast';
 import './TermsAndConditions.css';
-import { APP_NAME } from '@/lib/appConfig';
+import { APP_NAME, APP_TAGLINE } from '@/lib/appConfig';
 
 function renderSection(section: PolicySection, index: number) {
   switch (section.type) {
@@ -109,8 +109,8 @@ export default function TermsAndConditions() {
         {/* Logo */}
         <div className="tc-logo">
           <Link to="/" className="tc-logo-link">
-            <div className="tc-logo-icon" />
-            <span className="tc-logo-text">{APP_NAME}</span>
+            <img src="/images/taxbebo-logo.png" alt={APP_NAME} className="tc-logo-icon" />
+            <span className="tc-logo-text">{APP_NAME} – {APP_TAGLINE}</span>
           </Link>
         </div>
 

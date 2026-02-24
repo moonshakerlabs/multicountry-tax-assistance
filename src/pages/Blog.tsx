@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, TrendingUp, Clock, Share2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
-import { APP_NAME, APP_CONFIG } from '@/lib/appConfig';
+import { APP_NAME, APP_TAGLINE, APP_CONFIG } from '@/lib/appConfig';
 import { format } from 'date-fns';
 import './Blog.css';
 
@@ -57,8 +57,8 @@ export default function Blog() {
             Back to Home
           </Link>
           <div className="blog-logo">
-            <div className="blog-logo-icon" />
-            <span className="blog-logo-text">{APP_NAME}</span>
+            <img src="/images/taxbebo-logo.png" alt={APP_NAME} className="blog-logo-icon" />
+            <span className="blog-logo-text">{APP_NAME} – {APP_TAGLINE}</span>
           </div>
         </div>
       </header>

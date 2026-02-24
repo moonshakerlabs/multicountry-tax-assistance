@@ -6,7 +6,7 @@ import { ArrowLeft, Share2, Clock, TrendingUp, Send, MessageSquare } from 'lucid
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
-import { APP_NAME, APP_CONFIG } from '@/lib/appConfig';
+import { APP_NAME, APP_TAGLINE, APP_CONFIG } from '@/lib/appConfig';
 import { format } from 'date-fns';
 import ReactMarkdown from 'react-markdown';
 import './BlogPost.css';
@@ -108,8 +108,8 @@ export default function BlogPost() {
             <ArrowLeft className="h-4 w-4" /> Back to Blog
           </Link>
           <div className="blogpost-logo">
-            <div className="blogpost-logo-icon" />
-            <span className="blogpost-logo-text">{APP_NAME}</span>
+            <img src="/images/taxbebo-logo.png" alt={APP_NAME} className="blogpost-logo-icon" />
+            <span className="blogpost-logo-text">{APP_NAME} – {APP_TAGLINE}</span>
           </div>
         </div>
       </header>
