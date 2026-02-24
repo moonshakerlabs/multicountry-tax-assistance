@@ -6,7 +6,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
-import { APP_NAME } from '@/lib/appConfig';
+import { APP_NAME, APP_TAGLINE } from '@/lib/appConfig';
 import { useFeatureAccess } from '@/hooks/useFeatureAccess';
 import { User, FileText, LogOut, FolderOpen, Upload, ChevronRight, MessageSquare, Brain, Shield, Users, CheckCircle, XCircle, Settings, Activity, CreditCard, Briefcase, ArrowLeft, HeadphonesIcon, TicketIcon, Eye, RotateCcw, X, Trash2, AlertTriangle, UserX, UserPlus, Sliders, BookOpen, Tag, DollarSign, ToggleLeft, ShieldCheck, Plus, Save } from 'lucide-react';
 import AdminBlogTab from '@/components/admin/AdminBlogTab';
@@ -1552,8 +1552,8 @@ export default function Dashboard() {
         <div className="dashboard-header-content">
           <div className="dashboard-logo">
             <Link to="/" className="dashboard-logo-link">
-              <div className="dashboard-logo-icon" />
-              <span className="dashboard-logo-text">{APP_NAME}</span>
+              <img src="/images/taxbebo-logo.png" alt={APP_NAME} className="dashboard-logo-icon" />
+              <span className="dashboard-logo-text">{APP_NAME} – {APP_TAGLINE}</span>
             </Link>
           </div>
           <div className="dashboard-header-actions">

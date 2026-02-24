@@ -39,7 +39,7 @@
   width: 28px;
   height: 28px;
   border-radius: 6px;
-  background: hsl(var(--primary));
+  object-fit: contain;
 }
 
 .public-community-logo-text {

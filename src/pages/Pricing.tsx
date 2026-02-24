@@ -11,7 +11,7 @@ import { Check, X as XIcon, Star, ArrowLeft, Gift, Clock, ArrowUp, ArrowDown, Ho
 import { useToast } from '@/hooks/use-toast';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import './Pricing.css';
-import { APP_NAME } from '@/lib/appConfig';
+import { APP_NAME, APP_TAGLINE } from '@/lib/appConfig';
 
 interface PlanFeature {
   text: string;
@@ -436,8 +436,8 @@ export default function Pricing() {
         <div className="pricing-header-content">
           <div className="pricing-logo">
             <Link to="/" className="pricing-logo-link">
-              <div className="pricing-logo-icon" />
-              <span className="pricing-logo-text">{APP_NAME}</span>
+              <img src="/images/taxbebo-logo.png" alt={APP_NAME} className="pricing-logo-icon" />
+              <span className="pricing-logo-text">{APP_NAME} – {APP_TAGLINE}</span>
             </Link>
           </div>
           <nav className="pricing-nav">
@@ -574,7 +574,7 @@ export default function Pricing() {
       <footer className="pricing-footer">
         <div className="pricing-footer-content">
           <div className="pricing-footer-logo">
-            <div className="pricing-footer-logo-icon" />
+            <img src="/images/taxbebo-logo.png" alt={APP_NAME} className="pricing-footer-logo-icon" />
             <span className="pricing-footer-logo-text">{APP_NAME}</span>
           </div>
           <nav className="pricing-footer-nav">

@@ -166,7 +166,7 @@ export default function PublicCommunity() {
         <div className="public-community-header-content">
           <div className="public-community-header-left">
             <Link to="/" className="public-community-logo-link">
-              <div className="public-community-logo-icon" />
+              <img src="/images/taxbebo-logo.png" alt={APP_NAME} className="public-community-logo-icon" />
               <span className="public-community-logo-text">{APP_NAME}</span>
             </Link>
             <span className="public-community-divider">/</span>

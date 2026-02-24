@@ -34,7 +34,7 @@
   width: 26px;
   height: 26px;
   border-radius: 6px;
-  background: hsl(var(--primary));
+  object-fit: contain;
 }
 
 .shared-post-logo-text {

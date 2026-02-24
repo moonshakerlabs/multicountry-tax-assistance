@@ -83,7 +83,7 @@ export default function CommunityHeader({ onAskQuestion, canPost, guidelinesAcce
         <div className="community-header-content">
           <div className="community-header-left">
             <Link to="/" className="community-logo-link">
-              <div className="community-logo-icon" />
+              <img src="/images/taxbebo-logo.png" alt={APP_NAME} className="community-logo-icon" />
               <span className="community-logo-text">{APP_NAME}</span>
             </Link>
             <span className="community-header-divider">/</span>

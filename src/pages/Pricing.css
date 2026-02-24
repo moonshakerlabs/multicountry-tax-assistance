@@ -35,7 +35,7 @@
   height: 2rem;
   width: 2rem;
   border-radius: 0.5rem;
-  background-color: hsl(var(--primary));
+  object-fit: contain;
 }
 
 .pricing-logo-text {
@@ -377,7 +377,7 @@
   height: 1.5rem;
   width: 1.5rem;
   border-radius: 0.25rem;
-  background-color: hsl(var(--primary));
+  object-fit: contain;
 }
 
 .pricing-footer-logo-text {
