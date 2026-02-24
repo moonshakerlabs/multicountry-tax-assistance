@@ -8,9 +8,11 @@ import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { APP_NAME } from '@/lib/appConfig';
 import { useFeatureAccess } from '@/hooks/useFeatureAccess';
-import { User, FileText, LogOut, FolderOpen, Upload, ChevronRight, MessageSquare, Brain, Shield, Users, CheckCircle, XCircle, Settings, Activity, CreditCard, Briefcase, ArrowLeft, HeadphonesIcon, TicketIcon, Eye, RotateCcw, X, Trash2, AlertTriangle, UserX, UserPlus, Sliders, BookOpen, Tag, DollarSign, ToggleLeft } from 'lucide-react';
+import { User, FileText, LogOut, FolderOpen, Upload, ChevronRight, MessageSquare, Brain, Shield, Users, CheckCircle, XCircle, Settings, Activity, CreditCard, Briefcase, ArrowLeft, HeadphonesIcon, TicketIcon, Eye, RotateCcw, X, Trash2, AlertTriangle, UserX, UserPlus, Sliders, BookOpen, Tag, DollarSign, ToggleLeft, ShieldCheck, Plus, Save } from 'lucide-react';
 import AdminBlogTab from '@/components/admin/AdminBlogTab';
+import AdminPrivacyPolicyTab from '@/components/admin/AdminPrivacyPolicyTab';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
@@ -1084,6 +1086,325 @@ export default function Dashboard() {
     );
   }
 
+  // ─── Feature Management Tab (Super Admin only) ─────────────────────
+  function FeatureManagementTab() {
+    const [features, setFeatures] = useState<any[]>([]);
+    const [mappings, setMappings] = useState<any[]>([]);
+    const [loadingFeatures, setLoadingFeatures] = useState(true);
+    const [savingMapping, setSavingMapping] = useState<string | null>(null);
+    const [newFeatureKey, setNewFeatureKey] = useState('');
+    const [newFeatureName, setNewFeatureName] = useState('');
+    const [newFeatureDesc, setNewFeatureDesc] = useState('');
+    const [creatingFeature, setCreatingFeature] = useState(false);
+
+    const PLANS = ['FREE', 'FREEMIUM', 'PRO', 'SUPER_PRO'];
+
+    useEffect(() => {
+      fetchFeatureData();
+    }, []);
+
+    const fetchFeatureData = async () => {
+      setLoadingFeatures(true);
+      const [featRes, mapRes] = await Promise.all([
+        (supabase as any).from('plan_features').select('*').order('feature_key'),
+        (supabase as any).from('plan_feature_mapping').select('*'),
+      ]);
+      setFeatures(featRes.data || []);
+      setMappings(mapRes.data || []);
+      setLoadingFeatures(false);
+    };
+
+    const isEnabled = (featureKey: string, planKey: string) => {
+      const m = mappings.find((x: any) => x.feature_key === featureKey && x.plan_key === planKey);
+      return m?.enabled ?? false;
+    };
+
+    const toggleMapping = async (featureKey: string, planKey: string, enabled: boolean) => {
+      setSavingMapping(`${featureKey}-${planKey}`);
+      const existing = mappings.find((x: any) => x.feature_key === featureKey && x.plan_key === planKey);
+      if (existing) {
+        await (supabase as any).from('plan_feature_mapping').update({ enabled }).eq('id', existing.id);
+      } else {
+        await (supabase as any).from('plan_feature_mapping').insert({ feature_key: featureKey, plan_key: planKey, enabled });
+      }
+      // Optimistic update
+      setMappings(prev => {
+        const idx = prev.findIndex((x: any) => x.feature_key === featureKey && x.plan_key === planKey);
+        if (idx >= 0) {
+          const updated = [...prev];
+          updated[idx] = { ...updated[idx], enabled };
+          return updated;
+        }
+        return [...prev, { feature_key: featureKey, plan_key: planKey, enabled, id: `temp-${Date.now()}` }];
+      });
+      setSavingMapping(null);
+      logActivity('toggle_feature', 'plan_feature_mapping', `${featureKey}:${planKey}`, { enabled });
+    };
+
+    const handleCreateFeature = async () => {
+      if (!newFeatureKey.trim() || !newFeatureName.trim()) return;
+      setCreatingFeature(true);
+      const { error } = await (supabase as any).from('plan_features').insert({
+        feature_key: newFeatureKey.trim().toUpperCase().replace(/\s+/g, '_'),
+        feature_name: newFeatureName.trim(),
+        description: newFeatureDesc.trim() || null,
+      });
+      if (error) {
+        toast({ title: 'Error', description: error.message, variant: 'destructive' });
+      } else {
+        toast({ title: 'Feature created' });
+        setNewFeatureKey('');
+        setNewFeatureName('');
+        setNewFeatureDesc('');
+        fetchFeatureData();
+      }
+      setCreatingFeature(false);
+    };
+
+    return (
+      <div className="admin-section">
+        <h2 className="admin-section-title"><ToggleLeft className="h-5 w-5" /> Feature Management</h2>
+        <p className="text-sm text-muted-foreground mb-4">
+          Enable or disable features per plan. Changes take effect immediately.
+        </p>
+
+        {/* Add new feature */}
+        <div className="rounded-xl border bg-card p-5 mb-6 space-y-3">
+          <h3 className="text-sm font-bold">Add New Feature</h3>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            <div>
+              <Label className="text-xs">Feature Key</Label>
+              <Input placeholder="e.g. AI_TOOLS_ACCESS" value={newFeatureKey} onChange={e => setNewFeatureKey(e.target.value)} />
+            </div>
+            <div>
+              <Label className="text-xs">Display Name</Label>
+              <Input placeholder="e.g. AI Tools Access" value={newFeatureName} onChange={e => setNewFeatureName(e.target.value)} />
+            </div>
+            <div>
+              <Label className="text-xs">Description</Label>
+              <Input placeholder="Optional description" value={newFeatureDesc} onChange={e => setNewFeatureDesc(e.target.value)} />
+            </div>
+          </div>
+          <Button size="sm" onClick={handleCreateFeature} disabled={creatingFeature || !newFeatureKey.trim() || !newFeatureName.trim()}>
+            <Plus className="h-4 w-4 mr-1" /> {creatingFeature ? 'Creating...' : 'Add Feature'}
+          </Button>
+        </div>
+
+        {/* Feature mapping matrix */}
+        {loadingFeatures ? (
+          <p className="text-muted-foreground">Loading features...</p>
+        ) : features.length === 0 ? (
+          <p className="text-muted-foreground">No features defined yet.</p>
+        ) : (
+          <div className="admin-table-wrapper">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Feature</TableHead>
+                  {PLANS.map(p => <TableHead key={p} className="text-center">{p.replace('_', ' ')}</TableHead>)}
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {features.map((f: any) => (
+                  <TableRow key={f.feature_key}>
+                    <TableCell>
+                      <div className="font-medium text-sm">{f.feature_name}</div>
+                      <div className="text-xs text-muted-foreground font-mono">{f.feature_key}</div>
+                    </TableCell>
+                    {PLANS.map(plan => (
+                      <TableCell key={plan} className="text-center">
+                        <Checkbox
+                          checked={isEnabled(f.feature_key, plan)}
+                          onCheckedChange={(val) => toggleMapping(f.feature_key, plan, !!val)}
+                          disabled={savingMapping === `${f.feature_key}-${plan}`}
+                          className="cursor-pointer"
+                        />
+                      </TableCell>
+                    ))}
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // ─── Plan Pricing Tab (Super Admin only) ──────────────────────────────
+  function PlanPricingTab() {
+    const [prices, setPrices] = useState<any[]>([]);
+    const [loadingPrices, setLoadingPrices] = useState(true);
+    const [editValues, setEditValues] = useState<Record<string, string>>({});
+    const [savingId, setSavingId] = useState<string | null>(null);
+    const [newPlan, setNewPlan] = useState({ plan_key: '', billing_cycle: 'MONTHLY', price: '', currency: 'USD' });
+    const [creating, setCreating] = useState(false);
+
+    const PLANS = ['FREE', 'FREEMIUM', 'PRO', 'SUPER_PRO'];
+    const CYCLES = ['MONTHLY', 'YEARLY'];
+
+    useEffect(() => {
+      fetchPrices();
+    }, []);
+
+    const fetchPrices = async () => {
+      setLoadingPrices(true);
+      const { data } = await (supabase as any).from('plan_pricing').select('*').order('plan_key').order('billing_cycle');
+      const rows = data || [];
+      setPrices(rows);
+      const vals: Record<string, string> = {};
+      rows.forEach((r: any) => { vals[r.id] = String(r.price); });
+      setEditValues(vals);
+      setLoadingPrices(false);
+    };
+
+    const savePrice = async (row: any) => {
+      setSavingId(row.id);
+      const newPrice = parseFloat(editValues[row.id] || '0');
+      const { error } = await (supabase as any).from('plan_pricing').update({ price: newPrice, updated_at: new Date().toISOString() }).eq('id', row.id);
+      if (error) {
+        toast({ title: 'Error', description: error.message, variant: 'destructive' });
+      } else {
+        toast({ title: 'Price updated' });
+        logActivity('update_plan_pricing', 'plan_pricing', row.id, { plan_key: row.plan_key, billing_cycle: row.billing_cycle, price: newPrice });
+      }
+      setSavingId(null);
+    };
+
+    const toggleActive = async (row: any) => {
+      const { error } = await (supabase as any).from('plan_pricing').update({ is_active: !row.is_active }).eq('id', row.id);
+      if (!error) {
+        setPrices(prev => prev.map(p => p.id === row.id ? { ...p, is_active: !p.is_active } : p));
+        toast({ title: row.is_active ? 'Price deactivated' : 'Price activated' });
+      }
+    };
+
+    const handleCreatePrice = async () => {
+      if (!newPlan.plan_key || !newPlan.price) return;
+      setCreating(true);
+      const { error } = await (supabase as any).from('plan_pricing').insert({
+        plan_key: newPlan.plan_key,
+        billing_cycle: newPlan.billing_cycle,
+        price: parseFloat(newPlan.price),
+        currency: newPlan.currency,
+        is_active: true,
+      });
+      if (error) {
+        toast({ title: 'Error', description: error.message, variant: 'destructive' });
+      } else {
+        toast({ title: 'Price entry created' });
+        setNewPlan({ plan_key: '', billing_cycle: 'MONTHLY', price: '', currency: 'USD' });
+        fetchPrices();
+      }
+      setCreating(false);
+    };
+
+    return (
+      <div className="admin-section">
+        <h2 className="admin-section-title"><DollarSign className="h-5 w-5" /> Plan Pricing</h2>
+        <p className="text-sm text-muted-foreground mb-4">
+          Manage subscription prices. These are fetched dynamically and never hardcoded.
+        </p>
+
+        {/* Add new price */}
+        <div className="rounded-xl border bg-card p-5 mb-6 space-y-3">
+          <h3 className="text-sm font-bold">Add Price Entry</h3>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <div>
+              <Label className="text-xs">Plan</Label>
+              <Select value={newPlan.plan_key} onValueChange={v => setNewPlan(p => ({ ...p, plan_key: v }))}>
+                <SelectTrigger><SelectValue placeholder="Select plan" /></SelectTrigger>
+                <SelectContent>
+                  {PLANS.map(p => <SelectItem key={p} value={p}>{p.replace('_', ' ')}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label className="text-xs">Billing Cycle</Label>
+              <Select value={newPlan.billing_cycle} onValueChange={v => setNewPlan(p => ({ ...p, billing_cycle: v }))}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {CYCLES.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label className="text-xs">Price</Label>
+              <Input type="number" step="0.01" placeholder="9.99" value={newPlan.price} onChange={e => setNewPlan(p => ({ ...p, price: e.target.value }))} />
+            </div>
+            <div>
+              <Label className="text-xs">Currency</Label>
+              <Input value={newPlan.currency} onChange={e => setNewPlan(p => ({ ...p, currency: e.target.value.toUpperCase() }))} placeholder="USD" />
+            </div>
+          </div>
+          <Button size="sm" onClick={handleCreatePrice} disabled={creating || !newPlan.plan_key || !newPlan.price}>
+            <Plus className="h-4 w-4 mr-1" /> {creating ? 'Creating...' : 'Add Price'}
+          </Button>
+        </div>
+
+        {/* Existing prices */}
+        {loadingPrices ? (
+          <p className="text-muted-foreground">Loading prices...</p>
+        ) : prices.length === 0 ? (
+          <p className="text-muted-foreground">No pricing entries yet.</p>
+        ) : (
+          <div className="admin-table-wrapper">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Plan</TableHead>
+                  <TableHead>Cycle</TableHead>
+                  <TableHead>Price</TableHead>
+                  <TableHead>Currency</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {prices.map((row: any) => (
+                  <TableRow key={row.id} className={row.is_active ? '' : 'opacity-50'}>
+                    <TableCell className="font-medium">{row.plan_key.replace('_', ' ')}</TableCell>
+                    <TableCell>{row.billing_cycle}</TableCell>
+                    <TableCell>
+                      <div className="flex gap-2 items-center">
+                        <Input
+                          type="number"
+                          step="0.01"
+                          className="w-24"
+                          value={editValues[row.id] ?? String(row.price)}
+                          onChange={e => setEditValues(prev => ({ ...prev, [row.id]: e.target.value }))}
+                        />
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          disabled={savingId === row.id || editValues[row.id] === String(row.price)}
+                          onClick={() => savePrice(row)}
+                        >
+                          <Save className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    </TableCell>
+                    <TableCell>{row.currency}</TableCell>
+                    <TableCell>
+                      <span className={`admin-status-badge ${row.is_active ? 'admin-status-active' : 'admin-status-suspended'}`}>
+                        {row.is_active ? 'Active' : 'Inactive'}
+                      </span>
+                    </TableCell>
+                    <TableCell>
+                      <Button size="sm" variant="ghost" onClick={() => toggleActive(row)}>
+                        {row.is_active ? 'Deactivate' : 'Activate'}
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        )}
+      </div>
+    );
+  }
+
   // ─── Subscription Config Tab (Super Admin only) — renamed "Offers" ─────
   function SubscriptionConfigTab() {
     const [configs, setConfigs] = useState<any[]>([]);
@@ -1321,6 +1642,11 @@ export default function Dashboard() {
                   {isSuperAdmin && (
                     <TabsTrigger value="plan-pricing" className="flex items-center gap-1">
                       <DollarSign className="h-3.5 w-3.5" /> Plan Pricing
+                    </TabsTrigger>
+                  )}
+                  {isSuperAdmin && (
+                    <TabsTrigger value="privacy-policy" className="flex items-center gap-1">
+                      <ShieldCheck className="h-3.5 w-3.5" /> Privacy Policy
                     </TabsTrigger>
                   )}
                 </TabsList>
@@ -1617,6 +1943,27 @@ export default function Dashboard() {
                 {isSuperAdmin && (
                   <TabsContent value="sub-config">
                     <SubscriptionConfigTab />
+                  </TabsContent>
+                )}
+
+                {/* ─── FEATURES TAB ─── */}
+                {isSuperAdmin && (
+                  <TabsContent value="features">
+                    <FeatureManagementTab />
+                  </TabsContent>
+                )}
+
+                {/* ─── PLAN PRICING TAB ─── */}
+                {isSuperAdmin && (
+                  <TabsContent value="plan-pricing">
+                    <PlanPricingTab />
+                  </TabsContent>
+                )}
+
+                {/* ─── PRIVACY POLICY TAB ─── */}
+                {isSuperAdmin && (
+                  <TabsContent value="privacy-policy">
+                    <AdminPrivacyPolicyTab />
                   </TabsContent>
                 )}
               </Tabs>
