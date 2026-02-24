@@ -1,10 +1,12 @@
 import { useState, useEffect } from 'react';
 import { Link, Navigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { Shield, Globe, Share2, ChevronDown, ChevronUp, Gift, Clock } from 'lucide-react';
+import { Shield, Globe, Share2, ChevronDown, ChevronUp, Gift, Clock, BookOpen } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { APP_NAME, APP_TAGLINE } from '@/lib/appConfig';
 import { useSubscriptionConfig } from '@/hooks/useSubscriptionConfig';
+import { supabase } from '@/integrations/supabase/client';
+import { format } from 'date-fns';
 import './Home.css';
 
 const taxbeboLogo = '/images/taxbebo-logo.png';
@@ -50,10 +52,33 @@ const features = [
   }
 ];
 
+type BlogPostPreview = {
+  id: string;
+  title: string;
+  slug: string;
+  excerpt: string | null;
+  cover_image_url: string | null;
+  published_at: string | null;
+};
+
 export default function Home() {
   const { user } = useAuth();
   const [openFaq, setOpenFaq] = useState<number | null>(null);
   const { config, loading: configLoading, isEarlyAccessActive, getDaysRemaining } = useSubscriptionConfig();
+  const [blogPosts, setBlogPosts] = useState<BlogPostPreview[]>([]);
+
+  useEffect(() => {
+    const fetchBlogPosts = async () => {
+      const { data } = await (supabase as any)
+        .from('blog_posts')
+        .select('id, title, slug, excerpt, cover_image_url, published_at')
+        .eq('status', 'PUBLISHED')
+        .order('published_at', { ascending: false })
+        .limit(3);
+      setBlogPosts((data as BlogPostPreview[]) || []);
+    };
+    fetchBlogPosts();
+  }, []);
 
   if (user) {
     return <Navigate to="/dashboard" replace />;
@@ -143,7 +168,6 @@ export default function Home() {
             </Button>
           </div>
 
-          {/* Trial info below buttons */}
           {!configLoading && (
             <div className="home-trial-info">
               {earlyAccessActive ? (
@@ -158,7 +182,6 @@ export default function Home() {
             </div>
           )}
 
-          {/* Feature cards directly below buttons */}
           <div className="home-features-inline">
             {features.map((feature) => (
               <div key={feature.title} className="home-feature-card-inline">
@@ -172,6 +195,39 @@ export default function Home() {
           </div>
         </div>
       </section>
+
+      {/* Blog Section */}
+      {blogPosts.length > 0 && (
+        <section className="home-blog-section">
+          <div className="home-blog-content">
+            <h2 className="home-blog-title">
+              <BookOpen className="h-6 w-6" style={{ color: 'hsl(var(--primary))' }} /> Latest from Our Blog
+            </h2>
+            <p className="home-blog-subtitle">Insights on cross-border taxation, compliance tips, and financial planning.</p>
+            <div className="home-blog-grid">
+              {blogPosts.map(post => (
+                <Link key={post.id} to={`/blog/${post.slug}`} className="home-blog-card">
+                  {post.cover_image_url && (
+                    <img src={post.cover_image_url} alt={post.title} className="home-blog-card-img" />
+                  )}
+                  <div className="home-blog-card-body">
+                    <h3 className="home-blog-card-title">{post.title}</h3>
+                    {post.excerpt && <p className="home-blog-card-excerpt">{post.excerpt}</p>}
+                    {post.published_at && (
+                      <span className="home-blog-card-date">{format(new Date(post.published_at), 'MMM d, yyyy')}</span>
+                    )}
+                  </div>
+                </Link>
+              ))}
+            </div>
+            <div style={{ textAlign: 'center', marginTop: '1.5rem' }}>
+              <Button asChild variant="outline" size="lg">
+                <Link to="/blog">View All Posts</Link>
+              </Button>
+            </div>
+          </div>
+        </section>
+      )}
 
       {/* FAQ Section */}
       <section className="home-faq">

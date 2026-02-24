@@ -96,13 +96,28 @@
 }
 .blogpost-content {
   color: hsl(var(--foreground));
-  line-height: 1.75;
-  font-size: 1.0625rem;
+  line-height: 1.85;
+  font-size: 1.125rem;
 }
-.blogpost-content h1, .blogpost-content h2, .blogpost-content h3 {
+.blogpost-content h1 {
+  margin-top: 2rem;
+  margin-bottom: 0.75rem;
+  font-weight: 800;
+  font-size: 1.75rem;
+  color: hsl(var(--foreground));
+}
+.blogpost-content h2 {
+  margin-top: 1.75rem;
+  margin-bottom: 0.625rem;
+  font-weight: 700;
+  font-size: 1.5rem;
+  color: hsl(var(--foreground));
+}
+.blogpost-content h3 {
   margin-top: 1.5rem;
   margin-bottom: 0.5rem;
-  font-weight: 600;
+  font-weight: 700;
+  font-size: 1.25rem;
   color: hsl(var(--foreground));
 }
 .blogpost-content p { margin-bottom: 1rem; }
