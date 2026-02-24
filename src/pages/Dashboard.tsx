@@ -7,7 +7,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { APP_NAME } from '@/lib/appConfig';
-import { User, FileText, LogOut, FolderOpen, Upload, ChevronRight, MessageSquare, Brain, Shield, Users, CheckCircle, XCircle, Settings, Activity, CreditCard, Briefcase, ArrowLeft, HeadphonesIcon, TicketIcon, Eye, RotateCcw, X, Trash2, AlertTriangle, UserX, UserPlus, Sliders } from 'lucide-react';
+import { User, FileText, LogOut, FolderOpen, Upload, ChevronRight, MessageSquare, Brain, Shield, Users, CheckCircle, XCircle, Settings, Activity, CreditCard, Briefcase, ArrowLeft, HeadphonesIcon, TicketIcon, Eye, RotateCcw, X, Trash2, AlertTriangle, UserX, UserPlus, Sliders, BookOpen, Tag } from 'lucide-react';
+import AdminBlogTab from '@/components/admin/AdminBlogTab';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Input } from '@/components/ui/input';
@@ -1081,7 +1082,7 @@ export default function Dashboard() {
     );
   }
 
-  // ─── Subscription Config Tab (Super Admin only) ─────────────────────
+  // ─── Subscription Config Tab (Super Admin only) — renamed "Offers" ─────
   function SubscriptionConfigTab() {
     const [configs, setConfigs] = useState<any[]>([]);
     const [loadingConfig, setLoadingConfig] = useState(true);
@@ -1116,65 +1117,104 @@ export default function Dashboard() {
       setSavingKey(null);
     };
 
-    const configLabels: Record<string, string> = {
-      default_trial_days: '🕐 Default Trial Days',
-      default_trial_plan: '📋 Default Trial Plan',
-      early_access_enabled: '🚀 Early Access Enabled',
-      early_access_deadline: '📅 Early Access Deadline (YYYY-MM-DD)',
-      early_access_freemium_days: '🔵 Early Access Freemium Days',
-      early_access_pro_days: '🟣 Early Access Pro Days',
-      early_access_headline: '📝 Early Access Headline',
-      early_access_description: '📝 Early Access Description',
+    const isTrialEnabled = editValues['default_trial_days'] && parseInt(editValues['default_trial_days']) > 0;
+    const isEarlyAccessEnabled = editValues['early_access_enabled'] === 'true';
+
+    const renderConfigField = (key: string, label: string, type: 'text' | 'select' | 'trial_plan' = 'text') => {
+      const config = configs.find((c: any) => c.config_key === key);
+      if (!config) return null;
+      return (
+        <div className="rounded-lg border p-4 space-y-2" key={key}>
+          <label className="text-sm font-semibold block">{label}</label>
+          {config.description && <p className="text-xs text-muted-foreground">{config.description}</p>}
+          <div className="flex gap-2">
+            {type === 'select' ? (
+              <Select value={editValues[key] || 'false'} onValueChange={v => setEditValues(prev => ({ ...prev, [key]: v }))}>
+                <SelectTrigger className="flex-1"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="true">Enabled</SelectItem>
+                  <SelectItem value="false">Disabled</SelectItem>
+                </SelectContent>
+              </Select>
+            ) : type === 'trial_plan' ? (
+              <Select value={editValues[key] || 'PRO'} onValueChange={v => setEditValues(prev => ({ ...prev, [key]: v }))}>
+                <SelectTrigger className="flex-1"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="FREEMIUM">Freemium</SelectItem>
+                  <SelectItem value="PRO">Pro</SelectItem>
+                </SelectContent>
+              </Select>
+            ) : (
+              <Input
+                className="flex-1"
+                value={editValues[key] || ''}
+                onChange={e => setEditValues(prev => ({ ...prev, [key]: e.target.value }))}
+              />
+            )}
+            <Button
+              size="sm"
+              disabled={savingKey === key || editValues[key] === config.config_value}
+              onClick={() => saveConfig(key)}
+            >
+              {savingKey === key ? 'Saving...' : 'Save'}
+            </Button>
+          </div>
+        </div>
+      );
     };
 
     return (
       <div className="admin-section">
-        <h2 className="admin-section-title"><Sliders className="h-5 w-5" /> Subscription & Trial Configuration</h2>
-        <p className="text-sm text-muted-foreground mb-4">
-          Configure free trial periods, early access offers, and promotional deadlines. Changes take effect immediately.
+        <h2 className="admin-section-title"><Tag className="h-5 w-5" /> Offers & Subscription Configuration</h2>
+        <p className="text-sm text-muted-foreground mb-6">
+          Manage trial periods, promotional offers, and downgrade settings. Changes take effect immediately.
         </p>
         {loadingConfig ? (
           <p className="text-muted-foreground">Loading configuration...</p>
         ) : (
-          <div className="space-y-4 max-w-xl">
-            {configs.map((c: any) => (
-              <div key={c.config_key} className="rounded-lg border p-4 space-y-2">
-                <label className="text-sm font-semibold block">{configLabels[c.config_key] || c.config_key}</label>
-                {c.description && <p className="text-xs text-muted-foreground">{c.description}</p>}
-                <div className="flex gap-2">
-                  {c.config_key === 'early_access_enabled' ? (
-                    <Select value={editValues[c.config_key] || 'false'} onValueChange={v => setEditValues(prev => ({ ...prev, [c.config_key]: v }))}>
-                      <SelectTrigger className="flex-1"><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="true">Enabled</SelectItem>
-                        <SelectItem value="false">Disabled</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  ) : c.config_key === 'default_trial_plan' ? (
-                    <Select value={editValues[c.config_key] || 'PRO'} onValueChange={v => setEditValues(prev => ({ ...prev, [c.config_key]: v }))}>
-                      <SelectTrigger className="flex-1"><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="FREEMIUM">Freemium</SelectItem>
-                        <SelectItem value="PRO">Pro</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  ) : (
-                    <Input
-                      className="flex-1"
-                      value={editValues[c.config_key] || ''}
-                      onChange={e => setEditValues(prev => ({ ...prev, [c.config_key]: e.target.value }))}
-                    />
-                  )}
-                  <Button
-                    size="sm"
-                    disabled={savingKey === c.config_key || editValues[c.config_key] === c.config_value}
-                    onClick={() => saveConfig(c.config_key)}
-                  >
-                    {savingKey === c.config_key ? 'Saving...' : 'Save'}
-                  </Button>
-                </div>
+          <div className="space-y-6 max-w-xl">
+            {/* ─── Default Trial Settings ─── */}
+            <div className="rounded-xl border bg-card p-5 space-y-4">
+              <div className="flex items-center justify-between">
+                <h3 className="text-sm font-bold flex items-center gap-2">
+                  🕐 Default Trial Settings
+                </h3>
+                <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${isTrialEnabled ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground'}`}>
+                  {isTrialEnabled ? 'Active' : 'Inactive'}
+                </span>
               </div>
-            ))}
+              {renderConfigField('default_trial_days', 'Trial Duration (days)')}
+              {renderConfigField('default_trial_plan', 'Trial Plan', 'trial_plan')}
+            </div>
+
+            {/* ─── Early Access Offer ─── */}
+            <div className="rounded-xl border bg-card p-5 space-y-4">
+              <div className="flex items-center justify-between">
+                <h3 className="text-sm font-bold flex items-center gap-2">
+                  🚀 Early Access Offer
+                </h3>
+                <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${isEarlyAccessEnabled ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground'}`}>
+                  {isEarlyAccessEnabled ? 'Enabled' : 'Disabled'}
+                </span>
+              </div>
+              {renderConfigField('early_access_enabled', 'Enable Early Access', 'select')}
+              <div className={isEarlyAccessEnabled ? '' : 'opacity-50 pointer-events-none'}>
+                {renderConfigField('early_access_deadline', '📅 Deadline (YYYY-MM-DD)')}
+                {renderConfigField('early_access_freemium_days', '🔵 Freemium Days')}
+                {renderConfigField('early_access_pro_days', '🟣 Pro Days')}
+                {renderConfigField('early_access_headline', '📝 Headline')}
+                {renderConfigField('early_access_description', '📝 Description')}
+              </div>
+            </div>
+
+            {/* ─── Downgrade & Grace Period ─── */}
+            <div className="rounded-xl border bg-card p-5 space-y-4">
+              <h3 className="text-sm font-bold flex items-center gap-2">
+                ⚙️ Downgrade & Grace Period
+              </h3>
+              {renderConfigField('downgrade_cutoff_days', 'Downgrade Cutoff (days before expiry)')}
+              {renderConfigField('vault_grace_period_days', 'Vault Grace Period (days after downgrade)')}
+            </div>
           </div>
         )}
       </div>
@@ -1261,9 +1301,12 @@ export default function Dashboard() {
                       <CreditCard className="h-3.5 w-3.5" /> Payments
                     </TabsTrigger>
                   )}
+                  <TabsTrigger value="blog" className="flex items-center gap-1">
+                    <BookOpen className="h-3.5 w-3.5" /> Blog
+                  </TabsTrigger>
                   {isSuperAdmin && (
                     <TabsTrigger value="sub-config" className="flex items-center gap-1">
-                      <Sliders className="h-3.5 w-3.5" /> Trial Config
+                      <Tag className="h-3.5 w-3.5" /> Offers
                     </TabsTrigger>
                   )}
                 </TabsList>
@@ -1551,7 +1594,12 @@ export default function Dashboard() {
                   </TabsContent>
                 )}
 
-                {/* ─── SUBSCRIPTION CONFIG TAB ─── */}
+                {/* ─── BLOG TAB ─── */}
+                <TabsContent value="blog">
+                  <AdminBlogTab />
+                </TabsContent>
+
+                {/* ─── SUBSCRIPTION CONFIG (OFFERS) TAB ─── */}
                 {isSuperAdmin && (
                   <TabsContent value="sub-config">
                     <SubscriptionConfigTab />

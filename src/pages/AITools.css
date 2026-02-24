@@ -557,6 +557,47 @@
   flex: 1;
 }
 
+/* Dropdown menus for report buttons */
+.ai-tools-dropdown-wrapper {
+  position: relative;
+  display: inline-block;
+}
+
+.ai-tools-dropdown-menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  z-index: 50;
+  min-width: 180px;
+  background: hsl(var(--card));
+  border: 1px solid hsl(var(--border));
+  border-radius: 8px;
+  box-shadow: 0 4px 12px hsl(0 0% 0% / 0.1);
+  padding: 0.25rem;
+  display: flex;
+  flex-direction: column;
+}
+
+.ai-tools-dropdown-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  color: hsl(var(--foreground));
+  background: none;
+  border: none;
+  cursor: pointer;
+  transition: background 0.15s;
+  text-align: left;
+  width: 100%;
+}
+
+.ai-tools-dropdown-item:hover {
+  background: hsl(var(--accent));
+}
+
 /* Responsive */
 @media (max-width: 768px) {
   .ai-tools-sidebar {
