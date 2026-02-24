@@ -6,6 +6,10 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { useAuth } from '@/hooks/useAuth';
 import { useSubscription } from '@/hooks/useSubscription';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 import {
   Brain,
   Upload,
@@ -30,6 +34,9 @@ import {
   Download,
   FileSpreadsheet,
   Key,
+  Eye,
+  ChevronDown,
+  Save,
 } from 'lucide-react';
 import './AITools.css';
 
@@ -79,6 +86,34 @@ type VaultScanStep = 'input' | 'scanning' | 'confirm' | 'analyzing' | 'done';
 type RelevantFile = { id: string; file_name: string; reason: string };
 type SourceMode = 'upload' | 'vault';
 
+// ─── Helper: extract tables from markdown for PDF/CSV ───
+function extractTablesFromMarkdown(md: string): { headers: string[]; rows: string[][] }[] {
+  const tables: { headers: string[]; rows: string[][] }[] = [];
+  const lines = md.split('\n');
+  let i = 0;
+  while (i < lines.length) {
+    const line = lines[i].trim();
+    if (line.startsWith('|') && line.endsWith('|')) {
+      // potential table start
+      const headerCells = line.split('|').filter(c => c.trim() !== '').map(c => c.trim());
+      // next line should be separator
+      if (i + 1 < lines.length && /^\|[\s\-:|]+\|$/.test(lines[i + 1].trim())) {
+        const rows: string[][] = [];
+        let j = i + 2;
+        while (j < lines.length && lines[j].trim().startsWith('|') && lines[j].trim().endsWith('|')) {
+          rows.push(lines[j].trim().split('|').filter(c => c.trim() !== '').map(c => c.trim()));
+          j++;
+        }
+        tables.push({ headers: headerCells, rows });
+        i = j;
+        continue;
+      }
+    }
+    i++;
+  }
+  return tables;
+}
+
 export default function AITools() {
   const { user, signOut } = useAuth();
   const { subscription, loading: subLoading } = useSubscription();
@@ -102,9 +137,13 @@ export default function AITools() {
   const [totalDocs, setTotalDocs] = useState(0);
   const [reportContent, setReportContent] = useState('');
   const [generatingReport, setGeneratingReport] = useState(false);
-  const [reportLink, setReportLink] = useState('');
-  const [reportFileName, setReportFileName] = useState('');
+  const [savingToVault, setSavingToVault] = useState(false);
+  const [savedToVault, setSavedToVault] = useState(false);
   const [sessionToken, setSessionToken] = useState<string | null>(null);
+
+  // Dropdown state for report buttons
+  const [pdfDropdownOpen, setPdfDropdownOpen] = useState(false);
+  const [csvDropdownOpen, setCsvDropdownOpen] = useState(false);
 
   // Get user session token
   useEffect(() => {
@@ -117,6 +156,13 @@ export default function AITools() {
       setSessionToken(session?.access_token || null);
     });
     return () => authSub.unsubscribe();
+  }, []);
+
+  // Close dropdowns on outside click
+  useEffect(() => {
+    const handler = () => { setPdfDropdownOpen(false); setCsvDropdownOpen(false); };
+    document.addEventListener('click', handler);
+    return () => document.removeEventListener('click', handler);
   }, []);
 
   const getCustomHeaders = (): Record<string, string> => {
@@ -202,7 +248,7 @@ export default function AITools() {
     setResult('');
     setRelevantFiles([]);
     setReportContent('');
-    setReportLink('');
+    setSavedToVault(false);
 
     try {
       const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
@@ -295,16 +341,151 @@ export default function AITools() {
     }
   };
 
-  // ─── VAULT SCAN: STEP 3 — GENERATE REPORT ───
-  const handleGenerateReport = async (format: 'excel' | 'pdf') => {
-    if (!reportContent || generatingReport) return;
+  // ─── CLIENT-SIDE PDF GENERATION ───
+  const generatePDF = (content: string): jsPDF => {
+    const doc = new jsPDF();
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const margin = 14;
+    const maxWidth = pageWidth - margin * 2;
+    let y = 20;
 
-    setGeneratingReport(true);
+    // Title
+    doc.setFontSize(16);
+    doc.setFont('helvetica', 'bold');
+    doc.text('Tax Analysis Report', margin, y);
+    y += 10;
+    doc.setFontSize(8);
+    doc.setFont('helvetica', 'normal');
+    doc.text(`Generated: ${new Date().toLocaleString()}`, margin, y);
+    y += 10;
 
+    const tables = extractTablesFromMarkdown(content);
+    // Remove table lines from content for text rendering
+    const textLines = content.split('\n');
+    let inTable = false;
+    const textParts: string[] = [];
+
+    for (const line of textLines) {
+      const trimmed = line.trim();
+      if (trimmed.startsWith('|') && trimmed.endsWith('|')) {
+        if (!inTable) {
+          textParts.push('__TABLE__');
+          inTable = true;
+        }
+      } else {
+        inTable = false;
+        // Clean markdown
+        const clean = trimmed
+          .replace(/^#{1,6}\s+/, '')
+          .replace(/\*\*(.+?)\*\*/g, '$1')
+          .replace(/\*(.+?)\*/g, '$1')
+          .replace(/`(.+?)`/g, '$1');
+        if (clean) textParts.push(clean);
+      }
+    }
+
+    let tableIdx = 0;
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'normal');
+
+    for (const part of textParts) {
+      if (part === '__TABLE__' && tableIdx < tables.length) {
+        const t = tables[tableIdx++];
+        autoTable(doc, {
+          startY: y,
+          head: [t.headers],
+          body: t.rows,
+          margin: { left: margin, right: margin },
+          styles: { fontSize: 8, cellPadding: 2 },
+          headStyles: { fillColor: [41, 128, 185], textColor: 255 },
+          theme: 'grid',
+        });
+        y = (doc as any).lastAutoTable.finalY + 8;
+      } else if (part !== '__TABLE__') {
+        if (y > doc.internal.pageSize.getHeight() - 20) {
+          doc.addPage();
+          y = 20;
+        }
+        const wrapped = doc.splitTextToSize(part, maxWidth);
+        doc.text(wrapped, margin, y);
+        y += wrapped.length * 5 + 2;
+      }
+    }
+
+    return doc;
+  };
+
+  // ─── CLIENT-SIDE CSV GENERATION ───
+  const generateCSV = (content: string): string => {
+    const tables = extractTablesFromMarkdown(content);
+    if (tables.length === 0) {
+      // Fallback: export lines as single-column CSV
+      const lines = content.split('\n').filter(l => l.trim());
+      return lines.map(l => `"${l.replace(/"/g, '""')}"`).join('\n');
+    }
+    const csvParts: string[] = [];
+    tables.forEach((t, i) => {
+      if (i > 0) csvParts.push('');
+      csvParts.push(t.headers.map(h => `"${h.replace(/"/g, '""')}"`).join(','));
+      t.rows.forEach(r => {
+        csvParts.push(r.map(c => `"${c.replace(/"/g, '""')}"`).join(','));
+      });
+    });
+    return csvParts.join('\n');
+  };
+
+  const handlePreviewPDF = () => {
+    const content = reportContent || result;
+    if (!content) return;
+    const doc = generatePDF(content);
+    const blob = doc.output('blob');
+    const url = URL.createObjectURL(blob);
+    window.open(url, '_blank');
+    setPdfDropdownOpen(false);
+  };
+
+  const handleDownloadPDF = () => {
+    const content = reportContent || result;
+    if (!content) return;
+    const doc = generatePDF(content);
+    doc.save('tax-analysis-report.pdf');
+    setPdfDropdownOpen(false);
+  };
+
+  const handlePreviewCSV = () => {
+    const content = reportContent || result;
+    if (!content) return;
+    const csv = generateCSV(content);
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    window.open(url, '_blank');
+    setCsvDropdownOpen(false);
+  };
+
+  const handleDownloadCSV = () => {
+    const content = reportContent || result;
+    if (!content) return;
+    const csv = generateCSV(content);
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'tax-analysis-report.csv';
+    a.click();
+    URL.revokeObjectURL(url);
+    setCsvDropdownOpen(false);
+  };
+
+  // ─── SAVE TO VAULT ───
+  const handleSaveToVault = async () => {
+    const content = reportContent || result;
+    if (!content || savingToVault) return;
+
+    setSavingToVault(true);
     try {
       const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
       const token = sessionToken;
-      if (!token) throw new Error('Not authenticated. Please log in again.');
+      if (!token) throw new Error('Not authenticated.');
 
       const resp = await fetch(`${supabaseUrl}/functions/v1/ai-vault-scan`, {
         method: 'POST',
@@ -315,23 +496,21 @@ export default function AITools() {
         },
         body: JSON.stringify({
           action: 'generate_report',
-          reportContent,
-          format,
+          reportContent: content,
+          format: 'pdf',
         }),
       });
 
       if (!resp.ok) {
-        const err = await resp.json().catch(() => ({ error: 'Report generation failed' }));
-        throw new Error(err.error || 'Report generation failed');
+        const err = await resp.json().catch(() => ({ error: 'Save failed' }));
+        throw new Error(err.error || 'Save failed');
       }
 
-      const data = await resp.json();
-      setReportLink(data.downloadUrl || '');
-      setReportFileName(data.fileName || '');
+      setSavedToVault(true);
     } catch (err: any) {
-      setResult((prev) => prev + `\n\nError generating report: ${err.message}`);
+      console.error('Save to vault error:', err);
     } finally {
-      setGeneratingReport(false);
+      setSavingToVault(false);
     }
   };
 
@@ -411,8 +590,7 @@ export default function AITools() {
     setVaultStep('input');
     setRelevantFiles([]);
     setReportContent('');
-    setReportLink('');
-    setReportFileName('');
+    setSavedToVault(false);
   };
 
   const switchMode = (mode: SourceMode) => {
@@ -674,36 +852,69 @@ export default function AITools() {
               )}
 
               {/* Step: Done — show report actions */}
-              {vaultStep === 'done' && result && !reportLink && (
+              {vaultStep === 'done' && result && (
                 <div className="ai-tools-report-actions">
-                  <strong>Generate Report</strong>
-                  <p>Save this analysis as a report in your vault:</p>
-                  <div style={{ display: 'flex', gap: '0.75rem' }}>
-                    <Button onClick={() => handleGenerateReport('pdf')} disabled={generatingReport}>
-                      {generatingReport ? <div className="ai-tools-spinner" style={{ width: 16, height: 16 }} /> : <FileText className="h-4 w-4" />}
-                      Download as PDF (Text)
-                    </Button>
-                    <Button variant="outline" onClick={() => handleGenerateReport('excel')} disabled={generatingReport}>
-                      {generatingReport ? <div className="ai-tools-spinner" style={{ width: 16, height: 16 }} /> : <FileSpreadsheet className="h-4 w-4" />}
-                      Download as Excel (CSV)
-                    </Button>
-                  </div>
-                </div>
-              )}
+                  <strong>Report Actions</strong>
+                  <p>Preview, download, or save this report:</p>
+                  <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
+                    {/* View PDF Report Dropdown */}
+                    <div className="ai-tools-dropdown-wrapper">
+                      <Button
+                        variant="outline"
+                        onClick={(e) => { e.stopPropagation(); setPdfDropdownOpen(!pdfDropdownOpen); setCsvDropdownOpen(false); }}
+                      >
+                        <FileText className="h-4 w-4" />
+                        View PDF Report
+                        <ChevronDown className="h-3 w-3" />
+                      </Button>
+                      {pdfDropdownOpen && (
+                        <div className="ai-tools-dropdown-menu" onClick={(e) => e.stopPropagation()}>
+                          <button className="ai-tools-dropdown-item" onClick={handlePreviewPDF}>
+                            <Eye className="h-4 w-4" /> Show Preview
+                          </button>
+                          <button className="ai-tools-dropdown-item" onClick={handleDownloadPDF}>
+                            <Download className="h-4 w-4" /> Download
+                          </button>
+                        </div>
+                      )}
+                    </div>
 
-              {/* Report download link */}
-              {reportLink && (
-                <div className="ai-tools-report-download">
-                  <CheckCircle className="h-5 w-5" style={{ color: 'hsl(var(--primary))' }} />
-                  <div>
-                    <strong>Report saved to your vault!</strong>
-                    <p>{reportFileName}</p>
-                  </div>
-                  <a href={reportLink} target="_blank" rel="noopener noreferrer">
-                    <Button size="sm">
-                      <Download className="h-4 w-4" /> Download
+                    {/* View CSV Report Dropdown */}
+                    <div className="ai-tools-dropdown-wrapper">
+                      <Button
+                        variant="outline"
+                        onClick={(e) => { e.stopPropagation(); setCsvDropdownOpen(!csvDropdownOpen); setPdfDropdownOpen(false); }}
+                      >
+                        <FileSpreadsheet className="h-4 w-4" />
+                        View CSV Report
+                        <ChevronDown className="h-3 w-3" />
+                      </Button>
+                      {csvDropdownOpen && (
+                        <div className="ai-tools-dropdown-menu" onClick={(e) => e.stopPropagation()}>
+                          <button className="ai-tools-dropdown-item" onClick={handlePreviewCSV}>
+                            <Eye className="h-4 w-4" /> Show Preview
+                          </button>
+                          <button className="ai-tools-dropdown-item" onClick={handleDownloadCSV}>
+                            <Download className="h-4 w-4" /> Download
+                          </button>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Save to Vault */}
+                    <Button
+                      onClick={handleSaveToVault}
+                      disabled={savingToVault || savedToVault}
+                    >
+                      {savedToVault ? (
+                        <><Check className="h-4 w-4" /> Saved to Vault</>
+                      ) : savingToVault ? (
+                        <><div className="ai-tools-spinner" style={{ width: 16, height: 16 }} /> Saving...</>
+                      ) : (
+                        <><Save className="h-4 w-4" /> Save to Vault</>
+                      )}
                     </Button>
-                  </a>
+                  </div>
                 </div>
               )}
             </>
@@ -732,10 +943,9 @@ export default function AITools() {
                   <Button variant="ghost" size="sm" onClick={handleNewSession}>New Session</Button>
                 </div>
               </div>
-              <div
-                className="ai-tools-result-content"
-                dangerouslySetInnerHTML={{ __html: markdownToHtml(result) }}
-              />
+              <div className="ai-tools-result-content">
+                <ReactMarkdown remarkPlugins={[remarkGfm]}>{result}</ReactMarkdown>
+              </div>
             </div>
           )}
         </div>
@@ -794,24 +1004,4 @@ function Sidebar({ onSignOut }: { onSignOut: () => void }) {
       </div>
     </aside>
   );
-}
-
-// Simple markdown to HTML converter
-function markdownToHtml(md: string): string {
-  let html = md
-    .replace(/```(\w*)\n([\s\S]*?)```/g, '<pre><code>$2</code></pre>')
-    .replace(/`([^`]+)`/g, '<code>$1</code>')
-    .replace(/^### (.+)$/gm, '<h3>$1</h3>')
-    .replace(/^## (.+)$/gm, '<h2>$1</h2>')
-    .replace(/^# (.+)$/gm, '<h1>$1</h1>')
-    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
-    .replace(/\*(.+?)\*/g, '<em>$1</em>')
-    .replace(/^[*-] (.+)$/gm, '<li>$1</li>')
-    .replace(/^\d+\. (.+)$/gm, '<li>$1</li>')
-    .replace(/\n\n/g, '</p><p>')
-    .replace(/\n/g, '<br/>');
-
-  html = html.replace(/((?:<li>.*?<\/li>\s*)+)/g, '<ul>$1</ul>');
-
-  return `<p>${html}</p>`;
 }
