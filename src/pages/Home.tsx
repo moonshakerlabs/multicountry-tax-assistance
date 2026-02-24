@@ -150,11 +150,12 @@ export default function Home() {
       {/* Hero Section */}
       <section className="home-hero">
         <div className="home-hero-content">
+          <h2 className="home-hero-bold-heading">Tax Beyond Borders</h2>
           <div className="home-hero-tagline">A platform for cross-border financial clarity</div>
           <h1 className="home-hero-title">
             Organise tax records.
             <br />
-            <span className="home-hero-subtitle">Align income across jurisdictions.</span>
+            <span className="home-hero-subtitle">Align income across jurisdictions and different tax calendar years.</span>
           </h1>
           <p className="home-hero-description">
             Built for globally mobile tax payers managing income across multiple countries.
