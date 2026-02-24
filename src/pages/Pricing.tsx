@@ -456,6 +456,19 @@ export default function Pricing() {
           <h1 className="pricing-title">Simple, transparent pricing</h1>
           <p className="pricing-subtitle">Choose the plan that fits your cross-border tax needs.</p>
 
+          {/* Current plan display */}
+          {user && !subLoading && (
+            <div className="pricing-current-plan">
+              <span>Your current plan:</span>
+              <span className="pricing-current-plan-badge">{subscription.subscription_plan.replace('_', ' ')}</span>
+              {(subscription as any).is_trial && (
+                <span className="pricing-trial-badge">
+                  <Clock className="h-3 w-3" /> Trial
+                </span>
+              )}
+            </div>
+          )}
+
           {earlyAccessActive && (
             <div className="pricing-early-access">
               <Gift className="h-5 w-5 text-primary" />
@@ -463,6 +476,9 @@ export default function Pricing() {
                 <strong>{config.early_access_headline}</strong>
                 <p className="text-sm text-muted-foreground mt-0.5">{config.early_access_description}</p>
               </div>
+              <span className="pricing-early-access-timer">
+                <Clock className="h-3.5 w-3.5" /> {getDaysRemaining()} days left
+              </span>
             </div>
           )}
 
@@ -535,8 +551,39 @@ export default function Pricing() {
               );
             })}
           </div>
+          {/* Legacy Price Notice */}
+          <div className="pricing-legacy-notice">
+            <div className="pricing-legacy-content">
+              <h3 className="pricing-legacy-title">🔒 Early Access Legacy Pricing</h3>
+              <p className="pricing-legacy-text">
+                Users who subscribe during our <strong>Early Access period</strong> will lock in their current subscription price — even after prices increase in the future.
+                This means your rate stays the same as long as your subscription remains active.
+              </p>
+              <p className="pricing-legacy-text">
+                If you cancel and re-subscribe later, you'll be charged the then-current rate.
+              </p>
+              <p className="pricing-legacy-warning">
+                ⚠️ Legacy pricing is only available during Early Access. Don't miss out!
+              </p>
+            </div>
+          </div>
         </div>
       </main>
+
+      {/* Footer */}
+      <footer className="pricing-footer">
+        <div className="pricing-footer-content">
+          <div className="pricing-footer-logo">
+            <div className="pricing-footer-logo-icon" />
+            <span className="pricing-footer-logo-text">{APP_NAME}</span>
+          </div>
+          <nav className="pricing-footer-nav">
+            <Link to="/privacy-policy" className="pricing-footer-link">Privacy Policy</Link>
+            <Link to="/terms-and-conditions" className="pricing-footer-link">Terms</Link>
+            <Link to="/support" className="pricing-footer-link">Support</Link>
+          </nav>
+        </div>
+      </footer>
 
       {/* Upgrade Confirmation Modal */}
       <Dialog open={upgradeModal.open} onOpenChange={(open) => setUpgradeModal(prev => ({ ...prev, open }))}>
