@@ -7,7 +7,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { APP_NAME } from '@/lib/appConfig';
-import { User, FileText, LogOut, FolderOpen, Upload, ChevronRight, MessageSquare, Brain, Shield, Users, CheckCircle, XCircle, Settings, Activity, CreditCard, Briefcase, ArrowLeft, HeadphonesIcon, TicketIcon, Eye, RotateCcw, X, Trash2, AlertTriangle, UserX, UserPlus, Sliders, BookOpen, Tag } from 'lucide-react';
+import { useFeatureAccess } from '@/hooks/useFeatureAccess';
+import { User, FileText, LogOut, FolderOpen, Upload, ChevronRight, MessageSquare, Brain, Shield, Users, CheckCircle, XCircle, Settings, Activity, CreditCard, Briefcase, ArrowLeft, HeadphonesIcon, TicketIcon, Eye, RotateCcw, X, Trash2, AlertTriangle, UserX, UserPlus, Sliders, BookOpen, Tag, DollarSign, ToggleLeft } from 'lucide-react';
 import AdminBlogTab from '@/components/admin/AdminBlogTab';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -78,6 +79,7 @@ interface CustomerDetail {
 
 export default function Dashboard() {
   const { profile, user, signOut, isAnyAdmin, isSuperAdmin, userRoles, loading: authLoading } = useAuth();
+  const { hasFeature, loading: featureLoading } = useFeatureAccess();
   const { toast } = useToast();
   const navigate = useNavigate();
   const [documentSummary, setDocumentSummary] = useState<DocumentSummary[]>([]);
@@ -1248,9 +1250,11 @@ export default function Dashboard() {
             <Button asChild variant="ghost" size="sm"><Link to="/dashboard">Dashboard</Link></Button>
             <Button asChild variant="ghost" size="sm"><Link to="/profile">Profile</Link></Button>
             <Button asChild variant="ghost" size="sm"><Link to="/community">TaxOverFlow</Link></Button>
-            <Button asChild variant="ghost" size="sm">
-              <Link to="/ai-tools"><Brain className="dashboard-action-icon" />AI Tools</Link>
-            </Button>
+            {hasFeature('AI_TOOLS_ACCESS') && (
+              <Button asChild variant="ghost" size="sm">
+                <Link to="/ai-tools"><Brain className="dashboard-action-icon" />AI Tools</Link>
+              </Button>
+            )}
             <Button asChild variant="ghost" size="sm">
               <Link to="/support"><HeadphonesIcon className="dashboard-action-icon" />Support</Link>
             </Button>
@@ -1307,6 +1311,16 @@ export default function Dashboard() {
                   {isSuperAdmin && (
                     <TabsTrigger value="sub-config" className="flex items-center gap-1">
                       <Tag className="h-3.5 w-3.5" /> Offers
+                    </TabsTrigger>
+                  )}
+                  {isSuperAdmin && (
+                    <TabsTrigger value="features" className="flex items-center gap-1">
+                      <ToggleLeft className="h-3.5 w-3.5" /> Features
+                    </TabsTrigger>
+                  )}
+                  {isSuperAdmin && (
+                    <TabsTrigger value="plan-pricing" className="flex items-center gap-1">
+                      <DollarSign className="h-3.5 w-3.5" /> Plan Pricing
                     </TabsTrigger>
                   )}
                 </TabsList>

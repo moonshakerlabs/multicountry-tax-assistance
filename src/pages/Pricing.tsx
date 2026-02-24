@@ -5,9 +5,11 @@ import { Switch } from '@/components/ui/switch';
 import { useAuth } from '@/hooks/useAuth';
 import { useSubscription } from '@/hooks/useSubscription';
 import { useSubscriptionConfig } from '@/hooks/useSubscriptionConfig';
+import { usePlanPricing } from '@/hooks/usePlanPricing';
 import { supabase } from '@/integrations/supabase/client';
-import { Check, X as XIcon, Star, ArrowLeft, Gift, Clock, ArrowUp, ArrowDown, Hourglass, Info } from 'lucide-react';
+import { Check, X as XIcon, Star, ArrowLeft, Gift, Clock, ArrowUp, ArrowDown, Hourglass, Info, AlertTriangle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import './Pricing.css';
 import { APP_NAME } from '@/lib/appConfig';
 
@@ -26,8 +28,6 @@ interface PlanSection {
 interface Plan {
   name: string;
   color: string;
-  monthlyPrice: number | null;
-  yearlyPrice: number | null;
   description: string;
   sections: PlanSection[];
   cta: string;
@@ -42,8 +42,6 @@ const plans: Plan[] = [
   {
     name: 'Free',
     color: '🟢',
-    monthlyPrice: 0,
-    yearlyPrice: 0,
     description: 'Get started with basic features',
     planKey: 'FREE',
     popular: false,
@@ -64,21 +62,8 @@ const plans: Plan[] = [
         emoji: '🌍',
         features: [
           { text: 'Select 1 country', included: true },
-          { text: 'View all posts within selected country', included: true },
           { text: 'Post 1 question per month', included: true },
           { text: 'Answer unlimited questions', included: true },
-          { text: 'Upvote & Downvote posts and answers', included: true },
-          { text: 'Report inappropriate content', included: true },
-          { text: 'Mark one answer as ⭐', included: true },
-          { text: 'Earn points for correct answers', included: true },
-        ],
-      },
-      {
-        title: 'Sharing with CA',
-        emoji: '🤝',
-        features: [
-          { text: 'One-click sharing from Personal Google Drive', included: true },
-          { text: 'Access restricted to authenticated users', included: true },
         ],
       },
       {
@@ -93,8 +78,6 @@ const plans: Plan[] = [
   {
     name: 'Freemium',
     color: '🔵',
-    monthlyPrice: 5,
-    yearlyPrice: 50,
     description: 'Unlock the Secure Vault and more',
     planKey: 'FREEMIUM',
     popular: false,
@@ -108,7 +91,6 @@ const plans: Plan[] = [
           { text: 'Choose: Google Drive or Secure Storage Vault', included: true },
           { text: 'Access to Secure Encrypted Storage Vault', included: true },
           { text: 'Special Mobile Scanner upload for Vault', included: true, comingSoon: true },
-          { text: 'Web upload for both Google Drive and Vault', included: true },
         ],
       },
       {
@@ -116,22 +98,7 @@ const plans: Plan[] = [
         emoji: '🌍',
         features: [
           { text: 'Select up to 2 countries', included: true },
-          { text: 'View posts from selected 2 countries', included: true },
           { text: '5 questions per country/month (10 total)', included: true },
-          { text: 'Answer unlimited questions', included: true },
-          { text: 'Upvote & Downvote posts and answers', included: true },
-          { text: 'Report inappropriate content', included: true },
-          { text: 'Mark one answer as ⭐', included: true },
-          { text: 'Earn & redeem points for discounts', included: true },
-        ],
-      },
-      {
-        title: 'Sharing with CA',
-        emoji: '🤝',
-        features: [
-          { text: 'One-click sharing from Google Drive', included: true },
-          { text: 'Secure sharing from Storage Vault', included: true },
-          { text: 'Access restricted to authenticated users', included: true },
         ],
       },
       {
@@ -146,8 +113,6 @@ const plans: Plan[] = [
   {
     name: 'Pro',
     color: '🟣',
-    monthlyPrice: 10,
-    yearlyPrice: 100,
     description: 'Full access with AI-powered features',
     planKey: 'PRO',
     popular: true,
@@ -157,10 +122,7 @@ const plans: Plan[] = [
         title: 'Upload & Document Storage',
         emoji: '📂',
         features: [
-          { text: 'Upload via Web App', included: true },
-          { text: 'Choose: Google Drive or Secure Storage Vault', included: true },
-          { text: 'Access to Secure Encrypted Storage Vault', included: true },
-          { text: 'Special Mobile Scanner upload for Vault', included: true, comingSoon: true },
+          { text: 'All Freemium features', included: true },
           { text: 'Higher storage limits', included: true },
         ],
       },
@@ -169,22 +131,7 @@ const plans: Plan[] = [
         emoji: '🌍',
         features: [
           { text: 'Select up to 5 countries', included: true },
-          { text: 'View posts from selected 5 countries', included: true },
           { text: '10 questions per country/month (50 total)', included: true },
-          { text: 'Answer unlimited questions', included: true },
-          { text: 'Upvote & Downvote posts and answers', included: true },
-          { text: 'Report inappropriate content', included: true },
-          { text: 'Mark one answer as ⭐', included: true },
-          { text: 'Earn & redeem points for discounts', included: true },
-        ],
-      },
-      {
-        title: 'Sharing with CA',
-        emoji: '🤝',
-        features: [
-          { text: 'One-click sharing from Google Drive', included: true },
-          { text: 'Secure sharing from Storage Vault', included: true },
-          { text: 'Access restricted to authenticated users', included: true },
         ],
       },
       {
@@ -194,8 +141,6 @@ const plans: Plan[] = [
           { text: 'Limited AI Assistant access', included: true },
           { text: 'AI-based document analysis', included: true },
           { text: 'AI-generated tax summaries', included: true },
-          { text: 'AI-assisted multi-country income combination', included: true },
-          { text: 'AI alignment of multiple tax calendars', included: true },
         ],
       },
     ],
@@ -203,8 +148,6 @@ const plans: Plan[] = [
   {
     name: 'Super Pro',
     color: '🟡',
-    monthlyPrice: null,
-    yearlyPrice: null,
     description: 'Maximum power for complex tax needs',
     planKey: 'SUPER_PRO',
     popular: false,
@@ -217,21 +160,6 @@ const plans: Plan[] = [
         features: [
           { text: 'All Pro features', included: true },
           { text: 'Maximum storage allocation', included: true },
-          { text: 'Special Mobile Scanner upload for Vault', included: true, comingSoon: true },
-        ],
-      },
-      {
-        title: 'Connect with Taxpayers Community',
-        emoji: '🌍',
-        features: [
-          { text: 'All Pro community features', included: true },
-        ],
-      },
-      {
-        title: 'Sharing with CA',
-        emoji: '🤝',
-        features: [
-          { text: 'All Pro sharing features', included: true },
         ],
       },
       {
@@ -239,10 +167,8 @@ const plans: Plan[] = [
         emoji: '🤖',
         features: [
           { text: 'Full AI Assistant access', included: true },
-          { text: 'Advanced multi-country income computation', included: true },
           { text: 'Cross-jurisdiction compliance alignment', included: true },
           { text: 'Automated tax calendar harmonization', included: true },
-          { text: 'Priority AI processing', included: true },
         ],
       },
     ],
@@ -252,131 +178,182 @@ const plans: Plan[] = [
 export default function Pricing() {
   const [isYearly, setIsYearly] = useState(false);
   const { user } = useAuth();
-  const { subscription, loading: subLoading } = useSubscription();
+  const { subscription, loading: subLoading, refetch: refetchSub } = useSubscription();
   const { config, isEarlyAccessActive, getDaysRemaining } = useSubscriptionConfig();
+  const { getPrice, loading: priceLoading } = usePlanPricing();
   const { toast } = useToast();
   const [changingPlan, setChangingPlan] = useState<string | null>(null);
+  const [downgradeModal, setDowngradeModal] = useState<{ open: boolean; targetPlan: string; targetCycle: string }>({ open: false, targetPlan: '', targetCycle: '' });
+  const [upgradeModal, setUpgradeModal] = useState<{ open: boolean; targetPlan: string; targetCycle: string; amountToPay: number; credit: number }>({ open: false, targetPlan: '', targetCycle: '', amountToPay: 0, credit: 0 });
 
   const currentPlanIndex = PLAN_ORDER.indexOf(subscription.subscription_plan);
   const earlyAccessActive = isEarlyAccessActive();
+  const billingCycle = isYearly ? 'YEARLY' : 'MONTHLY';
 
-  // Calculate days until billing cycle end
-  const getDaysUntilBillingEnd = (): number => {
-    if (!subscription.subscription_plan || subscription.subscription_plan === 'FREE') return 999;
-    const sub = subscription as any;
-    const startDate = sub.subscription_start_date ? new Date(sub.subscription_start_date) : new Date();
+  const hasScheduledDowngrade = !!(subscription as any).scheduled_plan;
+
+  const getSubData = () => subscription as any;
+
+  const getDaysInCycle = (cycle: string): number => cycle === 'YEARLY' ? 365 : 30;
+
+  const getRemainingDays = (): number => {
+    const sub = getSubData();
+    if (!sub.subscription_start_date) return 0;
+    const start = new Date(sub.subscription_start_date);
     const now = new Date();
-    const billingCycle = sub.billing_cycle || 'MONTHLY';
-    
-    // Calculate the next billing date
-    let nextBilling = new Date(startDate);
-    if (billingCycle === 'YEARLY') {
+    const cycle = sub.billing_cycle || 'MONTHLY';
+    let nextBilling = new Date(start);
+    if (cycle === 'YEARLY') {
       while (nextBilling <= now) nextBilling.setFullYear(nextBilling.getFullYear() + 1);
     } else {
       while (nextBilling <= now) nextBilling.setMonth(nextBilling.getMonth() + 1);
     }
-    
-    const diffMs = nextBilling.getTime() - now.getTime();
-    return Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+    return Math.max(0, Math.ceil((nextBilling.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)));
   };
+
+  const getDaysUntilBillingEnd = (): number => getRemainingDays();
 
   const canDowngrade = (): boolean => {
     const daysLeft = getDaysUntilBillingEnd();
     return daysLeft > config.downgrade_cutoff_days;
   };
 
-  const handlePlanChange = async (targetPlan: string) => {
-    if (!user) return;
-    const targetIndex = PLAN_ORDER.indexOf(targetPlan);
-    const isUpgrade = targetIndex > currentPlanIndex;
-    const changeType = isUpgrade ? 'UPGRADE' : 'DOWNGRADE';
+  const calculateProration = (targetPlan: string, targetCycle: string) => {
+    const sub = getSubData();
+    const currentCycle = sub.billing_cycle || 'MONTHLY';
+    const currentPrice = getPrice(subscription.subscription_plan, currentCycle);
+    const newPrice = getPrice(targetPlan, targetCycle);
+    const remainingDays = getRemainingDays();
+    const totalDays = getDaysInCycle(currentCycle);
+    const remainingCredit = (remainingDays / totalDays) * currentPrice;
+    const amountToPay = Math.max(0, newPrice - remainingCredit);
+    return { amountToPay: Math.round(amountToPay * 100) / 100, credit: Math.round(remainingCredit * 100) / 100 };
+  };
 
-    // Block downgrade if too close to billing cycle
-    if (!isUpgrade && !canDowngrade()) {
-      toast({
-        title: 'Downgrade not available',
-        description: `Downgrades must be requested at least ${config.downgrade_cutoff_days} days before your billing cycle ends. You have ${getDaysUntilBillingEnd()} day(s) remaining.`,
-        variant: 'destructive',
-      });
+  const handlePlanAction = (targetPlan: string) => {
+    if (!user) return;
+    if (targetPlan === subscription.subscription_plan && billingCycle === (getSubData().billing_cycle || 'MONTHLY')) {
+      toast({ title: 'Same plan', description: 'You are already on this plan with the same billing cycle.', variant: 'destructive' });
+      return;
+    }
+    if (hasScheduledDowngrade) {
+      toast({ title: 'Downgrade already scheduled', description: 'You have a pending downgrade. Wait for the current billing cycle to complete.', variant: 'destructive' });
       return;
     }
 
-    setChangingPlan(targetPlan);
-    try {
-      const updateData: any = {
-        subscription_plan: targetPlan,
-        billing_cycle: isYearly ? 'YEARLY' : 'MONTHLY',
-        updated_at: new Date().toISOString(),
-      };
+    const targetIndex = PLAN_ORDER.indexOf(targetPlan);
+    const isUpgrade = targetIndex > currentPlanIndex || (targetIndex === currentPlanIndex && isYearly && (getSubData().billing_cycle || 'MONTHLY') === 'MONTHLY');
 
-      // For downgrades, the current plan runs until billing cycle end
-      // Set a vault grace period if downgrading from vault-eligible plan
-      if (!isUpgrade) {
-        const sub = subscription as any;
-        const startDate = sub.subscription_start_date ? new Date(sub.subscription_start_date) : new Date();
-        const billingCycle = sub.billing_cycle || 'MONTHLY';
-        let nextBilling = new Date(startDate);
-        if (billingCycle === 'YEARLY') {
-          while (nextBilling <= new Date()) nextBilling.setFullYear(nextBilling.getFullYear() + 1);
-        } else {
-          while (nextBilling <= new Date()) nextBilling.setMonth(nextBilling.getMonth() + 1);
-        }
-        updateData.subscription_end_date = nextBilling.toISOString();
+    if (isUpgrade) {
+      const { amountToPay, credit } = calculateProration(targetPlan, billingCycle);
+      setUpgradeModal({ open: true, targetPlan, targetCycle: billingCycle, amountToPay, credit });
+    } else {
+      if (!canDowngrade()) {
+        toast({
+          title: 'Downgrade not available',
+          description: `Downgrades must be requested at least ${config.downgrade_cutoff_days} days before your billing cycle ends.`,
+          variant: 'destructive',
+        });
+        return;
+      }
+      setDowngradeModal({ open: true, targetPlan, targetCycle: billingCycle });
+    }
+  };
+
+  const confirmUpgrade = async () => {
+    const { targetPlan, targetCycle, amountToPay } = upgradeModal;
+    setChangingPlan(targetPlan);
+    setUpgradeModal(prev => ({ ...prev, open: false }));
+
+    try {
+      if (amountToPay > 0) {
+        // Payment gateway placeholder — redirect to payment
+        // In production, this would call an edge function that creates a payment session
+        // and redirects the user. On success callback, the subscription is updated.
+        toast({
+          title: '💳 Payment Required',
+          description: `Amount: $${amountToPay.toFixed(2)}. Redirecting to payment gateway... (Payment gateway integration pending)`,
+          duration: 5000,
+        });
+        // Simulating successful payment for now — in production, this happens on payment callback
       }
 
+      // Update subscription immediately (or on payment success callback)
       const { error } = await supabase
         .from('user_subscriptions')
-        .update(updateData)
-        .eq('user_id', user.id);
+        .update({
+          subscription_plan: targetPlan,
+          billing_cycle: targetCycle,
+          subscription_start_date: new Date().toISOString(),
+          subscription_end_date: null,
+          scheduled_plan: null,
+          scheduled_billing_cycle: null,
+          downgrade_scheduled_at: null,
+          updated_at: new Date().toISOString(),
+        } as any)
+        .eq('user_id', user!.id);
 
       if (error) throw error;
 
-      const plan = plans.find(p => p.planKey === targetPlan);
-      const price = isYearly ? (plan?.yearlyPrice || 0) : (plan?.monthlyPrice || 0);
-
+      const price = getPrice(targetPlan, targetCycle);
       await supabase.from('subscription_history').insert({
-        user_id: user.id,
+        user_id: user!.id,
         plan: targetPlan,
-        billing_cycle: isYearly ? 'YEARLY' : 'MONTHLY',
-        change_type: changeType,
+        billing_cycle: targetCycle,
+        change_type: 'UPGRADE',
         price_at_purchase: price,
         is_legacy_applied: false,
       });
 
-      // Send subscription change notification email
-      fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-user-notification`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          type: 'subscription_change',
-          userId: user.id,
-          data: {
-            oldPlan: subscription.subscription_plan,
-            newPlan: targetPlan,
-            changeType,
-          },
-        }),
-      }).catch(err => console.error('Subscription email error:', err));
-
-      if (isUpgrade) {
-        toast({
-          title: '🎉 Upgraded!',
-          description: `Your plan has been upgraded to ${plan?.name || targetPlan}.`,
-        });
-      } else {
-        const daysLeft = getDaysUntilBillingEnd();
-        toast({
-          title: 'Plan downgraded',
-          description: `Your current features will remain active for ${daysLeft} more day(s) until your billing cycle ends. ${
-            subscription.subscription_plan !== 'FREE' ? `You have ${config.vault_grace_period_days} days to download any files from the Secure Vault.` : ''
-          }`,
-          duration: 8000,
-        });
-      }
-
-      window.location.href = '/pricing';
+      toast({ title: '🎉 Upgraded!', description: `Your plan has been upgraded to ${targetPlan.replace('_', ' ')}.` });
+      refetchSub();
     } catch (err: any) {
-      toast({ title: 'Error', description: err.message || 'Failed to change plan.', variant: 'destructive' });
+      toast({ title: 'Error', description: err.message, variant: 'destructive' });
+    } finally {
+      setChangingPlan(null);
+    }
+  };
+
+  const confirmDowngrade = async () => {
+    const { targetPlan, targetCycle } = downgradeModal;
+    setChangingPlan(targetPlan);
+    setDowngradeModal({ open: false, targetPlan: '', targetCycle: '' });
+
+    try {
+      // Schedule the downgrade — don't apply immediately
+      const { error } = await supabase
+        .from('user_subscriptions')
+        .update({
+          scheduled_plan: targetPlan,
+          scheduled_billing_cycle: targetCycle,
+          downgrade_scheduled_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        } as any)
+        .eq('user_id', user!.id);
+
+      if (error) throw error;
+
+      const price = getPrice(targetPlan, targetCycle);
+      await supabase.from('subscription_history').insert({
+        user_id: user!.id,
+        plan: targetPlan,
+        billing_cycle: targetCycle,
+        change_type: 'DOWNGRADE',
+        price_at_purchase: price,
+        is_legacy_applied: false,
+      });
+
+      const daysLeft = getDaysUntilBillingEnd();
+      toast({
+        title: 'Downgrade scheduled',
+        description: `Your current plan remains active for ${daysLeft} more day(s). The downgrade to ${targetPlan.replace('_', ' ')} will activate when your billing cycle ends.${
+          subscription.subscription_plan !== 'FREE' ? ` You'll have ${config.vault_grace_period_days} days to download vault files.` : ''
+        }`,
+        duration: 8000,
+      });
+      refetchSub();
+    } catch (err: any) {
+      toast({ title: 'Error', description: err.message, variant: 'destructive' });
     } finally {
       setChangingPlan(null);
     }
@@ -385,11 +362,7 @@ export default function Pricing() {
   const getButtonForPlan = (plan: Plan) => {
     if (!user) {
       if (plan.pricingTBD) {
-        return (
-          <Button variant="outline" className="pricing-cta-btn" disabled>
-            <Hourglass className="h-4 w-4" /> Coming Soon
-          </Button>
-        );
+        return <Button variant="outline" className="pricing-cta-btn" disabled><Hourglass className="h-4 w-4" /> Coming Soon</Button>;
       }
       return (
         <Button asChild variant={plan.popular ? 'default' : 'outline'} className="pricing-cta-btn">
@@ -399,24 +372,25 @@ export default function Pricing() {
     }
 
     if (plan.pricingTBD) {
-      return (
-        <Button variant="outline" className="pricing-cta-btn" disabled>
-          <Hourglass className="h-4 w-4" /> Coming Soon
-        </Button>
-      );
+      return <Button variant="outline" className="pricing-cta-btn" disabled><Hourglass className="h-4 w-4" /> Coming Soon</Button>;
     }
 
     const planIndex = PLAN_ORDER.indexOf(plan.planKey);
+    const isSamePlan = plan.planKey === subscription.subscription_plan && billingCycle === (getSubData().billing_cycle || 'MONTHLY');
 
-    if (plan.planKey === subscription.subscription_plan) {
-      return (
-        <Button variant="outline" className="pricing-cta-btn" disabled>
-          ✅ Current Plan
-        </Button>
-      );
+    if (isSamePlan) {
+      return <Button variant="outline" className="pricing-cta-btn" disabled>✅ Current Plan</Button>;
     }
 
-    const isUpgrade = planIndex > currentPlanIndex;
+    if (hasScheduledDowngrade) {
+      const scheduled = (subscription as any).scheduled_plan;
+      if (plan.planKey === scheduled) {
+        return <Button variant="outline" className="pricing-cta-btn" disabled>📅 Scheduled</Button>;
+      }
+      return <Button variant="outline" className="pricing-cta-btn" disabled><Info className="h-4 w-4 mr-1" /> Downgrade pending</Button>;
+    }
+
+    const isUpgrade = planIndex > currentPlanIndex || (planIndex === currentPlanIndex && isYearly && (getSubData().billing_cycle || 'MONTHLY') === 'MONTHLY');
 
     if (!isUpgrade && !canDowngrade()) {
       return (
@@ -437,7 +411,7 @@ export default function Pricing() {
           variant={isUpgrade ? 'default' : 'outline'}
           className="pricing-cta-btn"
           disabled={changingPlan !== null}
-          onClick={() => handlePlanChange(plan.planKey)}
+          onClick={() => handlePlanAction(plan.planKey)}
         >
           {changingPlan === plan.planKey ? 'Processing...' : (
             <>
@@ -448,7 +422,7 @@ export default function Pricing() {
         </Button>
         {!isUpgrade && (
           <p style={{ fontSize: '0.7rem', color: 'hsl(var(--muted-foreground))', marginTop: '0.25rem' }}>
-            Current plan active until billing cycle ends
+            Active until billing cycle ends
           </p>
         )}
       </div>
@@ -477,15 +451,11 @@ export default function Pricing() {
         </div>
       </header>
 
-      {/* Pricing Content */}
       <main className="pricing-main">
         <div className="pricing-content">
           <h1 className="pricing-title">Simple, transparent pricing</h1>
-          <p className="pricing-subtitle">
-            Choose the plan that fits your cross-border tax needs.
-          </p>
+          <p className="pricing-subtitle">Choose the plan that fits your cross-border tax needs.</p>
 
-          {/* Early Access Banner */}
           {earlyAccessActive && (
             <div className="pricing-early-access">
               <Gift className="h-5 w-5 text-primary" />
@@ -493,130 +463,73 @@ export default function Pricing() {
                 <strong>{config.early_access_headline}</strong>
                 <p className="text-sm text-muted-foreground mt-0.5">{config.early_access_description}</p>
               </div>
-              <span className="pricing-early-access-timer">
-                <Clock className="h-3.5 w-3.5" /> {getDaysRemaining()} days left
-              </span>
             </div>
           )}
 
-          {/* Current Plan Display (for logged-in users) */}
-          {user && !subLoading && (
-            <div className="pricing-current-plan">
-              <span className="text-sm text-muted-foreground">Your current plan:</span>
-              <span className="pricing-current-plan-badge">{subscription.subscription_plan}</span>
-              {(subscription as any).is_trial && (
-                <span className="pricing-trial-badge">
-                  <Clock className="h-3 w-3" /> Trial
-                </span>
-              )}
+          {hasScheduledDowngrade && (
+            <div className="pricing-early-access" style={{ borderColor: 'hsl(var(--destructive) / 0.3)', background: 'hsl(var(--destructive) / 0.05)' }}>
+              <AlertTriangle className="h-5 w-5" style={{ color: 'hsl(var(--destructive))' }} />
+              <div>
+                <strong style={{ color: 'hsl(var(--destructive))' }}>Downgrade Scheduled</strong>
+                <p className="text-sm text-muted-foreground mt-0.5">
+                  Your plan will change to {(subscription as any).scheduled_plan?.replace('_', ' ')} after your current billing cycle ends ({getRemainingDays()} days remaining).
+                </p>
+              </div>
             </div>
           )}
 
-          {/* Billing Toggle */}
-          <div className="pricing-toggle-wrapper">
-            <span className={`pricing-toggle-label ${!isYearly ? 'pricing-toggle-active' : ''}`}>
-              Monthly
+          {/* Billing toggle */}
+          <div className="pricing-toggle">
+            <span className={`pricing-toggle-label ${!isYearly ? 'active' : ''}`}>Monthly</span>
+            <Switch checked={isYearly} onCheckedChange={setIsYearly} />
+            <span className={`pricing-toggle-label ${isYearly ? 'active' : ''}`}>
+              Yearly <span className="pricing-save-badge">Save ~17%</span>
             </span>
-            <Switch
-              checked={isYearly}
-              onCheckedChange={setIsYearly}
-              className="pricing-toggle-switch"
-            />
-            <span className={`pricing-toggle-label ${isYearly ? 'pricing-toggle-active' : ''}`}>
-              Yearly
-            </span>
-            {isYearly && (
-              <span className="pricing-savings-badge">Save 2 Months</span>
-            )}
           </div>
 
-          {/* Limited Period Offer - moved above plans */}
-          <div className="pricing-legacy-notice">
-            <div className="pricing-legacy-content">
-              <h3 className="pricing-legacy-title">🔔 Limited Period Offer</h3>
-              <p className="pricing-legacy-text">
-                Early subscribers lock in current pricing for up to 5 years, provided subscription remains active without interruption.
-              </p>
-              <p className="pricing-legacy-warning">
-                ⚠ If you cancel after a price increase, resubscription will follow the new pricing structure.
-              </p>
-            </div>
-          </div>
-
-          {/* Plans Grid */}
+          {/* Plan cards */}
           <div className="pricing-grid">
             {plans.map((plan) => {
-              const price = plan.pricingTBD
-                ? null
-                : isYearly
-                  ? plan.yearlyPrice
-                  : plan.monthlyPrice;
-              const period = isYearly ? '/year' : '/month';
-              const isCurrentPlan = user && plan.planKey === subscription.subscription_plan;
-
+              const price = getPrice(plan.planKey, billingCycle);
               return (
-                <div
-                  key={plan.name}
-                  className={`pricing-card ${plan.popular ? 'pricing-card-popular' : ''} ${isCurrentPlan ? 'pricing-card-current' : ''}`}
-                >
-                  {plan.popular && (
-                    <div className="pricing-popular-badge">
-                      <Star className="pricing-popular-icon" />
-                      Most Popular
-                    </div>
-                  )}
-                  {isCurrentPlan && (
-                    <div className="pricing-current-badge">✅ Your Plan</div>
-                  )}
+                <div key={plan.planKey} className={`pricing-card ${plan.popular ? 'pricing-card-popular' : ''} ${plan.planKey === subscription.subscription_plan ? 'pricing-card-current' : ''}`}>
+                  {plan.popular && <div className="pricing-popular-badge"><Star className="h-3 w-3" /> Most Popular</div>}
+                  {plan.planKey === subscription.subscription_plan && <div className="pricing-current-badge">Your Plan</div>}
+
                   <div className="pricing-card-header">
-                    <h3 className="pricing-plan-name">
-                      {plan.color} {plan.name}
-                    </h3>
-                    <p className="pricing-plan-description">{plan.description}</p>
+                    <span className="pricing-card-emoji">{plan.color}</span>
+                    <h3 className="pricing-card-name">{plan.name}</h3>
+                    <p className="pricing-card-description">{plan.description}</p>
                   </div>
-                  <div className="pricing-price-wrapper">
+
+                  <div className="pricing-card-price">
                     {plan.pricingTBD ? (
-                      <span className="pricing-price-tbd">Pricing TBD</span>
+                      <span className="pricing-price-tbd">TBD</span>
                     ) : (
                       <>
                         <span className="pricing-price-amount">${price}</span>
-                        {price !== null && price > 0 && (
-                          <span className="pricing-price-period">{period}</span>
-                        )}
+                        <span className="pricing-price-period">/{isYearly ? 'year' : 'month'}</span>
                       </>
                     )}
                   </div>
 
-                  {/* Feature Sections */}
-                  <div className="pricing-sections">
+                  {getButtonForPlan(plan)}
+
+                  <div className="pricing-card-features">
                     {plan.sections.map((section) => (
-                      <div key={section.title} className="pricing-section">
-                        <h4 className="pricing-section-title">
-                          {section.emoji} {section.title}
-                        </h4>
-                        <ul className="pricing-features-list">
-                          {section.features.map((feature, idx) => (
-                            <li key={idx} className={`pricing-feature-item ${!feature.included ? 'pricing-feature-disabled' : ''}`}>
-                              {feature.included ? (
-                                <Check className="pricing-feature-check" />
-                              ) : (
-                                <XIcon className="pricing-feature-x" />
-                              )}
-                              <span>
-                                {feature.text}
-                                {feature.comingSoon && (
-                                  <span className="pricing-coming-soon">Coming Soon</span>
-                                )}
-                              </span>
+                      <div key={section.title} className="pricing-feature-section">
+                        <h4 className="pricing-feature-section-title">{section.emoji} {section.title}</h4>
+                        <ul className="pricing-feature-list">
+                          {section.features.map((feature, fi) => (
+                            <li key={fi} className={`pricing-feature-item ${feature.included ? 'included' : 'excluded'}`}>
+                              {feature.included ? <Check className="pricing-feature-check" /> : <XIcon className="pricing-feature-x" />}
+                              <span>{feature.text}</span>
+                              {feature.comingSoon && <span className="pricing-coming-soon">Soon</span>}
                             </li>
                           ))}
                         </ul>
                       </div>
                     ))}
-                  </div>
-
-                  <div className="pricing-card-footer">
-                    {getButtonForPlan(plan)}
                   </div>
                 </div>
               );
@@ -625,18 +538,68 @@ export default function Pricing() {
         </div>
       </main>
 
-      {/* Footer */}
-      <footer className="pricing-footer">
-        <div className="pricing-footer-content">
-          <div className="pricing-footer-logo">
-            <div className="pricing-footer-logo-icon" />
-            <span className="pricing-footer-logo-text">{APP_NAME}</span>
+      {/* Upgrade Confirmation Modal */}
+      <Dialog open={upgradeModal.open} onOpenChange={(open) => setUpgradeModal(prev => ({ ...prev, open }))}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Confirm Upgrade</DialogTitle>
+            <DialogDescription>
+              You are upgrading to <strong>{upgradeModal.targetPlan.replace('_', ' ')}</strong> ({upgradeModal.targetCycle}).
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 text-sm">
+            {upgradeModal.credit > 0 && (
+              <div className="rounded-lg border p-3 space-y-1">
+                <p>💰 <strong>Prorated credit:</strong> ${upgradeModal.credit.toFixed(2)} from your current plan</p>
+                <p>💳 <strong>Amount to pay:</strong> ${upgradeModal.amountToPay.toFixed(2)}</p>
+              </div>
+            )}
+            {upgradeModal.amountToPay <= 0 && (
+              <div className="rounded-lg border border-green-200 bg-green-50 p-3">
+                <p className="text-green-800">✅ Your remaining credit covers the upgrade. No payment needed!</p>
+              </div>
+            )}
+            <p className="text-muted-foreground">Your billing cycle will reset upon upgrade.</p>
           </div>
-          <nav className="pricing-footer-nav">
-            <Link to="/privacy" className="pricing-footer-link">Privacy Policy</Link>
-          </nav>
-        </div>
-      </footer>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setUpgradeModal(prev => ({ ...prev, open: false }))}>Cancel</Button>
+            <Button onClick={confirmUpgrade} disabled={changingPlan !== null}>
+              {changingPlan ? 'Processing...' : upgradeModal.amountToPay > 0 ? 'Proceed to Payment' : 'Upgrade Now'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Downgrade Warning Modal */}
+      <Dialog open={downgradeModal.open} onOpenChange={(open) => setDowngradeModal(prev => ({ ...prev, open }))}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>⚠️ Confirm Downgrade</DialogTitle>
+            <DialogDescription>
+              Your downgrade to <strong>{downgradeModal.targetPlan.replace('_', ' ')}</strong> will take effect after your current billing period ends.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 text-sm">
+            <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 space-y-2">
+              <p className="font-medium text-amber-800">Important:</p>
+              <ul className="list-disc pl-4 text-amber-700 space-y-1">
+                <li>Your current features remain active for <strong>{getRemainingDays()}</strong> more day(s)</li>
+                <li>You <strong>cannot revert</strong> this decision until the billing cycle completes</li>
+                <li>No refund will be issued for the remaining period</li>
+                {subscription.subscription_plan !== 'FREE' && (
+                  <li>You'll have <strong>{config.vault_grace_period_days} days</strong> to download any vault files after downgrade activates</li>
+                )}
+              </ul>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDowngradeModal(prev => ({ ...prev, open: false }))}>Cancel</Button>
+            <Button variant="destructive" onClick={confirmDowngrade} disabled={changingPlan !== null}>
+              {changingPlan ? 'Processing...' : 'Confirm Downgrade'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

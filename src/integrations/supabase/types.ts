@@ -648,6 +648,98 @@ export type Database = {
         }
         Relationships: []
       }
+      plan_feature_mapping: {
+        Row: {
+          created_at: string
+          enabled: boolean
+          feature_key: string
+          id: string
+          plan_key: string
+        }
+        Insert: {
+          created_at?: string
+          enabled?: boolean
+          feature_key: string
+          id?: string
+          plan_key: string
+        }
+        Update: {
+          created_at?: string
+          enabled?: boolean
+          feature_key?: string
+          id?: string
+          plan_key?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "plan_feature_mapping_feature_key_fkey"
+            columns: ["feature_key"]
+            isOneToOne: false
+            referencedRelation: "plan_features"
+            referencedColumns: ["feature_key"]
+          },
+        ]
+      }
+      plan_features: {
+        Row: {
+          created_at: string
+          description: string | null
+          feature_key: string
+          feature_name: string
+          id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          feature_key: string
+          feature_name: string
+          id?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          feature_key?: string
+          feature_name?: string
+          id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      plan_pricing: {
+        Row: {
+          billing_cycle: string
+          created_at: string
+          currency: string
+          id: string
+          is_active: boolean
+          plan_key: string
+          price: number
+          updated_at: string
+        }
+        Insert: {
+          billing_cycle?: string
+          created_at?: string
+          currency?: string
+          id?: string
+          is_active?: boolean
+          plan_key: string
+          price?: number
+          updated_at?: string
+        }
+        Update: {
+          billing_cycle?: string
+          created_at?: string
+          currency?: string
+          id?: string
+          is_active?: boolean
+          plan_key?: string
+          price?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       privacy_policy_versions: {
         Row: {
           content: Json
@@ -1115,6 +1207,7 @@ export type Database = {
         Row: {
           billing_cycle: string
           created_at: string
+          downgrade_scheduled_at: string | null
           early_access_freemium_end: string | null
           early_access_pro_end: string | null
           early_access_user: boolean
@@ -1124,6 +1217,8 @@ export type Database = {
           legacy_price_amount: number | null
           legacy_valid_until: string | null
           points_balance: number
+          scheduled_billing_cycle: string | null
+          scheduled_plan: string | null
           subscription_end_date: string | null
           subscription_plan: string
           subscription_price_at_signup: number | null
@@ -1138,6 +1233,7 @@ export type Database = {
         Insert: {
           billing_cycle?: string
           created_at?: string
+          downgrade_scheduled_at?: string | null
           early_access_freemium_end?: string | null
           early_access_pro_end?: string | null
           early_access_user?: boolean
@@ -1147,6 +1243,8 @@ export type Database = {
           legacy_price_amount?: number | null
           legacy_valid_until?: string | null
           points_balance?: number
+          scheduled_billing_cycle?: string | null
+          scheduled_plan?: string | null
           subscription_end_date?: string | null
           subscription_plan?: string
           subscription_price_at_signup?: number | null
@@ -1161,6 +1259,7 @@ export type Database = {
         Update: {
           billing_cycle?: string
           created_at?: string
+          downgrade_scheduled_at?: string | null
           early_access_freemium_end?: string | null
           early_access_pro_end?: string | null
           early_access_user?: boolean
@@ -1170,6 +1269,8 @@ export type Database = {
           legacy_price_amount?: number | null
           legacy_valid_until?: string | null
           points_balance?: number
+          scheduled_billing_cycle?: string | null
+          scheduled_plan?: string | null
           subscription_end_date?: string | null
           subscription_plan?: string
           subscription_price_at_signup?: number | null
