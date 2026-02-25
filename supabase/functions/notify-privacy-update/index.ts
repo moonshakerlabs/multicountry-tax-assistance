@@ -51,14 +51,15 @@ serve(async (req) => {
     if (resendApiKey) {
       const resend = new Resend(resendApiKey);
 
-      // Send in batches of 50
-      const batchSize = 50;
+      // Send in batches of 49 (1 dummy to + 49 bcc to protect recipient privacy)
+      const batchSize = 49;
       let sent = 0;
       for (let i = 0; i < emails.length; i += batchSize) {
         const batch = emails.slice(i, i + batchSize);
         await resend.emails.send({
           from: "TAXBEBO <noreply@taxbebo.com>",
-          to: batch,
+          to: "noreply@taxbebo.com",
+          bcc: batch,
           subject: "Privacy Policy Updated - TAXBEBO",
           html: `
             <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 600px; margin: 0 auto; padding: 40px 24px; background: #ffffff;">
