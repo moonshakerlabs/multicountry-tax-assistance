@@ -75,24 +75,36 @@ serve(async (req) => {
         htmlBody = wrapEmail(`
           <h2 style="font-size: 18px; color: #171717; margin-bottom: 16px;">Hi ${userName},</h2>
           <p style="font-size: 14px; color: #525252; line-height: 1.7; margin-bottom: 16px;">
-            Welcome to <strong>TAXBEBO</strong> — your personal cross-border tax document organiser. We're excited to have you on board!
+            Welcome to <strong>TAXBEBO</strong> — your personal cross-border tax document organiser. We're thrilled to have you on board!
           </p>
-          <p style="font-size: 14px; color: #525252; line-height: 1.7; margin-bottom: 16px;">
-            Here's what you can do right away:
-          </p>
-          <ul style="font-size: 14px; color: #525252; line-height: 2; padding-left: 20px; margin-bottom: 24px;">
-            <li>📂 Upload and organise your tax documents</li>
-            <li>🌍 Connect with taxpayers in your community</li>
-            <li>🤝 Securely share files with your tax advisor</li>
-            <li>🔒 Keep everything private and compliant</li>
-          </ul>
+
+          <div style="background: #f5f5f5; border-radius: 8px; padding: 20px; margin-bottom: 24px;">
+            <p style="font-size: 14px; font-weight: 600; color: #171717; margin: 0 0 12px 0;">🎯 Here's what you can expect:</p>
+            <ul style="font-size: 14px; color: #525252; line-height: 2.2; padding-left: 20px; margin: 0;">
+              <li>📂 <strong>Document Vault</strong> — Upload, organise, and categorise your tax documents by country and fiscal year</li>
+              <li>🌍 <strong>Multi-Country Support</strong> — Manage documents for multiple tax jurisdictions with country-specific fiscal year formats</li>
+              <li>🤖 <strong>AI-Powered Scanner</strong> — Analyse your documents with AI to extract insights and summaries (available on eligible plans)</li>
+              <li>🤝 <strong>Secure Sharing</strong> — Share files with your Chartered Accountant, family, or advisor with time-limited, OTP-protected links</li>
+              <li>💬 <strong>TaxOverFlow Community</strong> — Ask questions and connect with fellow cross-border taxpayers</li>
+              <li>🔒 <strong>Privacy First</strong> — Your data stays yours. We never sell, rent, or use your documents for AI training</li>
+            </ul>
+          </div>
+
+          <div style="background: #fff7ed; border-radius: 8px; padding: 16px; margin-bottom: 24px; border-left: 4px solid hsl(20, 90%, 48%);">
+            <p style="font-size: 13px; color: #7c2d12; line-height: 1.7; margin: 0;">
+              <strong>📝 Please note:</strong> Subscription plans, pricing, and available features are subject to change at TAXBEBO's sole discretion.
+              By using the Platform, you acknowledge and accept the <a href="${appUrl}/terms" style="color: hsl(20, 90%, 48%);">Terms & Conditions</a>
+              and <a href="${appUrl}/privacy" style="color: hsl(20, 90%, 48%);">Privacy Policy</a>.
+            </p>
+          </div>
+
           <div style="text-align: center; margin-bottom: 24px;">
             <a href="${appUrl}/dashboard" style="display: inline-block; padding: 12px 32px; background-color: hsl(20, 90%, 48%); color: #fff; text-decoration: none; border-radius: 8px; font-size: 14px; font-weight: 600;">
-              Go to Dashboard
+              Go to Your Dashboard
             </a>
           </div>
           <p style="font-size: 14px; color: #525252; line-height: 1.7;">
-            If you have any questions, don't hesitate to reach out via our <a href="${appUrl}/support" style="color: hsl(20, 90%, 48%);">Support page</a>.
+            Need help getting started? Visit our <a href="${appUrl}/support" style="color: hsl(20, 90%, 48%);">Support page</a> — we're always here for you.
           </p>
         `);
         break;
@@ -143,34 +155,61 @@ serve(async (req) => {
       }
 
       case "account_deletion": {
-        subject = "We're sorry to see you go — TAXBEBO";
+        subject = "Farewell from TAXBEBO — Here's what happens next";
         htmlBody = wrapEmail(`
           <h2 style="font-size: 18px; color: #171717; margin-bottom: 16px;">Hi ${userName},</h2>
           <p style="font-size: 14px; color: #525252; line-height: 1.7; margin-bottom: 16px;">
-            We're sorry to see you go. Your account deletion request has been received.
+            We're truly sorry to see you go. Your account deletion request has been received and is now being processed.
           </p>
-          <div style="background: #fef3c7; border-radius: 8px; padding: 16px; margin-bottom: 24px;">
-            <p style="font-size: 14px; color: #92400e; line-height: 1.7; margin: 0;">
-              <strong>📋 Here's how your data will be handled:</strong>
+
+          <div style="background: #fef3c7; border-radius: 8px; padding: 20px; margin-bottom: 24px;">
+            <p style="font-size: 14px; font-weight: 600; color: #92400e; margin: 0 0 12px 0;">
+              📋 What happens to your data:
             </p>
-            <ul style="font-size: 13px; color: #92400e; line-height: 2; padding-left: 20px; margin: 8px 0 0 0;">
-              <li>Your account enters a <strong>30-day cooling-off period</strong></li>
-              <li>During this time, you can still access and download your documents from the Secure Vault</li>
-              <li>After 30 days, all personal data and documents will be permanently deleted</li>
-              <li>If you stored files on Google Drive, the integration link will be disconnected but your Google Drive files remain yours</li>
-              <li>Only your email address is retained for abuse prevention</li>
+            <table style="width: 100%; border-collapse: collapse; font-size: 13px; color: #92400e;">
+              <tr>
+                <td style="padding: 6px 8px; border-bottom: 1px solid #fde68a; font-weight: 600;">Timeline</td>
+                <td style="padding: 6px 8px; border-bottom: 1px solid #fde68a; font-weight: 600;">Action</td>
+              </tr>
+              <tr>
+                <td style="padding: 6px 8px; border-bottom: 1px solid #fde68a;">Day 1–30</td>
+                <td style="padding: 6px 8px; border-bottom: 1px solid #fde68a;"><strong>Cooling-off period</strong> — You can still log in, access your Secure Vault, and download your documents.</td>
+              </tr>
+              <tr>
+                <td style="padding: 6px 8px; border-bottom: 1px solid #fde68a;">After 30 days</td>
+                <td style="padding: 6px 8px; border-bottom: 1px solid #fde68a;">All personal data, documents, community posts, and account metadata are <strong>permanently deleted</strong>.</td>
+              </tr>
+            </table>
+          </div>
+
+          <div style="background: #f5f5f5; border-radius: 8px; padding: 20px; margin-bottom: 24px;">
+            <p style="font-size: 14px; font-weight: 600; color: #171717; margin: 0 0 12px 0;">
+              🗂️ What is retained by TAXBEBO:
+            </p>
+            <ul style="font-size: 13px; color: #525252; line-height: 2; padding-left: 20px; margin: 0;">
+              <li><strong>Email address only</strong> — Retained solely for abuse prevention (e.g., preventing repeated trial sign-ups). No other personal data is kept.</li>
+              <li><strong>Anonymised analytics</strong> — Aggregated, non-identifiable usage data may be retained for service improvement.</li>
             </ul>
           </div>
+
+          <div style="background: #eff6ff; border-radius: 8px; padding: 16px; margin-bottom: 24px;">
+            <p style="font-size: 13px; color: #1e40af; line-height: 1.7; margin: 0;">
+              <strong>📁 Google Drive users:</strong> If you stored documents on Google Drive, the integration link will be disconnected immediately. Your Google Drive files remain in your Google account and are not affected.
+            </p>
+          </div>
+
           <p style="font-size: 14px; color: #525252; line-height: 1.7; margin-bottom: 16px;">
-            Changed your mind? Simply log back in within 30 days and contact our support team to cancel the deletion.
+            <strong>Changed your mind?</strong> Simply log back in within 30 days and contact our support team to cancel the deletion. Your account and data will be fully restored.
           </p>
+
           <div style="text-align: center; margin-bottom: 24px;">
             <a href="${appUrl}/support" style="display: inline-block; padding: 12px 32px; background-color: hsl(20, 90%, 48%); color: #fff; text-decoration: none; border-radius: 8px; font-size: 14px; font-weight: 600;">
-              Contact Support
+              Contact Support to Cancel
             </a>
           </div>
+
           <p style="font-size: 14px; color: #525252; line-height: 1.7;">
-            Thank you for being part of TAXBEBO. We hope to welcome you back someday.
+            Thank you for being part of TAXBEBO. We hope to welcome you back someday. 💛
           </p>
         `);
         break;

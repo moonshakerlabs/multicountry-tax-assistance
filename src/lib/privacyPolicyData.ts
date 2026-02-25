@@ -144,16 +144,22 @@ export const privacyPolicyData: PolicyData = {
     },
     {
       type: 'heading',
-      content: '6. Subscriptions & Billing',
+      content: '6. Subscriptions, Pricing & Features',
+    },
+    {
+      type: 'paragraph',
+      content:
+        `All subscription plans, pricing, features, and feature availability are subject to change, addition, or removal at ${APP_NAME}'s sole discretion, at any time and without prior notice. ${APP_NAME} reserves the right to introduce new features, modify existing features, or discontinue any feature or service at its sole discretion.`,
     },
     {
       type: 'bullets',
       content: [
         'Subscription plans and pricing are subject to change. Active subscribers retain their locked pricing as long as their subscription remains uninterrupted.',
-        'Free trials are offered at our sole discretion. Trial duration and features may change without notice.',
+        'Free trials are offered at our sole discretion. Trial duration, features, and eligibility criteria may change without notice.',
         'Downgrades take effect at the end of the current billing cycle. Users must request downgrades at least 3 days (configurable) before billing cycle renewal.',
         'Upon downgrade from a vault-eligible plan, users have a grace period (default 30 days) to download files from the Secure Storage Vault. After this period, vault access is revoked.',
-        'We reserve the right to modify, suspend, or discontinue any subscription tier.',
+        `${APP_NAME} reserves the right to modify, suspend, or discontinue any subscription tier, feature, or service offering at any time.`,
+        'Feature availability may vary by plan, region, or user account status. Features listed on the pricing page reflect current offerings and are not guaranteed to remain unchanged.',
       ],
     },
     {
@@ -246,7 +252,7 @@ export const privacyPolicyData: PolicyData = {
     {
       type: 'paragraph',
       content:
-        'We reserve the right to update these Terms & Conditions at any time. Material changes will be communicated via email or in-app notification. Continued use of the Platform after changes constitutes acceptance. It is your responsibility to review these terms periodically.',
+        `We reserve the right to update these Terms & Conditions at any time, including changes to pricing, subscription plans, feature availability, and service offerings. All such changes are at ${APP_NAME}'s sole discretion. Material changes will be communicated via email or in-app notification. Continued use of the Platform after changes constitutes acceptance. It is your responsibility to review these terms periodically.`,
     },
   ],
 };
@@ -409,12 +415,21 @@ export const privacyPolicyPageData: PolicyData = {
     },
     {
       type: 'heading',
-      content: '12. Changes to This Policy',
+      content: '12. Platform Changes & Discretion',
     },
     {
       type: 'paragraph',
       content:
-        'We may update this Privacy Policy from time to time. Material changes will be communicated via email or in-app notification. The \"Last updated\" date at the top reflects the most recent revision.',
+        `${APP_NAME} reserves the right to modify, add, or remove features, subscription plans, pricing, and service offerings at its sole discretion, at any time and without prior notice. Feature availability may vary by plan, region, or account status.`,
+    },
+    {
+      type: 'heading',
+      content: '13. Changes to This Policy',
+    },
+    {
+      type: 'paragraph',
+      content:
+        'We may update this Privacy Policy from time to time, including in response to changes in features, pricing, or service offerings. Material changes will be communicated via email or in-app notification. The \"Last updated\" date at the top reflects the most recent revision.',
     },
   ],
 };
