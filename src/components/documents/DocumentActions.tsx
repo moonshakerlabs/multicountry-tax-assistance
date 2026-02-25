@@ -7,6 +7,7 @@ import { useSubscription } from "@/hooks/useSubscription";
 import { supabase } from "@/integrations/supabase/client";
 import { X, Download, Eye, Trash2, FileText, AlertTriangle, FileX, Plus, Lock } from "lucide-react";
 import { getMainCategoriesForCountry, getSubCategoriesForCountry, getCategoryLabelBilingual } from "@/lib/categories";
+import { getFiscalYearOptions } from "@/lib/fiscalYearData";
 import "./DocumentActions.css";
 
 interface Document {
@@ -39,8 +40,7 @@ interface DocumentActionsProps {
   onDocumentDeleted: () => void;
 }
 
-const CURRENT_YEAR = new Date().getFullYear();
-const TAX_YEARS = Array.from({ length: 10 }, (_, i) => (CURRENT_YEAR - i).toString());
+// Tax years are now dynamically generated per country using fiscal year data
 
 export default function DocumentActions({
   document,
@@ -80,6 +80,9 @@ export default function DocumentActions({
   const planKey = subscription.subscription_plan || 'FREE';
   const canAddCustom = planKey !== 'FREE';
   const lang = profileLang || (isDE ? 'DE' : 'EN');
+
+  // Dynamic fiscal year options based on document's country
+  const fiscalYearOptions = getFiscalYearOptions(document.country || 'GERMANY');
 
   const isGoogleDriveFile = (path: string | null) => {
     return path?.startsWith("gdrive://");
@@ -409,9 +412,13 @@ export default function DocumentActions({
               <div className="doc-edit-field">
                 <label className="doc-edit-label">{isDE ? "Steuerjahr" : "Tax Year"}</label>
                 <select value={taxYear} onChange={(e) => setTaxYear(e.target.value)} className="doc-edit-select">
-                  {TAX_YEARS.map((year) => (
-                    <option key={year} value={year}>{year}</option>
+                  {fiscalYearOptions.map((opt) => (
+                    <option key={opt.value} value={opt.value}>{opt.label}</option>
                   ))}
+                  {/* Keep current value if not in options */}
+                  {taxYear && !fiscalYearOptions.some(o => o.value === taxYear) && (
+                    <option value={taxYear}>{taxYear}</option>
+                  )}
                 </select>
               </div>
 

@@ -10,6 +10,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { X, Upload, Plus, FileUp, HardDrive, Trash2, Lock } from 'lucide-react';
 import { getMainCategoriesForCountry, getSubCategoriesForCountry, getCategoryLabelBilingual } from '@/lib/categories';
 import { ALL_COUNTRIES } from '@/lib/countryLanguageData';
+import { getFiscalYearOptions } from '@/lib/fiscalYearData';
 import StoragePreferenceModal from './StoragePreferenceModal';
 import GDPRConsentModal from './GDPRConsentModal';
 
@@ -41,8 +42,7 @@ interface FileEntry {
   subCategory: string;
 }
 
-const CURRENT_YEAR = new Date().getFullYear();
-const TAX_YEARS = Array.from({ length: 10 }, (_, i) => (CURRENT_YEAR - i).toString());
+// Tax years are now dynamically generated per country using fiscal year data
 
 type ModalFlow = 'none' | 'storage_choice' | 'gdpr_consent' | 'google_drive_redirect' | 'upload';
 type CategoryMode = 'single' | 'multiple';
@@ -74,7 +74,18 @@ export default function UploadModal({ userProfile, onClose, onUploadComplete }: 
   
   // Form state
   const [country, setCountry] = useState(userProfile?.primary_tax_residency || 'GERMANY');
-  const [taxYear, setTaxYear] = useState(CURRENT_YEAR.toString());
+  const [taxYear, setTaxYear] = useState('');
+  
+  // Dynamic fiscal year options based on country
+  const fiscalYearOptions = getFiscalYearOptions(country);
+  
+  // Set default tax year when country changes
+  useEffect(() => {
+    const options = getFiscalYearOptions(country);
+    if (options.length > 0) {
+      setTaxYear(options[0].value);
+    }
+  }, [country]);
   const [mainCategory, setMainCategory] = useState('');
   const [subCategory, setSubCategory] = useState('');
   const [customSubCategory, setCustomSubCategory] = useState('');
@@ -717,7 +728,7 @@ export default function UploadModal({ userProfile, onClose, onUploadComplete }: 
             </select>
           </div>
 
-          {/* 2. Tax Year */}
+          {/* 2. Tax Year (Fiscal Year) */}
           <div className="upload-field">
             <Label>{isDE ? 'Steuerjahr *' : 'Tax Year *'}</Label>
             <select
@@ -725,8 +736,8 @@ export default function UploadModal({ userProfile, onClose, onUploadComplete }: 
               onChange={(e) => setTaxYear(e.target.value)}
               className="upload-select"
             >
-              {TAX_YEARS.map(year => (
-                <option key={year} value={year}>{year}</option>
+              {fiscalYearOptions.map(opt => (
+                <option key={opt.value} value={opt.value}>{opt.label}</option>
               ))}
             </select>
           </div>

@@ -680,3 +680,135 @@
   color: hsl(var(--muted-foreground));
   margin: 0;
 }
+
+/* ── Vault File Remove Button ── */
+.ai-tools-vault-file-remove {
+  background: none;
+  border: none;
+  color: hsl(var(--muted-foreground));
+  cursor: pointer;
+  padding: 0.25rem;
+  border-radius: 4px;
+  flex-shrink: 0;
+  transition: color 0.15s, background 0.15s;
+}
+.ai-tools-vault-file-remove:hover {
+  color: hsl(var(--destructive));
+  background: hsl(var(--destructive) / 0.1);
+}
+
+/* ── File Selector ── */
+.ai-tools-vault-file-selector {
+  background: hsl(var(--card));
+  border: 1px solid hsl(var(--border));
+  border-radius: 8px;
+  overflow: hidden;
+}
+.ai-tools-vault-file-selector-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid hsl(var(--border));
+}
+.ai-tools-vault-file-selector-header button {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: hsl(var(--muted-foreground));
+}
+.ai-tools-vault-file-selector-list {
+  max-height: 200px;
+  overflow-y: auto;
+}
+.ai-tools-vault-file-selector-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+  padding: 0.5rem 1rem;
+  background: none;
+  border: none;
+  border-bottom: 1px solid hsl(var(--border) / 0.5);
+  cursor: pointer;
+  font-size: 0.85rem;
+  text-align: left;
+  color: hsl(var(--foreground));
+  transition: background 0.15s;
+}
+.ai-tools-vault-file-selector-item:hover {
+  background: hsl(var(--accent) / 0.5);
+}
+
+/* ── PII Toggle ── */
+.ai-tools-pii-toggle {
+  padding: 0.75rem;
+  background: hsl(var(--accent) / 0.3);
+  border-radius: 8px;
+  border: 1px solid hsl(var(--border));
+}
+
+/* ── Scan History ── */
+.ai-tools-scan-history {
+  margin-top: 1rem;
+  border: 1px solid hsl(var(--border));
+  border-radius: 8px;
+  overflow: hidden;
+}
+.ai-tools-scan-history-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+  padding: 0.75rem 1rem;
+  background: hsl(var(--card));
+  border: none;
+  cursor: pointer;
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: hsl(var(--foreground));
+  transition: background 0.15s;
+}
+.ai-tools-scan-history-toggle:hover {
+  background: hsl(var(--accent) / 0.5);
+}
+.ai-tools-scan-history-list {
+  max-height: 300px;
+  overflow-y: auto;
+}
+.ai-tools-scan-history-item {
+  padding: 0.75rem 1rem;
+  border-top: 1px solid hsl(var(--border));
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.ai-tools-scan-history-item:hover {
+  background: hsl(var(--accent) / 0.3);
+}
+.ai-tools-scan-history-item-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.75rem;
+  color: hsl(var(--muted-foreground));
+  margin-bottom: 0.25rem;
+}
+.ai-tools-scan-history-files {
+  margin-left: auto;
+  background: hsl(var(--accent));
+  padding: 0.1rem 0.5rem;
+  border-radius: 999px;
+  font-size: 0.7rem;
+}
+.ai-tools-scan-history-instruction {
+  font-size: 0.85rem;
+  font-weight: 500;
+  margin: 0.25rem 0;
+  color: hsl(var(--foreground));
+}
+.ai-tools-scan-history-summary {
+  font-size: 0.8rem;
+  color: hsl(var(--muted-foreground));
+  margin: 0;
+  line-height: 1.4;
+}

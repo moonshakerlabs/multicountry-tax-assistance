@@ -1284,6 +1284,36 @@ export type Database = {
         }
         Relationships: []
       }
+      vault_scan_history: {
+        Row: {
+          created_at: string
+          file_count: number
+          file_names: string[] | null
+          id: string
+          instruction: string
+          result_summary: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          file_count?: number
+          file_names?: string[] | null
+          id?: string
+          instruction: string
+          result_summary?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          file_count?: number
+          file_names?: string[] | null
+          id?: string
+          instruction?: string
+          result_summary?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
