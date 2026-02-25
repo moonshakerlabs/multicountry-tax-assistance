@@ -164,6 +164,16 @@
   width: 1rem;
 }
 
+.upload-custom-locked {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.5rem 0;
+  color: hsl(var(--muted-foreground));
+  font-size: 0.8125rem;
+  font-style: italic;
+}
+
 .upload-custom-input {
   display: flex;
   gap: 0.5rem;
