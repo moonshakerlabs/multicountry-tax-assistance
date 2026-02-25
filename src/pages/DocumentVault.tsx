@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
+import { useFeatureAccess } from '@/hooks/useFeatureAccess';
 import { supabase } from '@/integrations/supabase/client';
 import { APP_NAME, APP_TAGLINE } from '@/lib/appConfig';
 import { 
@@ -24,7 +25,9 @@ import {
   ToggleLeft,
   ToggleRight,
   Trash2,
-  AlertTriangle
+  AlertTriangle,
+  Brain,
+  HeadphonesIcon
 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -69,6 +72,7 @@ interface GroupedDocuments {
 export default function DocumentVault() {
   const { user, signOut } = useAuth();
   const { toast } = useToast();
+  const { hasFeature } = useFeatureAccess();
   const [documents, setDocuments] = useState<Document[]>([]);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -482,6 +486,14 @@ export default function DocumentVault() {
             <Button asChild variant="ghost" size="sm">
               <Link to="/community">TaxOverFlow</Link>
             </Button>
+            {hasFeature('AI_TOOLS_ACCESS') && (
+              <Button asChild variant="ghost" size="sm">
+                <Link to="/ai-tools"><Brain className="vault-action-icon" />AI Tools</Link>
+              </Button>
+            )}
+            <Button asChild variant="ghost" size="sm">
+              <Link to="/support"><HeadphonesIcon className="vault-action-icon" />{isDE ? 'Support' : 'Support'}</Link>
+            </Button>
             <Button variant="ghost" size="sm" onClick={signOut}>
               <LogOut className="vault-action-icon" />
               {isDE ? 'Abmelden' : 'Sign out'}
@@ -881,6 +893,7 @@ export default function DocumentVault() {
         <DocumentActions
           document={selectedDocument}
           isDE={isDE}
+          profileLang={userProfile?.preferred_language || 'EN'}
           onClose={() => setSelectedDocument(null)}
           onDocumentUpdated={handleDocumentUpdated}
           onDocumentDeleted={handleDocumentDeleted}

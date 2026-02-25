@@ -12,11 +12,13 @@ import AskQuestionModal from '@/components/community/AskQuestionModal';
 import ReportModal from '@/components/community/ReportModal';
 import { Badge } from '@/components/ui/badge';
 import './Community.css';
+import { useFeatureAccess } from '@/hooks/useFeatureAccess';
 
 export default function Community() {
   const { user } = useAuth();
   const { subscription, getPostingLimit } = useSubscription();
   const { selectedCountries, setCountries, countryLimit } = useCommunityCountries();
+  const { hasFeature } = useFeatureAccess();
 
   const [posts, setPosts] = useState<PostData[]>([]);
   const [loading, setLoading] = useState(true);
@@ -225,6 +227,7 @@ export default function Community() {
           canPost={canPost}
           guidelinesAccepted={guidelinesAccepted}
           onGuidelinesAccepted={handleGuidelinesAccepted}
+          showAITools={hasFeature('AI_TOOLS_ACCESS')}
         />
         <PostDetail
           postId={selectedPostId}
@@ -251,6 +254,7 @@ export default function Community() {
         canPost={canPost}
         guidelinesAccepted={guidelinesAccepted}
         onGuidelinesAccepted={handleGuidelinesAccepted}
+        showAITools={hasFeature('AI_TOOLS_ACCESS')}
       />
 
       <main className="community-main">

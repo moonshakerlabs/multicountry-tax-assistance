@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, Plus, BookOpen, X, CheckCircle2 } from 'lucide-react';
+import { ArrowLeft, Plus, BookOpen, X, CheckCircle2, Brain, HeadphonesIcon } from 'lucide-react';
 import { APP_NAME } from '@/lib/appConfig';
 import './CommunityHeader.css';
 
@@ -45,9 +45,10 @@ interface CommunityHeaderProps {
   canPost: boolean;
   guidelinesAccepted: boolean;
   onGuidelinesAccepted: (accepted: boolean) => void;
+  showAITools?: boolean;
 }
 
-export default function CommunityHeader({ onAskQuestion, canPost, guidelinesAccepted, onGuidelinesAccepted }: CommunityHeaderProps) {
+export default function CommunityHeader({ onAskQuestion, canPost, guidelinesAccepted, onGuidelinesAccepted, showAITools }: CommunityHeaderProps) {
   const [showGuidelines, setShowGuidelines] = useState(false);
   const [acceptChecked, setAcceptChecked] = useState(guidelinesAccepted);
 
@@ -95,6 +96,14 @@ export default function CommunityHeader({ onAskQuestion, canPost, guidelinesAcce
             </Button>
             <Button asChild variant="ghost" size="sm">
               <Link to="/profile">Profile</Link>
+            </Button>
+            {showAITools && (
+              <Button asChild variant="ghost" size="sm">
+                <Link to="/ai-tools"><Brain className="community-plus-icon" />AI Tools</Link>
+              </Button>
+            )}
+            <Button asChild variant="ghost" size="sm">
+              <Link to="/support"><HeadphonesIcon className="community-plus-icon" />Support</Link>
             </Button>
             <Button variant="ghost" size="sm" onClick={handleOpenGuidelines}>
               <BookOpen className="community-plus-icon" />
