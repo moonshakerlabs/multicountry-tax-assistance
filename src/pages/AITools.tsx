@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { useAuth } from '@/hooks/useAuth';
 import { useSubscription } from '@/hooks/useSubscription';
+import { useToast } from '@/hooks/use-toast';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import jsPDF from 'jspdf';
@@ -37,6 +38,10 @@ import {
   Eye,
   ChevronDown,
   Save,
+  Plus,
+  Trash2,
+  History,
+  Clock,
 } from 'lucide-react';
 import './AITools.css';
 
@@ -57,6 +62,8 @@ const VAULT_QUICK_PROMPTS = [
   'Generate a complete tax filing summary',
   'List all sources of income with amounts',
 ];
+
+const PII_EXCLUSION_PROMPT = '\n\nIMPORTANT: Do NOT include any personally identifiable information (PII) in the output such as names, tax identification numbers, addresses, phone numbers, bank account numbers, or social security numbers. Only include income figures, amounts, dates, and financial data.';
 
 const PLAN_LIMITS: Record<string, { maxFiles: number; maxSizeMB: number }> = {
   FREEMIUM: { maxFiles: 5, maxSizeMB: 25 },
@@ -117,6 +124,7 @@ function extractTablesFromMarkdown(md: string): { headers: string[]; rows: strin
 export default function AITools() {
   const { user, signOut } = useAuth();
   const { subscription, loading: subLoading } = useSubscription();
+  const { toast } = useToast();
   const navigate = useNavigate();
 
   // Common state
@@ -145,6 +153,17 @@ export default function AITools() {
   const [savingToVault, setSavingToVault] = useState(false);
   const [savedToVault, setSavedToVault] = useState(false);
   const [sessionToken, setSessionToken] = useState<string | null>(null);
+
+  // Manual file add state
+  const [showFileSelector, setShowFileSelector] = useState(false);
+  const [allVaultDocs, setAllVaultDocs] = useState<RelevantFile[]>([]);
+
+  // Scan history state
+  const [scanHistory, setScanHistory] = useState<Array<{ id: string; instruction: string; result_summary: string; file_count: number; file_names: string[]; created_at: string }>>([]);
+  const [showHistory, setShowHistory] = useState(false);
+
+  // PII exclusion toggle
+  const [excludePII, setExcludePII] = useState(true);
 
   // Dropdown state for report buttons
   const [pdfDropdownOpen, setPdfDropdownOpen] = useState(false);
@@ -207,7 +226,48 @@ export default function AITools() {
   const plan = isTestEnv ? 'SUPER_PRO' : subscription.subscription_plan;
   const isPaid = isTestEnv || ['FREEMIUM', 'PRO', 'SUPER_PRO'].includes(plan);
   const isProOrAbove = isTestEnv || ['PRO', 'SUPER_PRO'].includes(plan);
+  const isSuperPro = isTestEnv || plan === 'SUPER_PRO';
+  const historyLimit = isSuperPro ? Infinity : (isProOrAbove ? 5 : 0);
   const limits = PLAN_LIMITS[plan] || PLAN_LIMITS.FREEMIUM;
+
+  // Fetch scan history
+  useEffect(() => {
+    if (!user || !sessionToken || !isProOrAbove) return;
+    const fetchHistory = async () => {
+      const { data } = await supabase
+        .from('vault_scan_history')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false })
+        .limit(isSuperPro ? 100 : 5);
+      setScanHistory(data || []);
+    };
+    fetchHistory();
+  }, [user, sessionToken, isProOrAbove, isSuperPro]);
+
+  // Fetch all vault docs for manual file selector
+  const fetchAllVaultDocs = async () => {
+    if (!user) return;
+    const { data } = await supabase
+      .from('documents')
+      .select('id, file_name')
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: false });
+    setAllVaultDocs((data || []).map(d => ({ id: d.id, file_name: d.file_name || 'Unnamed', reason: 'Manually added' })));
+    setShowFileSelector(true);
+  };
+
+  // Remove a file from the relevant files list
+  const removeRelevantFile = (fileId: string) => {
+    setRelevantFiles(prev => prev.filter(f => f.id !== fileId));
+  };
+
+  // Add a file from vault to the relevant files list
+  const addFileFromVault = (file: RelevantFile) => {
+    if (!relevantFiles.some(f => f.id === file.id)) {
+      setRelevantFiles(prev => [...prev, file]);
+    }
+  };
 
   const addFiles = useCallback(
     (newFiles: FileList | File[]) => {
@@ -374,7 +434,7 @@ export default function AITools() {
         body: JSON.stringify({
           action: 'analyze',
           fileIds: relevantFiles.map((f) => f.id),
-          instruction,
+          instruction: instruction + (excludePII ? PII_EXCLUSION_PROMPT : ''),
         }),
         signal: controller.signal,
       });
@@ -387,6 +447,26 @@ export default function AITools() {
       const fullText = await streamSSEResponse(resp);
       setReportContent(fullText);
       setVaultStep('done');
+
+      // Save to scan history
+      if (user) {
+        const summaryText = fullText.substring(0, 500) + (fullText.length > 500 ? '...' : '');
+        await supabase.from('vault_scan_history').insert({
+          user_id: user.id,
+          instruction,
+          result_summary: summaryText,
+          file_count: relevantFiles.length,
+          file_names: relevantFiles.map(f => f.file_name),
+        });
+        // Refresh history
+        const { data: histData } = await supabase
+          .from('vault_scan_history')
+          .select('*')
+          .eq('user_id', user.id)
+          .order('created_at', { ascending: false })
+          .limit(isSuperPro ? 100 : 5);
+        setScanHistory(histData || []);
+      }
     } catch (err: any) {
       if (err.name !== 'AbortError') {
         setResult(`Error: ${err.message}`);
@@ -858,6 +938,49 @@ export default function AITools() {
                   <Button onClick={handleVaultScan} disabled={!instruction.trim() || processing} className="w-full">
                     <Search className="h-4 w-4" /> Scan Vault
                   </Button>
+
+                  {/* Scan History */}
+                  {isProOrAbove && scanHistory.length > 0 && (
+                    <div className="ai-tools-scan-history">
+                      <button
+                        className="ai-tools-scan-history-toggle"
+                        onClick={() => setShowHistory(!showHistory)}
+                      >
+                        <History className="h-4 w-4" />
+                        <span>Previous Computations ({scanHistory.length})</span>
+                        <ChevronDown className={`h-3.5 w-3.5 ${showHistory ? 'rotate-180' : ''}`} style={{ transition: 'transform 0.2s', marginLeft: 'auto' }} />
+                      </button>
+                      {showHistory && (
+                        <div className="ai-tools-scan-history-list">
+                          {scanHistory.map((item) => (
+                            <div
+                              key={item.id}
+                              className="ai-tools-scan-history-item"
+                              onClick={() => {
+                                setInstruction(item.instruction);
+                                setResult(item.result_summary || '');
+                              }}
+                            >
+                              <div className="ai-tools-scan-history-item-header">
+                                <Clock className="h-3.5 w-3.5" />
+                                <span>{new Date(item.created_at).toLocaleDateString()} {new Date(item.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                                <span className="ai-tools-scan-history-files">{item.file_count} files</span>
+                              </div>
+                              <p className="ai-tools-scan-history-instruction">{item.instruction}</p>
+                              {item.result_summary && (
+                                <p className="ai-tools-scan-history-summary">{item.result_summary.substring(0, 120)}...</p>
+                              )}
+                            </div>
+                          ))}
+                          {!isSuperPro && (
+                            <p style={{ fontSize: '0.75rem', color: 'hsl(var(--muted-foreground))', textAlign: 'center', padding: '0.5rem' }}>
+                              Pro: last 5 shown · Upgrade to Super Pro for unlimited history
+                            </p>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </>
               )}
 
@@ -875,8 +998,8 @@ export default function AITools() {
                   <div className="ai-tools-vault-confirm-header">
                     <CheckCircle className="h-5 w-5" style={{ color: 'hsl(var(--primary))' }} />
                     <div>
-                      <strong>Scanned {totalDocs} documents — {relevantFiles.length} seem relevant</strong>
-                      <p>After scanning your vault, these files appear relevant to your query. Do you want to proceed with analysis?</p>
+                      <strong>Scanned {totalDocs} documents — {relevantFiles.length} selected</strong>
+                      <p>Review the files below. You can remove irrelevant ones or add more from your vault.</p>
                     </div>
                   </div>
 
@@ -884,17 +1007,82 @@ export default function AITools() {
                     {relevantFiles.map((file) => (
                       <div key={file.id} className="ai-tools-vault-file-item">
                         <FileText className="h-4 w-4 flex-shrink-0" />
-                        <div>
+                        <div style={{ flex: 1 }}>
                           <strong>{file.file_name}</strong>
                           <p>{file.reason}</p>
                         </div>
+                        <button
+                          onClick={() => removeRelevantFile(file.id)}
+                          className="ai-tools-vault-file-remove"
+                          title="Remove from analysis"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
                       </div>
                     ))}
                   </div>
 
+                  {/* Add more files manually */}
+                  <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                    <Button variant="outline" size="sm" onClick={fetchAllVaultDocs}>
+                      <Plus className="h-3.5 w-3.5" /> Add Files from Vault
+                    </Button>
+                  </div>
+
+                  {/* File selector modal */}
+                  {showFileSelector && (
+                    <div className="ai-tools-vault-file-selector">
+                      <div className="ai-tools-vault-file-selector-header">
+                        <strong>Select files to add</strong>
+                        <button onClick={() => setShowFileSelector(false)}>
+                          <X className="h-4 w-4" />
+                        </button>
+                      </div>
+                      <div className="ai-tools-vault-file-selector-list">
+                        {allVaultDocs
+                          .filter(d => !relevantFiles.some(r => r.id === d.id))
+                          .map(doc => (
+                            <button
+                              key={doc.id}
+                              className="ai-tools-vault-file-selector-item"
+                              onClick={() => {
+                                addFileFromVault(doc);
+                                toast({ title: 'File added', description: doc.file_name });
+                              }}
+                            >
+                              <FileText className="h-3.5 w-3.5" />
+                              <span>{doc.file_name}</span>
+                              <Plus className="h-3.5 w-3.5" style={{ marginLeft: 'auto' }} />
+                            </button>
+                          ))}
+                        {allVaultDocs.filter(d => !relevantFiles.some(r => r.id === d.id)).length === 0 && (
+                          <p style={{ padding: '0.75rem', color: 'hsl(var(--muted-foreground))', fontSize: '0.85rem' }}>
+                            All vault documents are already included.
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* PII Exclusion Toggle */}
+                  <div className="ai-tools-pii-toggle">
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
+                      <input
+                        type="checkbox"
+                        checked={excludePII}
+                        onChange={(e) => setExcludePII(e.target.checked)}
+                        style={{ width: '1rem', height: '1rem' }}
+                      />
+                      <Shield className="h-4 w-4" style={{ color: 'hsl(var(--primary))' }} />
+                      <span style={{ fontSize: '0.85rem' }}>
+                        Exclude personal identifiable information (names, tax numbers, addresses)
+                      </span>
+                    </label>
+                  </div>
+
                   <div style={{ display: 'flex', gap: '0.75rem' }}>
-                    <Button onClick={handleVaultAnalyze} className="flex-1">
-                      <Brain className="h-4 w-4" /> Yes, Proceed with Analysis
+                    <Button onClick={handleVaultAnalyze} disabled={!relevantFiles.length} className="flex-1">
+                      <Brain className="h-4 w-4" /> Proceed with Analysis ({relevantFiles.length} files)
                     </Button>
                     <Button variant="outline" onClick={handleNewSession}>Cancel</Button>
                   </div>
