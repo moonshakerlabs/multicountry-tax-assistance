@@ -281,3 +281,66 @@
   font-size: 0.8125rem;
   height: 2rem;
 }
+
+/* Category mode toggle */
+.upload-category-mode-toggle {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.upload-category-mode-label {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: hsl(var(--foreground));
+}
+
+.upload-category-mode-buttons {
+  display: flex;
+  border: 1px solid hsl(var(--border));
+  border-radius: 0.5rem;
+  overflow: hidden;
+}
+
+.upload-category-mode-btn {
+  flex: 1;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  background: hsl(var(--background));
+  color: hsl(var(--muted-foreground));
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.upload-category-mode-btn:first-child {
+  border-right: 1px solid hsl(var(--border));
+}
+
+.upload-category-mode-btn:hover {
+  background: hsl(var(--muted));
+}
+
+.upload-category-mode-btn-active {
+  background: hsl(var(--primary));
+  color: hsl(var(--primary-foreground));
+}
+
+.upload-category-mode-btn-active:hover {
+  background: hsl(var(--primary) / 0.9);
+}
+
+/* Per-file category dropdowns */
+.upload-file-entry-categories {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+  margin-top: 0.25rem;
+}
+
+.upload-select-compact {
+  padding: 0.375rem 2rem 0.375rem 0.5rem;
+  font-size: 0.8125rem;
+  height: auto;
+}
