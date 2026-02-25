@@ -5,9 +5,10 @@ import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import { useStoragePreference } from '@/hooks/useStoragePreference';
+import { useSubscription } from '@/hooks/useSubscription';
 import { supabase } from '@/integrations/supabase/client';
-import { X, Upload, Plus, FileUp, HardDrive, Trash2 } from 'lucide-react';
-import { getMainCategoriesForCountry, getSubCategoriesForCountry, getCategoryLabel } from '@/lib/categories';
+import { X, Upload, Plus, FileUp, HardDrive, Trash2, Lock } from 'lucide-react';
+import { getMainCategoriesForCountry, getSubCategoriesForCountry, getCategoryLabelBilingual } from '@/lib/categories';
 import { ALL_COUNTRIES } from '@/lib/countryLanguageData';
 import StoragePreferenceModal from './StoragePreferenceModal';
 import GDPRConsentModal from './GDPRConsentModal';
@@ -36,7 +37,6 @@ interface UploadModalProps {
 interface FileEntry {
   file: File;
   customName: string;
-  // Per-file category fields (used in 'multiple' mode)
   mainCategory: string;
   subCategory: string;
 }
@@ -53,6 +53,7 @@ const MAX_FILE_SIZE = 52428800; // 50 MB
 export default function UploadModal({ userProfile, onClose, onUploadComplete }: UploadModalProps) {
   const { user, profile } = useAuth();
   const { toast } = useToast();
+  const { subscription } = useSubscription();
   const {
     storagePreference,
     gdprConsentGiven,
@@ -71,15 +72,22 @@ export default function UploadModal({ userProfile, onClose, onUploadComplete }: 
   const [shareEnabled, setShareEnabled] = useState(true);
   const [categoryMode, setCategoryMode] = useState<CategoryMode>('single');
   
-  // Form state (used in 'single' mode)
+  // Form state
   const [country, setCountry] = useState(userProfile?.primary_tax_residency || 'GERMANY');
   const [taxYear, setTaxYear] = useState(CURRENT_YEAR.toString());
   const [mainCategory, setMainCategory] = useState('');
   const [subCategory, setSubCategory] = useState('');
   const [customSubCategory, setCustomSubCategory] = useState('');
-  const [showCustomInput, setShowCustomInput] = useState(false);
+  const [showCustomSubInput, setShowCustomSubInput] = useState(false);
+  const [customMainCategory, setCustomMainCategory] = useState('');
+  const [showCustomMainInput, setShowCustomMainInput] = useState(false);
   
-  const isDE = userProfile?.preferred_language === 'DE';
+  const profileLang = userProfile?.preferred_language || 'EN';
+  const isDE = profileLang === 'DE';
+
+  // Subscription-based access for custom categories
+  const planKey = subscription.subscription_plan || 'FREE';
+  const canAddCustom = planKey !== 'FREE'; // Freemium and above can add custom categories
 
   // Refresh storage preference data when modal opens
   useEffect(() => {
@@ -101,15 +109,31 @@ export default function UploadModal({ userProfile, onClose, onUploadComplete }: 
     }
   }, [storageLoading, needsStorageChoice, storagePreference, gdprConsentGiven, googleDriveConnected]);
 
-
   // Get available countries from user profile
   const availableCountries = [
     userProfile?.primary_tax_residency || 'GERMANY',
     ...(userProfile?.other_tax_countries || []),
   ].filter((c, i, arr) => arr.indexOf(c) === i);
 
-  // Get main categories from local data files
-  const mainCategories = getMainCategoriesForCountry(country);
+  // Get main categories from local data files + custom main categories
+  const systemMainCategories = getMainCategoriesForCountry(country);
+  const customMainCats = customCategories
+    .filter(c => c.main_category && !systemMainCategories.some(s => s.code === c.main_category))
+    .reduce((acc, c) => {
+      if (!acc.find(a => a.code === c.main_category)) {
+        acc.push({
+          code: c.main_category,
+          labelEn: c.main_category.replace(/_/g, ' '),
+          isCustom: true,
+        });
+      }
+      return acc;
+    }, [] as Array<{ code: string; labelEn: string; isCustom: boolean }>);
+
+  const allMainCategories = [
+    ...systemMainCategories.map(c => ({ ...c, isCustom: false })),
+    ...customMainCats,
+  ];
   
   // Get sub categories from local data + custom categories
   const getSubCatsForMain = (mainCat: string) => {
@@ -200,7 +224,6 @@ export default function UploadModal({ userProfile, onClose, onUploadComplete }: 
     });
   };
 
-
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFiles = e.target.files;
     if (!selectedFiles || selectedFiles.length === 0) return;
@@ -258,8 +281,65 @@ export default function UploadModal({ userProfile, onClose, onUploadComplete }: 
     return entry.file.name;
   };
 
-  const handleAddCustomCategory = async () => {
-    if (!customSubCategory.trim() || !mainCategory || !user) return;
+  // Helper to get bilingual label for a category item
+  const getBilingualLabel = (item: { code: string; labelEn: string; labelLocal?: string; isCustom?: boolean }) => {
+    if (item.isCustom) {
+      return `${item.labelEn} ${isDE ? '(Benutzerdefiniert)' : '(Custom)'}`;
+    }
+    return getCategoryLabelBilingual(item, profileLang, country);
+  };
+
+  const handleAddCustomMainCategory = async () => {
+    if (!customMainCategory.trim() || !user || !canAddCustom) return;
+    
+    const mainCatCode = customMainCategory.trim().replace(/\s+/g, '_').toUpperCase();
+    
+    try {
+      // Insert a placeholder custom category with the new main category
+      const { error } = await supabase
+        .from('custom_categories')
+        .insert({
+          user_id: user.id,
+          country,
+          main_category: mainCatCode,
+          sub_category: 'GENERAL',
+        });
+      
+      if (error) throw error;
+      
+      // Refresh custom categories
+      const { data: customCats } = await supabase
+        .from('custom_categories')
+        .select('*')
+        .eq('user_id', user.id)
+        .eq('country', country);
+      
+      setCustomCategories(customCats || []);
+      setMainCategory(mainCatCode);
+      setSubCategory('');
+      setCustomMainCategory('');
+      setShowCustomMainInput(false);
+      
+      toast({
+        title: isDE ? 'Kategorie hinzugefügt' : 'Category added',
+        description: isDE 
+          ? 'Ihre benutzerdefinierte Hauptkategorie wurde erstellt.'
+          : 'Your custom main category has been created.',
+      });
+    } catch (error) {
+      console.error('Error adding custom main category:', error);
+      toast({
+        title: isDE ? 'Fehler' : 'Error',
+        description: isDE 
+          ? 'Kategorie konnte nicht hinzugefügt werden.'
+          : 'Could not add category.',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const handleAddCustomSubCategory = async () => {
+    if (!customSubCategory.trim() || !mainCategory || !user || !canAddCustom) return;
     
     try {
       const { error } = await supabase
@@ -282,13 +362,13 @@ export default function UploadModal({ userProfile, onClose, onUploadComplete }: 
       setCustomCategories(customCats || []);
       setSubCategory(customSubCategory.trim().replace(/\s+/g, '_'));
       setCustomSubCategory('');
-      setShowCustomInput(false);
+      setShowCustomSubInput(false);
       
       toast({
         title: isDE ? 'Kategorie hinzugefügt' : 'Category added',
         description: isDE 
-          ? 'Ihre benutzerdefinierte Kategorie wurde erstellt.'
-          : 'Your custom category has been created.',
+          ? 'Ihre benutzerdefinierte Unterkategorie wurde erstellt.'
+          : 'Your custom sub category has been created.',
       });
     } catch (error) {
       console.error('Error adding custom category:', error);
@@ -460,6 +540,33 @@ export default function UploadModal({ userProfile, onClose, onUploadComplete }: 
     return labels[code]?.[isDE ? 'de' : 'en'] || code;
   };
 
+  // Render "Add custom" button or locked indicator
+  const renderAddCustomButton = (
+    label: string,
+    showInput: boolean,
+    setShowInput: (v: boolean) => void
+  ) => {
+    if (!canAddCustom) {
+      // Show existing custom categories but don't allow adding new ones
+      return (
+        <span className="upload-custom-locked">
+          <Lock className="upload-add-custom-icon" />
+          {isDE ? 'Benutzerdefinierte Kategorien (ab Freemium)' : 'Custom categories (Freemium+)'}
+        </span>
+      );
+    }
+    return (
+      <button 
+        type="button" 
+        className="upload-add-custom"
+        onClick={() => setShowInput(true)}
+      >
+        <Plus className="upload-add-custom-icon" />
+        {label}
+      </button>
+    );
+  };
+
   // Render per-file category dropdowns
   const renderPerFileCategoryDropdowns = (entry: FileEntry, index: number) => {
     const fileSubCats = getSubCatsForMain(entry.mainCategory);
@@ -471,9 +578,9 @@ export default function UploadModal({ userProfile, onClose, onUploadComplete }: 
           className="upload-select upload-select-compact"
         >
           <option value="">{isDE ? 'Hauptkategorie' : 'Main Category'}</option>
-          {mainCategories.map(cat => (
+          {allMainCategories.map(cat => (
             <option key={cat.code} value={cat.code}>
-              {getCategoryLabel(cat, isDE)}
+              {getBilingualLabel(cat)}
             </option>
           ))}
         </select>
@@ -486,7 +593,7 @@ export default function UploadModal({ userProfile, onClose, onUploadComplete }: 
             <option value="">{isDE ? 'Unterkategorie' : 'Sub Category'}</option>
             {fileSubCats.map(cat => (
               <option key={cat.code} value={cat.code}>
-                {getCategoryLabel(cat, isDE)} {cat.isCustom ? (isDE ? '(Benutzerdefiniert)' : '(Custom)') : ''}
+                {getBilingualLabel(cat)}
               </option>
             ))}
           </select>
@@ -565,7 +672,7 @@ export default function UploadModal({ userProfile, onClose, onUploadComplete }: 
     );
   }
 
-  // Regular upload form
+  // Regular upload form — Order: Storage → Country → Tax Year → Files → Categories
   return (
     <div className="upload-modal-overlay" onClick={onClose}>
       <div className="upload-modal" onClick={e => e.stopPropagation()}>
@@ -591,7 +698,40 @@ export default function UploadModal({ userProfile, onClose, onUploadComplete }: 
             </span>
           </div>
 
-          {/* File Upload - Multiple */}
+          {/* 1. Country Selection */}
+          <div className="upload-field">
+            <Label>{isDE ? 'Land *' : 'Country *'}</Label>
+            <select
+              value={country}
+              onChange={(e) => {
+                setCountry(e.target.value);
+                setMainCategory('');
+                setSubCategory('');
+                setFileEntries(prev => prev.map(entry => ({ ...entry, mainCategory: '', subCategory: '' })));
+              }}
+              className="upload-select"
+            >
+              {availableCountries.map(c => (
+                <option key={c} value={c}>{getCountryLabel(c)}</option>
+              ))}
+            </select>
+          </div>
+
+          {/* 2. Tax Year */}
+          <div className="upload-field">
+            <Label>{isDE ? 'Steuerjahr *' : 'Tax Year *'}</Label>
+            <select
+              value={taxYear}
+              onChange={(e) => setTaxYear(e.target.value)}
+              className="upload-select"
+            >
+              {TAX_YEARS.map(year => (
+                <option key={year} value={year}>{year}</option>
+              ))}
+            </select>
+          </div>
+
+          {/* 3. File Upload */}
           <div className="upload-field">
             <Label>{isDE ? 'Dateien *' : 'Files *'}</Label>
             <div className="upload-dropzone">
@@ -686,41 +826,7 @@ export default function UploadModal({ userProfile, onClose, onUploadComplete }: 
             </div>
           )}
 
-          {/* Country Selection */}
-          <div className="upload-field">
-            <Label>{isDE ? 'Land *' : 'Country *'}</Label>
-            <select
-              value={country}
-              onChange={(e) => {
-                setCountry(e.target.value);
-                setMainCategory('');
-                setSubCategory('');
-                // Also reset per-file categories
-                setFileEntries(prev => prev.map(entry => ({ ...entry, mainCategory: '', subCategory: '' })));
-              }}
-              className="upload-select"
-            >
-              {availableCountries.map(c => (
-                <option key={c} value={c}>{getCountryLabel(c)}</option>
-              ))}
-            </select>
-          </div>
-
-          {/* Tax Year */}
-          <div className="upload-field">
-            <Label>{isDE ? 'Steuerjahr *' : 'Tax Year *'}</Label>
-            <select
-              value={taxYear}
-              onChange={(e) => setTaxYear(e.target.value)}
-              className="upload-select"
-            >
-              {TAX_YEARS.map(year => (
-                <option key={year} value={year}>{year}</option>
-              ))}
-            </select>
-          </div>
-
-          {/* Main Category - only in single mode */}
+          {/* 4. Document Categories - only in single mode */}
           {(categoryMode === 'single' || fileEntries.length <= 1) && (
             <>
               <div className="upload-field">
@@ -734,12 +840,48 @@ export default function UploadModal({ userProfile, onClose, onUploadComplete }: 
                   className="upload-select"
                 >
                   <option value="">{isDE ? 'Kategorie auswählen' : 'Select category'}</option>
-                  {mainCategories.map(cat => (
+                  {allMainCategories.map(cat => (
                     <option key={cat.code} value={cat.code}>
-                      {getCategoryLabel(cat, isDE)}
+                      {getBilingualLabel(cat)}
                     </option>
                   ))}
                 </select>
+                
+                {/* Add custom main category */}
+                {!showCustomMainInput ? (
+                  renderAddCustomButton(
+                    isDE ? 'Eigene Hauptkategorie hinzufügen' : 'Add custom main category',
+                    showCustomMainInput,
+                    setShowCustomMainInput
+                  )
+                ) : (
+                  <div className="upload-custom-input">
+                    <Input
+                      value={customMainCategory}
+                      onChange={(e) => setCustomMainCategory(e.target.value)}
+                      placeholder={isDE ? 'Name der Hauptkategorie' : 'Main category name'}
+                    />
+                    <Button 
+                      type="button" 
+                      size="sm"
+                      onClick={handleAddCustomMainCategory}
+                      disabled={!customMainCategory.trim()}
+                    >
+                      {isDE ? 'Hinzufügen' : 'Add'}
+                    </Button>
+                    <Button 
+                      type="button" 
+                      size="sm" 
+                      variant="ghost"
+                      onClick={() => {
+                        setShowCustomMainInput(false);
+                        setCustomMainCategory('');
+                      }}
+                    >
+                      {isDE ? 'Abbrechen' : 'Cancel'}
+                    </Button>
+                  </div>
+                )}
               </div>
 
               {mainCategory && (
@@ -753,20 +895,18 @@ export default function UploadModal({ userProfile, onClose, onUploadComplete }: 
                     <option value="">{isDE ? 'Unterkategorie auswählen' : 'Select sub category'}</option>
                     {subCategories.map(cat => (
                       <option key={cat.code} value={cat.code}>
-                        {getCategoryLabel(cat, isDE)} {cat.isCustom ? (isDE ? '(Benutzerdefiniert)' : '(Custom)') : ''}
+                        {getBilingualLabel(cat)}
                       </option>
                     ))}
                   </select>
                   
-                  {!showCustomInput ? (
-                    <button 
-                      type="button" 
-                      className="upload-add-custom"
-                      onClick={() => setShowCustomInput(true)}
-                    >
-                      <Plus className="upload-add-custom-icon" />
-                      {isDE ? 'Eigene Unterkategorie hinzufügen' : 'Add custom sub category'}
-                    </button>
+                  {/* Add custom sub category */}
+                  {!showCustomSubInput ? (
+                    renderAddCustomButton(
+                      isDE ? 'Eigene Unterkategorie hinzufügen' : 'Add custom sub category',
+                      showCustomSubInput,
+                      setShowCustomSubInput
+                    )
                   ) : (
                     <div className="upload-custom-input">
                       <Input
@@ -777,7 +917,7 @@ export default function UploadModal({ userProfile, onClose, onUploadComplete }: 
                       <Button 
                         type="button" 
                         size="sm"
-                        onClick={handleAddCustomCategory}
+                        onClick={handleAddCustomSubCategory}
                         disabled={!customSubCategory.trim()}
                       >
                         {isDE ? 'Hinzufügen' : 'Add'}
@@ -787,7 +927,7 @@ export default function UploadModal({ userProfile, onClose, onUploadComplete }: 
                         size="sm" 
                         variant="ghost"
                         onClick={() => {
-                          setShowCustomInput(false);
+                          setShowCustomSubInput(false);
                           setCustomSubCategory('');
                         }}
                       >
