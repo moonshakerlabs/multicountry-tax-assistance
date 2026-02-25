@@ -126,6 +126,11 @@ export default function AITools() {
   const [processing, setProcessing] = useState(false);
   const [copied, setCopied] = useState(false);
 
+  // Refs for tab-switch persistence
+  const fullTextRef = useRef('');
+  const isProcessingRef = useRef(false);
+  const abortControllerRef = useRef<AbortController | null>(null);
+
   // Upload mode state
   const [files, setFiles] = useState<File[]>([]);
   const [dragging, setDragging] = useState(false);
@@ -163,6 +168,32 @@ export default function AITools() {
     const handler = () => { setPdfDropdownOpen(false); setCsvDropdownOpen(false); };
     document.addEventListener('click', handler);
     return () => document.removeEventListener('click', handler);
+  }, []);
+
+  // Restore state on tab visibility change
+  useEffect(() => {
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        // Restore accumulated text from ref
+        if (fullTextRef.current) {
+          setResult(fullTextRef.current);
+        }
+        if (isProcessingRef.current) {
+          setProcessing(true);
+        }
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibility);
+    return () => document.removeEventListener('visibilitychange', handleVisibility);
+  }, []);
+
+  // Cleanup abort controller on unmount only
+  useEffect(() => {
+    return () => {
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+    };
   }, []);
 
   const getCustomHeaders = (): Record<string, string> => {
@@ -204,7 +235,12 @@ export default function AITools() {
     if (!files.length || !instruction.trim() || processing) return;
 
     setProcessing(true);
+    isProcessingRef.current = true;
     setResult('');
+    fullTextRef.current = '';
+
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
 
     try {
       const formData = new FormData();
@@ -219,6 +255,7 @@ export default function AITools() {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}`, ...getCustomHeaders() },
         body: formData,
+        signal: controller.signal,
       });
 
       if (!resp.ok) {
@@ -226,6 +263,7 @@ export default function AITools() {
         if (err.error === 'UPGRADE_REQUIRED') {
           setResult('');
           setProcessing(false);
+          isProcessingRef.current = false;
           return;
         }
         throw new Error(err.error || 'Processing failed');
@@ -233,9 +271,12 @@ export default function AITools() {
 
       await streamSSEResponse(resp);
     } catch (err: any) {
-      setResult(`Error: ${err.message}`);
+      if (err.name !== 'AbortError') {
+        setResult(`Error: ${err.message}`);
+      }
     } finally {
       setProcessing(false);
+      isProcessingRef.current = false;
     }
   };
 
@@ -244,8 +285,10 @@ export default function AITools() {
     if (!instruction.trim() || processing) return;
 
     setProcessing(true);
+    isProcessingRef.current = true;
     setVaultStep('scanning');
     setResult('');
+    fullTextRef.current = '';
     setRelevantFiles([]);
     setReportContent('');
     setSavedToVault(false);
@@ -271,12 +314,14 @@ export default function AITools() {
           setResult('This feature requires a Pro or Super Pro plan.');
           setVaultStep('input');
           setProcessing(false);
+          isProcessingRef.current = false;
           return;
         }
         if (err.error === 'NO_DOCUMENTS') {
           setResult('No documents found in your vault. Please upload documents first.');
           setVaultStep('input');
           setProcessing(false);
+          isProcessingRef.current = false;
           return;
         }
         throw new Error(err.error || 'Scan failed');
@@ -291,10 +336,13 @@ export default function AITools() {
         setResult('No relevant documents were found for your query. Try a different instruction or upload specific files.');
       }
     } catch (err: any) {
-      setResult(`Error: ${err.message}`);
+      if (err.name !== 'AbortError') {
+        setResult(`Error: ${err.message}`);
+      }
       setVaultStep('input');
     } finally {
       setProcessing(false);
+      isProcessingRef.current = false;
     }
   };
 
@@ -303,8 +351,13 @@ export default function AITools() {
     if (!relevantFiles.length || processing) return;
 
     setProcessing(true);
+    isProcessingRef.current = true;
     setVaultStep('analyzing');
     setResult('');
+    fullTextRef.current = '';
+
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
 
     try {
       const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
@@ -323,6 +376,7 @@ export default function AITools() {
           fileIds: relevantFiles.map((f) => f.id),
           instruction,
         }),
+        signal: controller.signal,
       });
 
       if (!resp.ok) {
@@ -334,10 +388,13 @@ export default function AITools() {
       setReportContent(fullText);
       setVaultStep('done');
     } catch (err: any) {
-      setResult(`Error: ${err.message}`);
-      setVaultStep('confirm');
+      if (err.name !== 'AbortError') {
+        setResult(`Error: ${err.message}`);
+        setVaultStep('confirm');
+      }
     } finally {
       setProcessing(false);
+      isProcessingRef.current = false;
     }
   };
 
@@ -514,14 +571,13 @@ export default function AITools() {
     }
   };
 
-  // ─── SSE STREAM HELPER ───
+  // ─── SSE STREAM HELPER (uses refs for tab-switch persistence) ───
   const streamSSEResponse = async (resp: Response): Promise<string> => {
     const reader = resp.body?.getReader();
     if (!reader) throw new Error('No response stream');
 
     const decoder = new TextDecoder();
     let buffer = '';
-    let fullText = '';
 
     while (true) {
       const { done, value } = await reader.read();
@@ -545,8 +601,8 @@ export default function AITools() {
           const parsed = JSON.parse(jsonStr);
           const content = parsed.choices?.[0]?.delta?.content;
           if (content) {
-            fullText += content;
-            setResult(fullText);
+            fullTextRef.current += content;
+            setResult(fullTextRef.current);
           }
         } catch {
           buffer = line + '\n' + buffer;
@@ -567,14 +623,14 @@ export default function AITools() {
           const parsed = JSON.parse(jsonStr);
           const content = parsed.choices?.[0]?.delta?.content;
           if (content) {
-            fullText += content;
-            setResult(fullText);
+            fullTextRef.current += content;
+            setResult(fullTextRef.current);
           }
         } catch {}
       }
     }
 
-    return fullText;
+    return fullTextRef.current;
   };
 
   const handleCopy = () => {
@@ -587,6 +643,8 @@ export default function AITools() {
     setFiles([]);
     setInstruction('');
     setResult('');
+    fullTextRef.current = '';
+    isProcessingRef.current = false;
     setVaultStep('input');
     setRelevantFiles([]);
     setReportContent('');
