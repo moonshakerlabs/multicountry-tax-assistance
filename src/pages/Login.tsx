@@ -8,8 +8,42 @@ import { useToast } from '@/hooks/use-toast';
 import { z } from 'zod';
 import { APP_NAME } from '@/lib/appConfig';
 
+const BLOCKED_DOMAINS = [
+  'mailinator.com', 'guerrillamail.com', 'tempmail.com', 'throwaway.email',
+  'yopmail.com', 'sharklasers.com', 'guerrillamailblock.com', 'grr.la',
+  'dispostable.com', 'trashmail.com', 'fakeinbox.com', 'tempail.com',
+  'maildrop.cc', 'temp-mail.org', 'getnada.com', '10minutemail.com',
+];
+
+const isGibberish = (local: string): boolean => {
+  // Check for excessive consecutive consonants (4+)
+  if (/[bcdfghjklmnpqrstvwxyz]{5,}/i.test(local)) return true;
+  // Check if mostly random chars (very low vowel ratio)
+  const vowels = (local.match(/[aeiou]/gi) || []).length;
+  const alpha = (local.match(/[a-z]/gi) || []).length;
+  if (alpha >= 6 && vowels / alpha < 0.1) return true;
+  // Check for excessive numbers (more than 60% digits in a long string)
+  const digits = (local.match(/\d/g) || []).length;
+  if (local.length >= 8 && digits / local.length > 0.6) return true;
+  return false;
+};
+
 const authSchema = z.object({
-  email: z.string().email('Please enter a valid email address'),
+  email: z.string()
+    .email('Please enter a valid email address')
+    .refine((email) => {
+      const domain = email.split('@')[1]?.toLowerCase();
+      return domain && !BLOCKED_DOMAINS.includes(domain);
+    }, 'Disposable email addresses are not allowed')
+    .refine((email) => {
+      const [local, domain] = email.split('@');
+      if (!local || !domain) return false;
+      // Must have a recognized TLD (at least 2 chars after last dot)
+      const tld = domain.split('.').pop();
+      if (!tld || tld.length < 2) return false;
+      // Check local part for gibberish
+      return !isGibberish(local);
+    }, 'Please enter a real email address'),
   password: z.string().min(6, 'Password must be at least 6 characters')
 });
 
