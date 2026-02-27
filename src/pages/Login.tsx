@@ -13,18 +13,25 @@ const BLOCKED_DOMAINS = [
   'yopmail.com', 'sharklasers.com', 'guerrillamailblock.com', 'grr.la',
   'dispostable.com', 'trashmail.com', 'fakeinbox.com', 'tempail.com',
   'maildrop.cc', 'temp-mail.org', 'getnada.com', '10minutemail.com',
+  'example.com', 'example.org', 'example.net', 'test.com', 'test.org',
 ];
 
+const BLOCKED_TLDS = ['invalid', 'test', 'localhost', 'example', 'local', 'internal'];
+
 const isGibberish = (local: string): boolean => {
-  // Check for excessive consecutive consonants (4+)
-  if (/[bcdfghjklmnpqrstvwxyz]{5,}/i.test(local)) return true;
+  // Strip common separators for analysis
+  const cleaned = local.replace(/[.\-_+]/g, '');
+  // Check for excessive consecutive consonants (5+)
+  if (/[bcdfghjklmnpqrstvwxyz]{5,}/i.test(cleaned)) return true;
   // Check if mostly random chars (very low vowel ratio)
-  const vowels = (local.match(/[aeiou]/gi) || []).length;
-  const alpha = (local.match(/[a-z]/gi) || []).length;
+  const vowels = (cleaned.match(/[aeiou]/gi) || []).length;
+  const alpha = (cleaned.match(/[a-z]/gi) || []).length;
   if (alpha >= 6 && vowels / alpha < 0.1) return true;
   // Check for excessive numbers (more than 60% digits in a long string)
-  const digits = (local.match(/\d/g) || []).length;
-  if (local.length >= 8 && digits / local.length > 0.6) return true;
+  const digits = (cleaned.match(/\d/g) || []).length;
+  if (cleaned.length >= 8 && digits / cleaned.length > 0.6) return true;
+  // Check for very long random-looking strings (e.g. shannon-probe-1771937475)
+  if (cleaned.length > 20 && digits >= 6) return true;
   return false;
 };
 
@@ -33,15 +40,15 @@ const authSchema = z.object({
     .email('Please enter a valid email address')
     .refine((email) => {
       const domain = email.split('@')[1]?.toLowerCase();
-      return domain && !BLOCKED_DOMAINS.includes(domain);
-    }, 'Disposable email addresses are not allowed')
-    .refine((email) => {
-      const [local, domain] = email.split('@');
-      if (!local || !domain) return false;
-      // Must have a recognized TLD (at least 2 chars after last dot)
+      if (!domain) return false;
+      if (BLOCKED_DOMAINS.includes(domain)) return false;
       const tld = domain.split('.').pop();
-      if (!tld || tld.length < 2) return false;
-      // Check local part for gibberish
+      if (!tld || BLOCKED_TLDS.includes(tld)) return false;
+      return true;
+    }, 'Please use a real email address from a valid provider')
+    .refine((email) => {
+      const local = email.split('@')[0];
+      if (!local) return false;
       return !isGibberish(local);
     }, 'Please enter a real email address'),
   password: z.string().min(6, 'Password must be at least 6 characters')
