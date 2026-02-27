@@ -18,11 +18,14 @@ import AdminBlogTab from '@/components/admin/AdminBlogTab';
 import AdminPrivacyPolicyTab from '@/components/admin/AdminPrivacyPolicyTab';
 import AdminFaqTab from '@/components/admin/AdminFaqTab';
 import AdminPlaceholder from '@/components/admin/AdminPlaceholder';
+import AdminPlanManagementTab from '@/components/admin/AdminPlanManagementTab';
+import { CreditCard } from 'lucide-react';
 
 type AdminSection =
   | 'users'
   | 'employees'
   | 'permissions'
+  | 'plans'
   | 'blog'
   | 'taxoverflow'
   | 'privacy-policy'
@@ -33,6 +36,7 @@ const sidebarItems: { section: AdminSection; label: string; icon: React.Componen
   { section: 'users', label: 'Users', icon: Users, group: 'Management' },
   { section: 'employees', label: 'Employees', icon: Users, group: 'Management' },
   { section: 'permissions', label: 'Permissions', icon: Settings, group: 'Management' },
+  { section: 'plans', label: 'Plans & Pricing', icon: CreditCard, group: 'Management' },
   { section: 'blog', label: 'Blog', icon: BookOpen, group: 'Moderations' },
   { section: 'taxoverflow', label: 'Tax Overflow', icon: MessageSquare, group: 'Moderations' },
   { section: 'privacy-policy', label: 'Privacy Policy', icon: Shield, group: 'Content' },
@@ -54,6 +58,8 @@ export default function Admin() {
         return <AdminPlaceholder title="Employee Management" description="Manage employee profiles, onboarding, and role assignments." />;
       case 'permissions':
         return <AdminPlaceholder title="Permission Management" description="Configure module-level read/write permissions for each role." />;
+      case 'plans':
+        return <AdminPlanManagementTab />;
       case 'blog':
         return <AdminBlogTab />;
       case 'taxoverflow':

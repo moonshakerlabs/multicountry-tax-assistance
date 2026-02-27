@@ -1169,6 +1169,8 @@ export type Database = {
           security_question_3: string | null
           session_timeout_minutes: number
           two_fa_enabled: boolean
+          two_fa_method: string
+          two_fa_phone_number: string | null
           two_fa_verified: boolean
           updated_at: string
           user_id: string
@@ -1183,6 +1185,8 @@ export type Database = {
           security_question_3?: string | null
           session_timeout_minutes?: number
           two_fa_enabled?: boolean
+          two_fa_method?: string
+          two_fa_phone_number?: string | null
           two_fa_verified?: boolean
           updated_at?: string
           user_id: string
@@ -1197,6 +1201,8 @@ export type Database = {
           security_question_3?: string | null
           session_timeout_minutes?: number
           two_fa_enabled?: boolean
+          two_fa_method?: string
+          two_fa_phone_number?: string | null
           two_fa_verified?: boolean
           updated_at?: string
           user_id?: string
