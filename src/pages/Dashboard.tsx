@@ -8,7 +8,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { APP_NAME, APP_TAGLINE } from '@/lib/appConfig';
 import { useFeatureAccess } from '@/hooks/useFeatureAccess';
-import { User, FileText, LogOut, FolderOpen, Upload, ChevronRight, MessageSquare, Brain, Shield, Users, CheckCircle, XCircle, Settings, Activity, CreditCard, Briefcase, ArrowLeft, HeadphonesIcon, TicketIcon, Eye, RotateCcw, X, Trash2, AlertTriangle, UserX, UserPlus, Sliders, BookOpen, Tag, DollarSign, ToggleLeft, ShieldCheck, Plus, Save } from 'lucide-react';
+import { User, FileText, LogOut, FolderOpen, Upload, ChevronRight, MessageSquare, Brain, Shield, Users, CheckCircle, XCircle, Settings, Activity, CreditCard, Briefcase, ArrowLeft, HeadphonesIcon, TicketIcon, Eye, RotateCcw, X, Trash2, AlertTriangle, UserX, UserPlus, Sliders, BookOpen, Tag, DollarSign, ToggleLeft, ShieldCheck, Plus, Save, Star } from 'lucide-react';
 import AdminBlogTab from '@/components/admin/AdminBlogTab';
 import AdminPrivacyPolicyTab from '@/components/admin/AdminPrivacyPolicyTab';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -1578,6 +1578,9 @@ export default function Dashboard() {
             )}
             <Button asChild variant="ghost" size="sm">
               <Link to="/support"><HeadphonesIcon className="dashboard-action-icon" />Support</Link>
+            </Button>
+            <Button asChild variant="ghost" size="sm">
+              <Link to="/feedback"><Star className="dashboard-action-icon" />Feedback</Link>
             </Button>
             <Button variant="ghost" size="sm" onClick={signOut}>
               <LogOut className="dashboard-action-icon" />Sign out
