@@ -6,7 +6,8 @@ import { Switch } from '@/components/ui/switch';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { Shield, Clock, Key, HelpCircle, Eye, EyeOff, Loader2, Phone, Mail } from 'lucide-react';
+import { Shield, Clock, Key, HelpCircle, Eye, EyeOff, Loader2, Mail } from 'lucide-react';
+import { useFeatureAccess } from '@/hooks/useFeatureAccess';
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 
@@ -32,6 +33,10 @@ const SECURITY_QUESTIONS = [
 
 export default function SecuritySettings({ onTimeoutChange }: { onTimeoutChange?: (minutes: number) => void }) {
   const { user } = useAuth();
+  const { hasFeature, loading: featureLoading } = useFeatureAccess();
+
+  // Global 2FA check
+  const [twoFaGlobalEnabled, setTwoFaGlobalEnabled] = useState(true);
 
   // Session timeout
   const [timeoutMinutes, setTimeoutMinutes] = useState(30);
@@ -39,8 +44,6 @@ export default function SecuritySettings({ onTimeoutChange }: { onTimeoutChange?
 
   // 2FA settings
   const [twoFaEnabled, setTwoFaEnabled] = useState(true);
-  const [twoFaMethod, setTwoFaMethod] = useState<'email' | 'mobile'>('email');
-  const [twoFaPhone, setTwoFaPhone] = useState('');
   const [isSaving2FA, setIsSaving2FA] = useState(false);
 
   // Password change
@@ -71,6 +74,16 @@ export default function SecuritySettings({ onTimeoutChange }: { onTimeoutChange?
     const identities = user.identities || [];
     setIsGoogleUser(identities.some(i => i.provider === 'google') && identities.length === 1);
 
+    // Fetch global 2FA config
+    supabase
+      .from('subscription_config')
+      .select('config_value')
+      .eq('config_key', 'TWO_FA_GLOBAL_ENABLED')
+      .maybeSingle()
+      .then(({ data }) => {
+        if (data) setTwoFaGlobalEnabled((data as any).config_value === 'true');
+      });
+
     supabase
       .from('user_security_settings')
       .select('*')
@@ -80,8 +93,6 @@ export default function SecuritySettings({ onTimeoutChange }: { onTimeoutChange?
         if (data) {
           setTimeoutMinutes(data.session_timeout_minutes ?? 30);
           setTwoFaEnabled(data.two_fa_enabled ?? true);
-          setTwoFaMethod(((data as any).two_fa_method as 'email' | 'mobile') || 'email');
-          setTwoFaPhone((data as any).two_fa_phone_number || '');
           setQ1(data.security_question_1 || '');
           setA1(data.security_question_1 ? '••••••••' : '');
           setQ2(data.security_question_2 || '');
@@ -117,18 +128,6 @@ export default function SecuritySettings({ onTimeoutChange }: { onTimeoutChange?
 
   const handleSave2FA = async () => {
     if (!user) return;
-    if (twoFaEnabled && twoFaMethod === 'mobile' && !twoFaPhone.trim()) {
-      toast.error('Please enter your mobile number for mobile-based 2FA');
-      return;
-    }
-    // Validate phone format
-    if (twoFaEnabled && twoFaMethod === 'mobile') {
-      const phoneClean = twoFaPhone.replace(/[\s\-()]/g, '');
-      if (!/^\+?\d{7,15}$/.test(phoneClean)) {
-        toast.error('Please enter a valid mobile number (e.g. +491234567890)');
-        return;
-      }
-    }
     setIsSaving2FA(true);
     try {
       const { error } = await supabase
@@ -136,11 +135,10 @@ export default function SecuritySettings({ onTimeoutChange }: { onTimeoutChange?
         .upsert({
           user_id: user.id,
           two_fa_enabled: twoFaEnabled,
-          two_fa_method: twoFaMethod,
-          two_fa_phone_number: twoFaMethod === 'mobile' ? twoFaPhone.trim() : null,
+          two_fa_method: 'email',
+          two_fa_phone_number: null,
         } as any, { onConflict: 'user_id' });
       if (error) throw error;
-      // Update sessionStorage so ProtectedRoute respects the change
       if (!twoFaEnabled) {
         sessionStorage.setItem('2fa_verified', 'true');
       }
@@ -263,98 +261,49 @@ export default function SecuritySettings({ onTimeoutChange }: { onTimeoutChange?
         </p>
       </section>
 
-      {/* Two-Factor Authentication */}
-      <section className="rounded-xl border border-border bg-card p-6">
-        <div className="mb-4 flex items-center gap-3">
-          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10">
-            <Shield className="h-4.5 w-4.5 text-primary" />
-          </div>
-          <div>
-            <h3 className="font-semibold text-foreground">Two-Factor Authentication</h3>
-            <p className="text-xs text-muted-foreground">Add an extra layer of security to your account</p>
-          </div>
-        </div>
-
-        <div className="space-y-4">
-          {/* Enable/Disable Toggle */}
-          <div className="flex items-center justify-between rounded-lg border border-border bg-muted/30 p-4">
+      {/* Two-Factor Authentication - only show if globally enabled AND user's plan has TWO_FA feature */}
+      {twoFaGlobalEnabled && (hasFeature('TWO_FA') || featureLoading) && (
+        <section className="rounded-xl border border-border bg-card p-6">
+          <div className="mb-4 flex items-center gap-3">
+            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10">
+              <Shield className="h-4.5 w-4.5 text-primary" />
+            </div>
             <div>
-              <p className="text-sm font-medium text-foreground">Enable 2FA</p>
-              <p className="text-xs text-muted-foreground">Require a verification code when signing in</p>
+              <h3 className="font-semibold text-foreground">Two-Factor Authentication</h3>
+              <p className="text-xs text-muted-foreground">Add an extra layer of security to your account</p>
             </div>
-            <Switch checked={twoFaEnabled} onCheckedChange={setTwoFaEnabled} />
           </div>
 
-          {twoFaEnabled && (
-            <>
-              {/* Method selection */}
-              <div className="space-y-2">
-                <Label className="text-sm font-medium">Verification Method</Label>
-                <div className="grid grid-cols-2 gap-3">
-                  <button
-                    type="button"
-                    onClick={() => setTwoFaMethod('email')}
-                    className={`flex items-center gap-2 rounded-lg border p-3 text-sm transition-colors ${
-                      twoFaMethod === 'email'
-                        ? 'border-primary bg-primary/5 text-primary'
-                        : 'border-border bg-background text-muted-foreground hover:border-primary/50'
-                    }`}
-                  >
-                    <Mail className="h-4 w-4" />
-                    Email OTP
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setTwoFaMethod('mobile')}
-                    className={`flex items-center gap-2 rounded-lg border p-3 text-sm transition-colors ${
-                      twoFaMethod === 'mobile'
-                        ? 'border-primary bg-primary/5 text-primary'
-                        : 'border-border bg-background text-muted-foreground hover:border-primary/50'
-                    }`}
-                  >
-                    <Phone className="h-4 w-4" />
-                    Mobile OTP
-                  </button>
-                </div>
+          <div className="space-y-4">
+            <div className="flex items-center justify-between rounded-lg border border-border bg-muted/30 p-4">
+              <div>
+                <p className="text-sm font-medium text-foreground">Enable 2FA</p>
+                <p className="text-xs text-muted-foreground">Require a verification code when signing in</p>
               </div>
-
-              {/* Phone number input for mobile 2FA */}
-              {twoFaMethod === 'mobile' && (
-                <div className="space-y-2">
-                  <Label className="text-sm font-medium">Mobile Number <span className="text-destructive">*</span></Label>
-                  <Input
-                    type="tel"
-                    placeholder="+49 123 456 7890"
-                    value={twoFaPhone}
-                    onChange={e => setTwoFaPhone(e.target.value)}
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    Include country code (e.g. +49 for Germany, +91 for India, +971 for UAE)
-                  </p>
-                </div>
-              )}
-
-              {twoFaMethod === 'email' && (
-                <p className="text-xs text-muted-foreground rounded-lg bg-muted/30 p-3">
-                  Verification codes will be sent to <strong>{user?.email}</strong>
-                </p>
-              )}
-            </>
-          )}
-
-          {!twoFaEnabled && (
-            <div className="rounded-lg border border-destructive/20 bg-destructive/5 p-3">
-              <p className="text-xs text-destructive">
-                ⚠️ Disabling 2FA reduces your account security. We recommend keeping it enabled.
-              </p>
+              <Switch checked={twoFaEnabled} onCheckedChange={setTwoFaEnabled} />
             </div>
-          )}
 
-          <Button onClick={handleSave2FA} disabled={isSaving2FA} className="w-full">
-            {isSaving2FA ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Saving...</> : 'Save 2FA Settings'}
-          </Button>
-        </div>
-      </section>
+            {twoFaEnabled && (
+              <p className="text-xs text-muted-foreground rounded-lg bg-muted/30 p-3">
+                <Mail className="inline h-3 w-3 mr-1" />
+                Verification codes will be sent to <strong>{user?.email}</strong>
+              </p>
+            )}
+
+            {!twoFaEnabled && (
+              <div className="rounded-lg border border-destructive/20 bg-destructive/5 p-3">
+                <p className="text-xs text-destructive">
+                  ⚠️ Disabling 2FA reduces your account security. We recommend keeping it enabled.
+                </p>
+              </div>
+            )}
+
+            <Button onClick={handleSave2FA} disabled={isSaving2FA} className="w-full">
+              {isSaving2FA ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Saving...</> : 'Save 2FA Settings'}
+            </Button>
+          </div>
+        </section>
+      )}
 
       {/* Change Password */}
       {!isGoogleUser && (
