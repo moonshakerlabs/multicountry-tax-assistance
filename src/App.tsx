@@ -27,6 +27,7 @@ import Support from "./pages/Support";
 import NotFound from "./pages/NotFound";
 import SharedPost from "./pages/SharedPost";
 import Sitemap from "./pages/Sitemap";
+import Feedback from "./pages/Feedback";
 
 const queryClient = new QueryClient();
 
@@ -83,6 +84,11 @@ const App = () => (
             <Route path="/support" element={
               <ProtectedRoute>
                 <Support />
+              </ProtectedRoute>
+            } />
+            <Route path="/feedback" element={
+              <ProtectedRoute>
+                <Feedback />
               </ProtectedRoute>
             } />
             

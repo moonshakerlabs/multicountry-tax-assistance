@@ -615,6 +615,80 @@ export type Database = {
         }
         Relationships: []
       }
+      feedback_questions: {
+        Row: {
+          created_at: string
+          created_by: string
+          id: string
+          is_active: boolean
+          options: Json | null
+          question_text: string
+          question_type: string
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          id?: string
+          is_active?: boolean
+          options?: Json | null
+          question_text: string
+          question_type?: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          id?: string
+          is_active?: boolean
+          options?: Json | null
+          question_text?: string
+          question_type?: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      feedback_responses: {
+        Row: {
+          created_at: string
+          id: string
+          question_id: string
+          rating: number | null
+          selected_option: string | null
+          text_response: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          question_id: string
+          rating?: number | null
+          selected_option?: string | null
+          text_response?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          question_id?: string
+          rating?: number | null
+          selected_option?: string | null
+          text_response?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "feedback_responses_question_id_fkey"
+            columns: ["question_id"]
+            isOneToOne: false
+            referencedRelation: "feedback_questions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       google_drive_tokens: {
         Row: {
           access_token: string | null

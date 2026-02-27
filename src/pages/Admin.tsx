@@ -20,7 +20,8 @@ import AdminFaqTab from '@/components/admin/AdminFaqTab';
 import AdminPlaceholder from '@/components/admin/AdminPlaceholder';
 import AdminPlanManagementTab from '@/components/admin/AdminPlanManagementTab';
 import AdminSettingsTab from '@/components/admin/AdminSettingsTab';
-import { CreditCard } from 'lucide-react';
+import AdminFeedbackTab from '@/components/admin/AdminFeedbackTab';
+import { CreditCard, Star } from 'lucide-react';
 
 type AdminSection =
   | 'users'
@@ -32,6 +33,7 @@ type AdminSection =
   | 'privacy-policy'
   | 'faq'
   | 'support'
+  | 'feedback'
   | 'settings';
 
 const sidebarItems: { section: AdminSection; label: string; icon: React.ComponentType<{ className?: string }>; group: string }[] = [
@@ -44,6 +46,7 @@ const sidebarItems: { section: AdminSection; label: string; icon: React.Componen
   { section: 'privacy-policy', label: 'Privacy Policy', icon: Shield, group: 'Content' },
   { section: 'faq', label: 'FAQ', icon: HelpCircle, group: 'Content' },
   { section: 'support', label: 'Support Tickets', icon: HeadphonesIcon, group: 'Support' },
+  { section: 'feedback', label: 'Feedback', icon: Star, group: 'Support' },
   { section: 'settings', label: 'Settings', icon: Settings, group: 'System' },
 ];
 
@@ -73,6 +76,8 @@ export default function Admin() {
         return <AdminFaqTab />;
       case 'support':
         return <AdminPlaceholder title="Support Tickets" description="View and respond to user support tickets." />;
+      case 'feedback':
+        return <AdminFeedbackTab />;
       case 'settings':
         return <AdminSettingsTab />;
       default:
