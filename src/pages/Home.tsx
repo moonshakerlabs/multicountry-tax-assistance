@@ -269,6 +269,7 @@ export default function Home() {
           <nav className="home-footer-nav">
             <Link to="/privacy" className="home-footer-link">Privacy Policy</Link>
             <Link to="/terms" className="home-footer-link">Terms</Link>
+            <Link to="/feedback" className="home-footer-link">Feedback</Link>
             <Link to="/sitemap" className="home-footer-link">Sitemap</Link>
           </nav>
         </div>
