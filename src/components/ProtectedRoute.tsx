@@ -23,22 +23,63 @@ export function ProtectedRoute({ children, requiredRole }: ProtectedRouteProps) 
       return;
     }
 
-    // Check if 2FA is enabled for this user
-    supabase
-      .from('user_security_settings')
-      .select('two_fa_enabled')
-      .eq('user_id', user.id)
-      .maybeSingle()
-      .then(({ data }) => {
-        const enabled = data?.two_fa_enabled ?? true; // default enabled for new users
-        if (!enabled) {
-          sessionStorage.setItem('2fa_verified', 'true');
-          setTwoFaRequired(false);
-        } else {
-          setTwoFaRequired(true);
-        }
+    // Check global 2FA config first, then user settings + plan feature
+    const check2FA = async () => {
+      // 1. Global toggle
+      const { data: globalConfig } = await supabase
+        .from('subscription_config')
+        .select('config_value')
+        .eq('config_key', 'TWO_FA_GLOBAL_ENABLED')
+        .maybeSingle();
+
+      if (!globalConfig || (globalConfig as any).config_value !== 'true') {
+        sessionStorage.setItem('2fa_verified', 'true');
+        setTwoFaRequired(false);
         setTwoFaChecked(true);
-      });
+        return;
+      }
+
+      // 2. Check if user's plan has TWO_FA feature
+      const { data: subData } = await supabase
+        .from('user_subscriptions')
+        .select('subscription_plan')
+        .eq('user_id', user.id)
+        .maybeSingle();
+
+      const planKey = (subData as any)?.subscription_plan || 'FREE';
+
+      const { data: featureData } = await supabase
+        .from('plan_feature_mapping')
+        .select('enabled')
+        .eq('plan_key', planKey)
+        .eq('feature_key', 'TWO_FA')
+        .maybeSingle();
+
+      if (!featureData || !(featureData as any).enabled) {
+        sessionStorage.setItem('2fa_verified', 'true');
+        setTwoFaRequired(false);
+        setTwoFaChecked(true);
+        return;
+      }
+
+      // 3. Check user's own 2FA setting
+      const { data } = await supabase
+        .from('user_security_settings')
+        .select('two_fa_enabled')
+        .eq('user_id', user.id)
+        .maybeSingle();
+
+      const enabled = data?.two_fa_enabled ?? false;
+      if (!enabled) {
+        sessionStorage.setItem('2fa_verified', 'true');
+        setTwoFaRequired(false);
+      } else {
+        setTwoFaRequired(true);
+      }
+      setTwoFaChecked(true);
+    };
+
+    check2FA();
   }, [user]);
 
   if (loading || !twoFaChecked) {

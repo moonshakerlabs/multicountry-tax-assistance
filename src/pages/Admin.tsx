@@ -19,6 +19,7 @@ import AdminPrivacyPolicyTab from '@/components/admin/AdminPrivacyPolicyTab';
 import AdminFaqTab from '@/components/admin/AdminFaqTab';
 import AdminPlaceholder from '@/components/admin/AdminPlaceholder';
 import AdminPlanManagementTab from '@/components/admin/AdminPlanManagementTab';
+import AdminSettingsTab from '@/components/admin/AdminSettingsTab';
 import { CreditCard } from 'lucide-react';
 
 type AdminSection =
@@ -30,7 +31,8 @@ type AdminSection =
   | 'taxoverflow'
   | 'privacy-policy'
   | 'faq'
-  | 'support';
+  | 'support'
+  | 'settings';
 
 const sidebarItems: { section: AdminSection; label: string; icon: React.ComponentType<{ className?: string }>; group: string }[] = [
   { section: 'users', label: 'Users', icon: Users, group: 'Management' },
@@ -42,9 +44,10 @@ const sidebarItems: { section: AdminSection; label: string; icon: React.Componen
   { section: 'privacy-policy', label: 'Privacy Policy', icon: Shield, group: 'Content' },
   { section: 'faq', label: 'FAQ', icon: HelpCircle, group: 'Content' },
   { section: 'support', label: 'Support Tickets', icon: HeadphonesIcon, group: 'Support' },
+  { section: 'settings', label: 'Settings', icon: Settings, group: 'System' },
 ];
 
-const groups = ['Management', 'Moderations', 'Content', 'Support'];
+const groups = ['Management', 'Moderations', 'Content', 'Support', 'System'];
 
 export default function Admin() {
   const { profile, signOut } = useAuth();
@@ -70,6 +73,8 @@ export default function Admin() {
         return <AdminFaqTab />;
       case 'support':
         return <AdminPlaceholder title="Support Tickets" description="View and respond to user support tickets." />;
+      case 'settings':
+        return <AdminSettingsTab />;
       default:
         return null;
     }
